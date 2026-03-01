@@ -1,8 +1,41 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 
 // ═══ STORAGE & SM-2 ══════════════════════════════════════════════════════════
 function lsGet(k,d){try{const v=localStorage.getItem(k);return v!=null?JSON.parse(v):d;}catch{return d;}}
 function lsSet(k,v){localStorage.setItem(k,JSON.stringify(v));}
+
+// ═══ GAMIFICATION ════════════════════════════════════════════════════════════
+const LEVELS=[
+  {name:'Bronze',min:0,max:499,icon:'🥉',color:'#CD7F32'},
+  {name:'Silver',min:500,max:1499,icon:'🥈',color:'#A8A9AD'},
+  {name:'Gold',min:1500,max:3499,icon:'🥇',color:'#D4A017'},
+  {name:'Platinum',min:3500,max:Infinity,icon:'💎',color:'#7B68EE'},
+];
+function getLevel(xp){return LEVELS.find(l=>xp>=l.min&&xp<=l.max)||LEVELS[0];}
+function getXP(){return lsGet('lumora_xp',{total:0}).total;}
+function addXP(amount){
+  const d=lsGet('lumora_xp',{total:0});
+  const old=getLevel(d.total);
+  d.total+=amount;
+  const nw=getLevel(d.total);
+  lsSet('lumora_xp',d);
+  return{total:d.total,levelUp:old.name!==nw.name,newLevel:nw};
+}
+function getStreakData(){return lsGet('lumora_streak',{current:0,lastDate:null,freezes:0,best:0});}
+function touchStreak(){
+  const d=lsGet('lumora_streak',{current:0,lastDate:null,freezes:0,best:0});
+  const today=new Date().toDateString();
+  const yest=new Date(Date.now()-86400000).toDateString();
+  if(d.lastDate===today)return{streak:d.current,milestone:false};
+  if(d.lastDate===yest){d.current++;}
+  else if(d.freezes>0){d.freezes--;d.current++;}
+  else{d.current=1;}
+  d.lastDate=today;d.best=Math.max(d.best,d.current);
+  let milestone=false;
+  if(d.current>=5&&d.current%5===0){d.freezes++;milestone=true;}
+  lsSet('lumora_streak',d);
+  return{streak:d.current,milestone};
+}
 
 function sm2Update(qid,quality){
   const data=lsGet('gcse_sr',{});
@@ -46,6 +79,102 @@ async function aiMark(question,marks,ms,working){
   if(!res.ok){const d=await res.json();throw new Error(d.error?.message||`HTTP ${res.status}`);}
   const d=await res.json();
   return JSON.parse(d.content.map(b=>b.text||'').join('').replace(/```json|```/g,'').trim());
+}
+
+async function aiSocratic(question,ms,aiResult,chatHistory){
+  const key=import.meta.env.VITE_ANTHROPIC_API_KEY;
+  if(!key)throw new Error('Add VITE_ANTHROPIC_API_KEY to .env.local');
+  const gotFull=aiResult.marksEarned>=(aiResult.maxMarks??aiResult.totalMarks??999);
+  const sys=`You are a Socratic maths tutor helping a GCSE student understand a question.
+
+CONTEXT:
+Question: ${question}
+Mark scheme: ${ms.join(' | ')}
+Student scored: ${aiResult.marksEarned} marks
+What they got right: ${aiResult.feedback||'nothing noted'}
+What they missed: ${aiResult.improvements||'N/A — full marks'}
+Breakdown: ${aiResult.breakdown?.join(' | ')||''}
+
+YOUR RULES:
+- Respond with EXACTLY ONE short question — never give two
+- NEVER state the answer, correct method, or formula directly
+- Base your question on the specific gap identified above
+- Lead the student to discover the answer through guided thinking
+- ${gotFull?'They scored full marks — ask a stretching question that pushes understanding beyond this problem':'Focus on the exact mistake shown in the breakdown above'}
+- Be warm and concise — one or two sentences maximum
+- Reply ONLY with your question, no preamble and no sign-off`;
+  const messages=chatHistory.length===0
+    ?[{role:'user',content:'Start the dialogue. Ask your first Socratic question.'}]
+    :chatHistory.map(m=>({role:m.from==='tutor'?'assistant':'user',content:m.text}));
+  const res=await fetch('https://api.anthropic.com/v1/messages',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+    body:JSON.stringify({model:'claude-haiku-4-5',max_tokens:150,system:sys,messages})
+  });
+  if(!res.ok){const d=await res.json();throw new Error(d.error?.message||`HTTP ${res.status}`);}
+  const d=await res.json();
+  return d.content.map(b=>b.text||'').join('').trim();
+}
+
+// ═══ SOCRATIC CHAT ═══════════════════════════════════════════════════════════
+function SocraticChat({question,ms,aiResult}){
+  const [messages,setMessages]=useState([]);
+  const [input,setInput]=useState('');
+  const [loading,setLoading]=useState(false);
+  const bottomRef=useRef(null);
+
+  useEffect(()=>{
+    setLoading(true);
+    aiSocratic(question,ms,aiResult,[])
+      .then(text=>setMessages([{from:'tutor',text}]))
+      .catch(e=>setMessages([{from:'tutor',text:'Could not start: '+e.message}]))
+      .finally(()=>setLoading(false));
+  },[]);
+
+  useEffect(()=>{bottomRef.current?.scrollIntoView({behavior:'smooth'});},[messages,loading]);
+
+  const handleSend=async()=>{
+    if(!input.trim()||loading)return;
+    const newMsg={from:'student',text:input.trim()};
+    const updated=[...messages,newMsg];
+    setMessages(updated);setInput('');setLoading(true);
+    try{const text=await aiSocratic(question,ms,aiResult,updated);setMessages(m=>[...m,{from:'tutor',text}]);}
+    catch(e){setMessages(m=>[...m,{from:'tutor',text:'Error: '+e.message}]);}
+    setLoading(false);
+  };
+
+  return(
+    <div style={{marginTop:14,borderTop:'1.5px dashed #d8d0ff',paddingTop:12}}>
+      <div style={{fontSize:11,fontWeight:800,color:'#7B68EE',textTransform:'uppercase',letterSpacing:1,marginBottom:10}}>💬 Socratic Tutor — Keep going until you get it</div>
+      <div style={{maxHeight:260,overflowY:'auto',display:'flex',flexDirection:'column',gap:8,marginBottom:10}}>
+        {loading&&messages.length===0&&(
+          <div style={{display:'flex',gap:8,alignItems:'flex-start'}}>
+            <div style={{width:26,height:26,borderRadius:'50%',background:'#7B68EE',color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,flexShrink:0}}>🧑‍🏫</div>
+            <div style={{background:'#f0edff',borderRadius:'0 10px 10px 10px',padding:'8px 12px',fontSize:13,color:'#888',fontStyle:'italic'}}>Preparing your question…</div>
+          </div>
+        )}
+        {messages.map((m,i)=>(
+          <div key={i} style={{display:'flex',gap:8,alignItems:'flex-start',flexDirection:m.from==='tutor'?'row':'row-reverse'}}>
+            <div style={{width:26,height:26,borderRadius:'50%',background:m.from==='tutor'?'#7B68EE':'#1B2A4A',color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,flexShrink:0}}>{m.from==='tutor'?'🧑‍🏫':'✏️'}</div>
+            <div style={{background:m.from==='tutor'?'#f0edff':'#1B2A4A',border:`1.5px solid ${m.from==='tutor'?'#d8d0ff':'#1B2A4A'}`,borderRadius:m.from==='tutor'?'0 10px 10px 10px':'10px 0 10px 10px',padding:'8px 12px',fontSize:13,color:m.from==='tutor'?'#2d2070':'#fff',maxWidth:'82%',lineHeight:1.55}}>
+              {m.text}
+            </div>
+          </div>
+        ))}
+        {loading&&messages.length>0&&(
+          <div style={{display:'flex',gap:8,alignItems:'flex-start'}}>
+            <div style={{width:26,height:26,borderRadius:'50%',background:'#7B68EE',color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,flexShrink:0}}>🧑‍🏫</div>
+            <div style={{background:'#f0edff',borderRadius:'0 10px 10px 10px',padding:'8px 12px',fontSize:13,color:'#888',fontStyle:'italic'}}>Thinking…</div>
+          </div>
+        )}
+        <div ref={bottomRef}/>
+      </div>
+      <div style={{display:'flex',gap:8}}>
+        <input value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>e.key==='Enter'&&!e.shiftKey&&handleSend()} placeholder="Type your response and press Enter…" disabled={loading} style={{flex:1,padding:'8px 12px',borderRadius:8,border:'1.5px solid #d8d0ff',fontSize:13,fontFamily:'inherit',outline:'none',background:loading?'#f8f8f8':'#fff'}}/>
+        <button onClick={handleSend} disabled={loading||!input.trim()} style={{padding:'8px 14px',borderRadius:8,border:'none',background:loading||!input.trim()?'#ccc':'#7B68EE',color:'#fff',fontWeight:800,fontSize:14,cursor:loading||!input.trim()?'not-allowed':'pointer'}}>→</button>
+      </div>
+    </div>
+  );
 }
 
 // ═══ DATA ════════════════════════════════════════════════════════════════════
@@ -234,28 +363,305 @@ const TOPICS=[
 const MCOLORS={Number:"#E8B84B",Algebra:"#4FC3A1","Ratio & Rates":"#E07B54",Geometry:"#9B59B6",Probability:"#E74C3C",Statistics:"#3498DB"};
 const BCOLORS={AQA:"#1B2A4A",Edexcel:"#C0392B",OCR:"#0D6E72"};
 
+// ═══ ANIMATION STYLES ════════════════════════════════════════════════════════
+function AnimStyles(){
+  return(
+    <style>{`
+      @keyframes celebPop{0%{transform:scale(0.5);opacity:0}60%{transform:scale(1.15)}100%{transform:scale(1);opacity:1}}
+      @keyframes celebFade{0%{opacity:1}70%{opacity:1}100%{opacity:0}}
+      @keyframes fadeInUp{0%{transform:translateY(20px);opacity:0}100%{transform:translateY(0);opacity:1}}
+    `}</style>
+  );
+}
+
+// ═══ CELEBRATION OVERLAY ══════════════════════════════════════════════════════
+function Celebration({data,onDone}){
+  useEffect(()=>{const t=setTimeout(onDone,2400);return()=>clearTimeout(t);},[]);
+  if(!data)return null;
+  return(
+    <div style={{position:'fixed',inset:0,zIndex:9999,display:'flex',alignItems:'center',justifyContent:'center',pointerEvents:'none',animation:'celebFade 2.4s forwards'}}>
+      <div style={{background:'linear-gradient(135deg,#1B2A4A,#0D6E72)',borderRadius:20,padding:'28px 40px',textAlign:'center',boxShadow:'0 8px 40px rgba(0,0,0,0.4)',animation:'celebPop 0.5s ease-out'}}>
+        <div style={{fontSize:56,marginBottom:8}}>{data.icon}</div>
+        <div style={{fontSize:22,fontWeight:900,color:'#D4A017',marginBottom:6}}>{data.title}</div>
+        <div style={{fontSize:14,color:'rgba(255,255,255,0.85)'}}>{data.body}</div>
+      </div>
+    </div>
+  );
+}
+
+// ═══ GAMIFICATION BAR ════════════════════════════════════════════════════════
+function GamificationBar({xp}){
+  const lvl=getLevel(xp);
+  const next=LEVELS.find(l=>l.min>xp);
+  const pct=next?Math.round(((xp-lvl.min)/(next.min-lvl.min))*100):100;
+  const streak=getStreakData();
+  return(
+    <div style={{background:'#fff',borderRadius:14,padding:'14px 18px',marginBottom:16,border:'1.5px solid #e8e8e8',boxShadow:'0 2px 8px rgba(0,0,0,0.04)'}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
+        <div style={{display:'flex',alignItems:'center',gap:10}}>
+          <span style={{fontSize:28}}>{lvl.icon}</span>
+          <div>
+            <div style={{fontSize:13,fontWeight:800,color:'#1B2A4A'}}>{lvl.name} · {xp} XP</div>
+            <div style={{fontSize:10,color:'#888'}}>{next?`${next.min-xp} XP to ${next.name}`:'Max level — Legend! 🏆'}</div>
+          </div>
+        </div>
+        <div style={{textAlign:'right'}}>
+          <div style={{fontSize:22}}>🔥</div>
+          <div style={{fontSize:11,fontWeight:800,color:'#1B2A4A'}}>{streak.current} day streak</div>
+          {streak.freezes>0&&<div style={{fontSize:9,color:'#888'}}>❄️ {streak.freezes} freeze{streak.freezes!==1?'s':''}</div>}
+        </div>
+      </div>
+      <div style={{background:'#f0f0f0',borderRadius:6,height:8,overflow:'hidden'}}>
+        <div style={{height:'100%',borderRadius:6,background:`linear-gradient(90deg,${lvl.color},${next?.color||lvl.color})`,width:`${pct}%`,transition:'width 0.6s ease'}}/>
+      </div>
+      <div style={{fontSize:10,color:'#aaa',marginTop:4,textAlign:'right'}}>{pct}% to {next?.name||'Max'}</div>
+    </div>
+  );
+}
+
+// ═══ ONBOARDING ════════════════════════════════════════════════════════════════
+function Onboarding({onComplete}){
+  const [step,setStep]=useState(1);
+  const [profile,setProfile]=useState({name:'',board:'AQA',grade:'7',examDate:'',weaknesses:[]});
+  const boards=['AQA','Edexcel','OCR'];
+  const grades=['9','8','7','6','5','4'];
+  const allTopics=MODULES.flatMap(m=>m.topics.map(t=>({id:t.id,title:t.title,module:m.label,color:m.color})));
+  const update=(k,v)=>setProfile(p=>({...p,[k]:v}));
+  const toggleWeak=(id)=>{
+    const cur=profile.weaknesses;
+    if(cur.includes(id)){update('weaknesses',cur.filter(x=>x!==id));}
+    else if(cur.length<3){update('weaknesses',[...cur,id]);}
+  };
+  const weeks=profile.examDate?Math.max(0,Math.round((new Date(profile.examDate)-Date.now())/(1000*60*60*24*7))):null;
+  const canNext=(
+    (step===1&&profile.name.trim().length>=2)||
+    step===2||step===3||
+    (step===4&&profile.examDate)||
+    (step===5&&profile.weaknesses.length>0)
+  );
+  const handleNext=()=>{
+    if(step<5){setStep(s=>s+1);}
+    else{lsSet('lumora_profile',{...profile,createdAt:new Date().toISOString()});onComplete(profile);}
+  };
+  return(
+    <div style={{fontFamily:"'Segoe UI',sans-serif",minHeight:'100vh',background:'linear-gradient(135deg,#1B2A4A 0%,#0D3D3D 100%)',display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
+      <div style={{width:'100%',maxWidth:460,background:'#fff',borderRadius:20,overflow:'hidden',boxShadow:'0 20px 60px rgba(0,0,0,0.3)'}}>
+        <div style={{height:4,background:'#f0f0f0'}}><div style={{height:'100%',background:'#D4A017',width:`${(step/5)*100}%`,transition:'width 0.4s ease'}}/></div>
+        <div style={{padding:'28px 28px 24px'}}>
+          <div style={{fontSize:10,fontWeight:800,color:'#D4A017',letterSpacing:2,textTransform:'uppercase',marginBottom:16}}>Step {step} of 5</div>
+          {step===1&&(
+            <div style={{animation:'fadeInUp 0.3s ease'}}>
+              <div style={{fontSize:36,marginBottom:8}}>👋</div>
+              <div style={{fontSize:22,fontWeight:900,color:'#1B2A4A',marginBottom:6}}>What's your name?</div>
+              <div style={{fontSize:13,color:'#888',marginBottom:20}}>Let's personalise your experience</div>
+              <input value={profile.name} onChange={e=>update('name',e.target.value)} placeholder="e.g. Alex" autoFocus style={{width:'100%',padding:'14px 16px',borderRadius:10,border:'1.5px solid #e0e0e0',fontSize:16,fontFamily:'inherit',outline:'none',boxSizing:'border-box',color:'#1B2A4A'}} onFocus={e=>e.target.style.borderColor='#D4A017'} onBlur={e=>e.target.style.borderColor='#e0e0e0'}/>
+            </div>
+          )}
+          {step===2&&(
+            <div style={{animation:'fadeInUp 0.3s ease'}}>
+              <div style={{fontSize:36,marginBottom:8}}>📋</div>
+              <div style={{fontSize:22,fontWeight:900,color:'#1B2A4A',marginBottom:6}}>Which exam board?</div>
+              <div style={{fontSize:13,color:'#888',marginBottom:20}}>We'll highlight board-specific tips for you</div>
+              <div style={{display:'grid',gap:10}}>
+                {boards.map(b=>(
+                  <button key={b} onClick={()=>update('board',b)} style={{padding:'16px 20px',borderRadius:12,border:`2px solid ${profile.board===b?'#1B2A4A':'#e8e8e8'}`,background:profile.board===b?'#1B2A4A':'#fff',color:profile.board===b?'#fff':'#1a1a2e',fontWeight:700,fontSize:14,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+                    {b}{profile.board===b&&<span>✓</span>}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          {step===3&&(
+            <div style={{animation:'fadeInUp 0.3s ease'}}>
+              <div style={{fontSize:36,marginBottom:8}}>🎯</div>
+              <div style={{fontSize:22,fontWeight:900,color:'#1B2A4A',marginBottom:6}}>Target grade?</div>
+              <div style={{fontSize:13,color:'#888',marginBottom:20}}>Lumora will tune difficulty to your goal</div>
+              <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:10}}>
+                {grades.map(g=>(
+                  <button key={g} onClick={()=>update('grade',g)} style={{padding:'18px 0',borderRadius:12,border:`2px solid ${profile.grade===g?'#D4A017':'#e8e8e8'}`,background:profile.grade===g?'#D4A017':'#fff',color:profile.grade===g?'#1B2A4A':'#555',fontWeight:900,fontSize:22,cursor:'pointer'}}>
+                    {g}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          {step===4&&(
+            <div style={{animation:'fadeInUp 0.3s ease'}}>
+              <div style={{fontSize:36,marginBottom:8}}>📅</div>
+              <div style={{fontSize:22,fontWeight:900,color:'#1B2A4A',marginBottom:6}}>When's your exam?</div>
+              <div style={{fontSize:13,color:'#888',marginBottom:20}}>We'll create a revision countdown for you</div>
+              <input type="date" value={profile.examDate} onChange={e=>update('examDate',e.target.value)} style={{width:'100%',padding:'14px 16px',borderRadius:10,border:'1.5px solid #e0e0e0',fontSize:16,fontFamily:'inherit',outline:'none',boxSizing:'border-box',color:'#1B2A4A'}}/>
+              {weeks!==null&&<div style={{marginTop:12,background:'#f0f8ff',borderRadius:10,padding:'12px 16px',fontSize:13,color:'#1B2A4A',fontWeight:700}}>📆 {weeks} week{weeks!==1?'s':''} to go — let's make every session count</div>}
+            </div>
+          )}
+          {step===5&&(
+            <div style={{animation:'fadeInUp 0.3s ease'}}>
+              <div style={{fontSize:36,marginBottom:8}}>📊</div>
+              <div style={{fontSize:22,fontWeight:900,color:'#1B2A4A',marginBottom:6}}>Your biggest weaknesses?</div>
+              <div style={{fontSize:13,color:'#888',marginBottom:16}}>Pick up to 3 topics — we'll prioritise these first</div>
+              <div style={{maxHeight:280,overflowY:'auto',display:'grid',gap:6}}>
+                {allTopics.map(t=>{
+                  const sel=profile.weaknesses.includes(t.id);
+                  const dis=!sel&&profile.weaknesses.length>=3;
+                  return(
+                    <button key={t.id} onClick={()=>!dis&&toggleWeak(t.id)} style={{padding:'10px 14px',borderRadius:10,border:`1.5px solid ${sel?'#1B2A4A':'#e0e0e0'}`,background:sel?'#1B2A4A':'#fff',color:sel?'#fff':'#555',fontWeight:sel?700:400,fontSize:12,cursor:dis?'not-allowed':'pointer',textAlign:'left',opacity:dis?0.4:1,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                      <span>{t.title}</span>{sel&&<span>✓</span>}
+                    </button>
+                  );
+                })}
+              </div>
+              <div style={{fontSize:11,color:'#888',marginTop:8}}>{profile.weaknesses.length}/3 selected</div>
+            </div>
+          )}
+          <button onClick={handleNext} disabled={!canNext} style={{marginTop:24,width:'100%',padding:'15px 0',borderRadius:12,border:'none',background:canNext?'linear-gradient(135deg,#1B2A4A,#0D6E72)':'#e0e0e0',color:canNext?'#fff':'#aaa',fontWeight:900,fontSize:15,cursor:canNext?'pointer':'not-allowed',transition:'all 0.2s'}}>
+            {step<5?'Continue →':`Let's go, ${profile.name}! 🚀`}
+          </button>
+          {step>1&&<button onClick={()=>setStep(s=>s-1)} style={{marginTop:8,width:'100%',padding:'10px 0',borderRadius:12,border:'none',background:'transparent',color:'#aaa',fontSize:13,cursor:'pointer'}}>← Back</button>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═══ LANDING PAGE ════════════════════════════════════════════════════════════
+function LandingPage({onStart}){
+  const profile=lsGet('lumora_profile',null);
+  const weeks=profile?.examDate?Math.max(0,Math.round((new Date(profile.examDate)-Date.now())/(1000*60*60*24*7))):null;
+  const xp=getXP();
+  const lvl=getLevel(xp);
+  const streak=getStreakData();
+  return(
+    <div style={{fontFamily:"'Segoe UI',sans-serif",background:'#0D1B2A',minHeight:'100vh'}}>
+      {/* Nav */}
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'16px 24px',borderBottom:'1px solid rgba(255,255,255,0.08)'}}>
+        <div style={{fontSize:18,fontWeight:900,color:'#D4A017',letterSpacing:1}}>📐 Lumora</div>
+        <button onClick={onStart} style={{padding:'10px 24px',borderRadius:24,border:'none',background:'#D4A017',color:'#1B2A4A',fontWeight:900,fontSize:13,cursor:'pointer'}}>
+          {profile?'Continue Learning →':'Start Free'}
+        </button>
+      </div>
+      {/* Hero */}
+      <div style={{textAlign:'center',padding:'60px 24px 40px',maxWidth:640,margin:'0 auto'}}>
+        {profile&&(
+          <div style={{background:'rgba(212,160,23,0.15)',border:'1.5px solid rgba(212,160,23,0.3)',borderRadius:16,padding:'14px 20px',marginBottom:28,display:'inline-block'}}>
+            <div style={{fontSize:14,color:'#D4A017',fontWeight:700}}>
+              Welcome back, {profile.name}! {lvl.icon} {xp} XP · 🔥 {streak.current} day streak{weeks!==null?` · 📅 ${weeks} weeks to exam`:''}
+            </div>
+          </div>
+        )}
+        <div style={{fontSize:48,marginBottom:16}}>🎓</div>
+        <h1 style={{fontSize:40,fontWeight:900,color:'#fff',lineHeight:1.1,margin:'0 0 16px'}}>Meet <span style={{color:'#D4A017'}}>Lumora</span></h1>
+        <p style={{fontSize:17,color:'rgba(255,255,255,0.7)',lineHeight:1.6,margin:'0 0 32px'}}>The AI tutor that thinks like your best teacher</p>
+        <button onClick={onStart} style={{padding:'16px 40px',borderRadius:50,border:'none',background:'linear-gradient(135deg,#D4A017,#E8B84B)',color:'#1B2A4A',fontWeight:900,fontSize:16,cursor:'pointer',boxShadow:'0 8px 32px rgba(212,160,23,0.35)'}}>
+          {profile?'Continue Learning →':'Start Free — No credit card needed'}
+        </button>
+      </div>
+      {/* Problem stats */}
+      <div style={{background:'rgba(255,255,255,0.04)',padding:'40px 24px'}}>
+        <div style={{maxWidth:680,margin:'0 auto'}}>
+          <div style={{textAlign:'center',fontSize:12,fontWeight:800,color:'#D4A017',letterSpacing:2,textTransform:'uppercase',marginBottom:24}}>The Problem With Traditional Revision</div>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:14,textAlign:'center'}}>
+            {[{stat:'1 in 3',desc:'students underperform in GCSE Maths despite revising'},{stat:'£60/hr',desc:'average private tutor — unaffordable for most families'},{stat:'957K',desc:'young people NEET — often held back by basic Maths'}].map(s=>(
+              <div key={s.stat} style={{background:'rgba(255,255,255,0.05)',borderRadius:14,padding:'20px 12px'}}>
+                <div style={{fontSize:28,fontWeight:900,color:'#D4A017',marginBottom:8}}>{s.stat}</div>
+                <div style={{fontSize:11,color:'rgba(255,255,255,0.6)',lineHeight:1.5}}>{s.desc}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+      {/* How it works */}
+      <div style={{padding:'48px 24px',maxWidth:640,margin:'0 auto'}}>
+        <div style={{textAlign:'center',fontSize:12,fontWeight:800,color:'#D4A017',letterSpacing:2,textTransform:'uppercase',marginBottom:8}}>How It Works</div>
+        <div style={{textAlign:'center',fontSize:22,fontWeight:900,color:'#fff',marginBottom:28}}>Four steps from confused to confident</div>
+        <div style={{display:'grid',gap:14}}>
+          {[{n:1,icon:'📝',t:'Practice',d:'Work through exam-style questions at 3 difficulty levels across all GCSE Maths topics'},{n:2,icon:'🤖',t:'AI Marks Your Working',d:'Claude analyses your method step-by-step, just like a real examiner would'},{n:3,icon:'📊',t:'Progress Tracked',d:'Spaced repetition schedules your revision. Heatmaps show exactly where to focus next'},{n:4,icon:'🏆',t:'Level Up',d:'Earn XP, build streaks, and unlock levels as you improve. Revision that actually feels rewarding'}].map(s=>(
+            <div key={s.n} style={{display:'flex',gap:16,alignItems:'flex-start',background:'rgba(255,255,255,0.04)',borderRadius:14,padding:'18px 20px'}}>
+              <div style={{width:40,height:40,borderRadius:10,background:'#D4A017',display:'flex',alignItems:'center',justifyContent:'center',fontSize:20,flexShrink:0}}>{s.icon}</div>
+              <div><div style={{fontSize:15,fontWeight:800,color:'#fff',marginBottom:4}}>{s.t}</div><div style={{fontSize:13,color:'rgba(255,255,255,0.6)',lineHeight:1.5}}>{s.d}</div></div>
+            </div>
+          ))}
+        </div>
+      </div>
+      {/* Pricing */}
+      <div style={{background:'rgba(255,255,255,0.04)',padding:'48px 24px'}}>
+        <div style={{maxWidth:680,margin:'0 auto'}}>
+          <div style={{textAlign:'center',fontSize:12,fontWeight:800,color:'#D4A017',letterSpacing:2,textTransform:'uppercase',marginBottom:8}}>Pricing</div>
+          <div style={{textAlign:'center',fontSize:22,fontWeight:900,color:'#fff',marginBottom:28}}>Simple, fair pricing</div>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:14}}>
+            {[{name:'Free',price:'£0',period:' forever',features:['All topics & questions','AI marking (5/day)','Spaced repetition','Streak tracking'],cta:'Start Free',hi:false},{name:'Student Plus',price:'£7.99',period:'/mo',features:['Unlimited AI marking','Socratic tutoring','Progress reports','XP & level system'],cta:'Start 7-day trial',hi:true},{name:'Tutor Connect',price:'£12.99',period:'/mo',features:['Everything in Plus','Parent dashboard','Tutor assignment','Weekly reports'],cta:'Get started',hi:false}].map(p=>(
+              <div key={p.name} style={{background:p.hi?'linear-gradient(135deg,#D4A017,#E8B84B)':'rgba(255,255,255,0.06)',borderRadius:16,padding:'22px 16px',border:p.hi?'none':'1px solid rgba(255,255,255,0.1)',position:'relative'}}>
+                {p.hi&&<div style={{position:'absolute',top:-10,left:'50%',transform:'translateX(-50%)',background:'#1B2A4A',color:'#D4A017',fontSize:8,fontWeight:800,padding:'3px 10px',borderRadius:6,letterSpacing:1,whiteSpace:'nowrap'}}>MOST POPULAR</div>}
+                <div style={{fontSize:14,fontWeight:800,color:p.hi?'#1B2A4A':'#fff',marginBottom:4}}>{p.name}</div>
+                <div style={{fontSize:28,fontWeight:900,color:p.hi?'#1B2A4A':'#D4A017',marginBottom:2}}>{p.price}<span style={{fontSize:11,fontWeight:500}}>{p.period}</span></div>
+                <div style={{margin:'14px 0',borderTop:`1px solid ${p.hi?'rgba(0,0,0,0.1)':'rgba(255,255,255,0.1)'}`,paddingTop:14}}>
+                  {p.features.map(f=><div key={f} style={{fontSize:10,color:p.hi?'#1B2A4A':'rgba(255,255,255,0.7)',marginBottom:5,display:'flex',gap:5}}><span style={{fontWeight:800}}>✓</span>{f}</div>)}
+                </div>
+                <button onClick={onStart} style={{width:'100%',padding:'9px 0',borderRadius:10,border:'none',background:p.hi?'#1B2A4A':'rgba(255,255,255,0.1)',color:p.hi?'#fff':'rgba(255,255,255,0.9)',fontWeight:800,fontSize:11,cursor:'pointer'}}>{p.cta}</button>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+      {/* Footer */}
+      <div style={{textAlign:'center',padding:'28px 24px',borderTop:'1px solid rgba(255,255,255,0.08)'}}>
+        <div style={{fontSize:16,fontWeight:900,color:'#D4A017',marginBottom:4}}>📐 Lumora</div>
+        <div style={{fontSize:11,color:'rgba(255,255,255,0.3)'}}>Built to close the attainment gap · GCSE Maths · AQA · Edexcel · OCR</div>
+      </div>
+    </div>
+  );
+}
+
 // ═══ APP SHELL ═══════════════════════════════════════════════════════════════
 export default function App(){
+  const [screen,setScreen]=useState(()=>lsGet('lumora_profile',null)?'landing':'onboarding');
   const [page,setPage]=useState("platform");
+  const [xpV,setXpV]=useState(0);
+  const [celebration,setCelebration]=useState(null);
+
+  const awardXP=useCallback((amount)=>{
+    const result=addXP(amount);
+    const streakResult=touchStreak();
+    setXpV(v=>v+1);
+    if(result.levelUp){
+      setCelebration({icon:result.newLevel.icon,title:`${result.newLevel.name} Level!`,body:`You reached ${result.newLevel.name}! Keep it up! 🎉`});
+    }else if(streakResult.milestone){
+      setCelebration({icon:'🔥',title:`${streakResult.streak}-Day Streak!`,body:`Incredible! You've earned a streak freeze ❄️`});
+    }else if(amount>=100){
+      setCelebration({icon:'🏆',title:'Exam Complete!',body:`+${amount} XP earned — great effort!`});
+    }
+  },[]);
+
+  const handleOnboardingComplete=()=>{touchStreak();setScreen('landing');};
+
+  if(screen==='onboarding')return<><AnimStyles/><Onboarding onComplete={handleOnboardingComplete}/></>;
+  if(screen==='landing')return<><AnimStyles/><LandingPage onStart={()=>setScreen('app')}/></>;
+
+  const xp=getXP();
   return(
     <div style={{fontFamily:"'Segoe UI',sans-serif",background:"#f8f9fc",minHeight:"100vh"}}>
-      <div style={{background:"#1B2A4A",padding:"0 24px",display:"flex",alignItems:"center",position:"sticky",top:0,zIndex:100,boxShadow:"0 2px 12px rgba(0,0,0,0.2)"}}>
-        <div style={{fontSize:13,fontWeight:900,color:"#D4A017",letterSpacing:1,marginRight:32,padding:"14px 0",whiteSpace:"nowrap"}}>📐 GCSE Maths</div>
-        {[{id:"platform",label:"📚 Revision"},{id:"generator",label:"⚡ Generator"},{id:"mock",label:"📝 Mock Exam"}].map(tab=>(
-          <button key={tab.id} onClick={()=>setPage(tab.id)} style={{padding:"14px 18px",border:"none",background:"none",cursor:"pointer",borderBottom:page===tab.id?"3px solid #D4A017":"3px solid transparent",color:page===tab.id?"#fff":"rgba(255,255,255,0.5)",fontWeight:page===tab.id?800:500,fontSize:13,transition:"all 0.2s",whiteSpace:"nowrap"}}>
+      <AnimStyles/>
+      {celebration&&<Celebration data={celebration} onDone={()=>setCelebration(null)}/>}
+      <div style={{background:"#1B2A4A",padding:"0 16px",display:"flex",alignItems:"center",position:"sticky",top:0,zIndex:100,boxShadow:"0 2px 12px rgba(0,0,0,0.2)",gap:4}}>
+        <button onClick={()=>setScreen('landing')} style={{fontSize:13,fontWeight:900,color:"#D4A017",letterSpacing:1,marginRight:16,padding:"14px 0",whiteSpace:"nowrap",background:'none',border:'none',cursor:'pointer'}}>📐 Lumora</button>
+        {[{id:"platform",label:"📚 Revision"},{id:"generator",label:"⚡ Generator"},{id:"mock",label:"📝 Mock"}].map(tab=>(
+          <button key={tab.id} onClick={()=>setPage(tab.id)} style={{padding:"14px 14px",border:"none",background:"none",cursor:"pointer",borderBottom:page===tab.id?"3px solid #D4A017":"3px solid transparent",color:page===tab.id?"#fff":"rgba(255,255,255,0.5)",fontWeight:page===tab.id?800:500,fontSize:12,transition:"all 0.2s",whiteSpace:"nowrap"}}>
             {tab.label}
           </button>
         ))}
+        <div style={{marginLeft:'auto',display:'flex',alignItems:'center',gap:10,padding:'0 4px'}}>
+          <div style={{fontSize:11,color:'#D4A017',fontWeight:800}}>{getLevel(xp).icon} {xp} XP</div>
+          <div style={{fontSize:11,color:'rgba(255,255,255,0.65)',fontWeight:700}}>🔥 {getStreakData().current}</div>
+        </div>
       </div>
-      {page==="platform"&&<Platform/>}
+      {page==="platform"&&<Platform onXP={awardXP} xpV={xpV}/>}
       {page==="generator"&&<Generator/>}
-      {page==="mock"&&<MockExam/>}
+      {page==="mock"&&<MockExam onXP={awardXP}/>}
     </div>
   );
 }
 
 // ═══ QCARD (Platform static questions — with SM-2 + AI marking) ═══════════
-function QCard({q,idx,topicId,onAnswered}){
+function QCard({q,idx,topicId,onAnswered,onXP}){
   const [open,setOpen]=useState(false);
   const [answered,setAnswered]=useState(null);
   const [working,setWorking]=useState('');
@@ -268,6 +674,7 @@ function QCard({q,idx,topicId,onAnswered}){
     setAnswered(correct?'right':'wrong');
     sm2Update(qid,correct?4:1);
     recordPerf(topicId,correct);
+    if(onXP)onXP(correct?35:10);
     if(onAnswered)onAnswered();
   };
 
@@ -332,6 +739,7 @@ function QCard({q,idx,topicId,onAnswered}){
                   {aiResult.feedback&&<p style={{margin:'0 0 6px',fontSize:13,color:'#2d3436',lineHeight:1.5}}>✓ {aiResult.feedback}</p>}
                   {aiResult.improvements&&<p style={{margin:'0 0 8px',fontSize:13,color:'#2d3436',lineHeight:1.5}}>→ {aiResult.improvements}</p>}
                   {aiResult.breakdown?.map((m,i)=><div key={i} style={{fontSize:12,color:'#555',padding:'2px 0',fontFamily:'monospace'}}>{m}</div>)}
+                  <SocraticChat question={q.q} ms={q.ms} aiResult={aiResult}/>
                 </div>
               )}
               {aiResult?.error&&<div style={{marginTop:8,background:'#fff5f5',borderRadius:8,padding:'8px 12px',color:'#E74C3C',fontSize:12}}>{aiResult.error}</div>}
@@ -350,7 +758,7 @@ function QCard({q,idx,topicId,onAnswered}){
 }
 
 // ═══ TOPIC PAGE ═══════════════════════════════════════════════════════════════
-function TopicPage({topic,moduleColor,onAnswered}){
+function TopicPage({topic,moduleColor,onAnswered,onXP}){
   const [tab,setTab]=useState("questions");
   const tabs=[{id:"questions",l:"Questions"},{id:"boards",l:"Board Diff"},{id:"concept",l:"Core Concept"},{id:"markscheme",l:"Mark Scheme"},{id:"mistakes",l:"Mistakes"}];
   return(
@@ -358,7 +766,7 @@ function TopicPage({topic,moduleColor,onAnswered}){
       <div style={{display:'flex',gap:4,marginBottom:18,overflowX:'auto'}}>
         {tabs.map(t=><button key={t.id} onClick={()=>setTab(t.id)} style={{padding:'7px 12px',borderRadius:8,border:'none',background:tab===t.id?moduleColor:'#f0f0f0',color:tab===t.id?'#fff':'#555',fontWeight:700,fontSize:12,cursor:'pointer',flexShrink:0}}>{t.l}</button>)}
       </div>
-      {tab==="questions"&&topic.questions.map((q,i)=><QCard key={i} q={q} idx={i} topicId={topic.id} onAnswered={onAnswered}/>)}
+      {tab==="questions"&&topic.questions.map((q,i)=><QCard key={i} q={q} idx={i} topicId={topic.id} onAnswered={onAnswered} onXP={onXP}/>)}
       {tab==="boards"&&Object.entries(topic.boards).map(([b,txt])=>{
         const bc={AQA:{bg:"#EBF5FB",bd:"#1B2A4A",c:"#1B2A4A"},Edexcel:{bg:"#FDEDEC",bd:"#C0392B",c:"#C0392B"},OCR:{bg:"#E8F8F5",bd:"#0D6E72",c:"#0D6E72"}}[b];
         return<div key={b} style={{background:bc.bg,border:`1.5px solid ${bc.bd}`,borderRadius:10,padding:'14px 18px',marginBottom:10}}>
@@ -445,18 +853,31 @@ function WeaknessHeatmap({onNavigate,version}){
 }
 
 // ═══ PLATFORM ════════════════════════════════════════════════════════════════
-export function Platform(){
+export function Platform({onXP=()=>{},xpV=0}){
   const [modId,setModId]=useState(null);
   const [topicId,setTopicId]=useState(null);
   const [search,setSearch]=useState("");
   const [board,setBoard]=useState("All");
   const [version,setVersion]=useState(0);
   const bump=useCallback(()=>setVersion(v=>v+1),[]);
+  const xp=getXP();
 
   const mod=MODULES.find(m=>m.id===modId);
   const topic=mod?.topics.find(t=>t.id===topicId);
   const totalQ=MODULES.reduce((s,m)=>s+m.topics.reduce((ss,t)=>ss+t.questions.length,0),0);
   const totalT=MODULES.reduce((s,m)=>s+m.topics.length,0);
+
+  const handleAnswered=useCallback(()=>{
+    setVersion(v=>v+1);
+    if(topic){
+      const flagKey=`lumora_tc_${topic.id}`;
+      if(!lsGet(flagKey,false)){
+        const srData=lsGet('gcse_sr',{});
+        const allAnswered=topic.questions.every((_,i)=>srData[`${topic.id}:${i}`]);
+        if(allAnswered){lsSet(flagKey,true);onXP(50);}
+      }
+    }
+  },[topic,onXP]);
   const searchRes=search.trim().length>1?MODULES.flatMap(m=>m.topics.filter(t=>t.title.toLowerCase().includes(search.toLowerCase())).map(t=>({...t,mod:m}))):[];
 
   const navigateToTopic=(tid)=>{
@@ -479,7 +900,7 @@ export function Platform(){
           <div><div style={{fontSize:17,fontWeight:800,color:"#1a1a2e"}}>{topic.title}</div><div style={{fontSize:11,color:"#888",marginTop:2}}>{topic.questions.length} questions · 3 difficulty levels</div></div>
         </div>
       </div>
-      <TopicPage topic={topic} moduleColor={mod.color} onAnswered={bump}/>
+      <TopicPage topic={topic} moduleColor={mod.color} onAnswered={handleAnswered} onXP={onXP}/>
     </div>
   );
 
@@ -536,6 +957,7 @@ export function Platform(){
         </div>
       )}
 
+      <GamificationBar key={`gam-${xpV}`} xp={xp}/>
       <DueForReview key={`due-${version}`} onNavigate={navigateToTopic} version={version}/>
       <WeaknessHeatmap key={`heat-${version}`} onNavigate={navigateToTopic} version={version}/>
 
@@ -629,6 +1051,7 @@ function MockQCard({q,idx,working,selfMark,onSelfMark}){
                   {aiResult.feedback&&<p style={{margin:'0 0 6px',fontSize:13,lineHeight:1.5}}>✓ {aiResult.feedback}</p>}
                   {aiResult.improvements&&<p style={{margin:'0 0 8px',fontSize:13,lineHeight:1.5}}>→ {aiResult.improvements}</p>}
                   {aiResult.breakdown?.map((m,i)=><div key={i} style={{fontSize:12,color:'#555',padding:'2px 0',fontFamily:'monospace'}}>{m}</div>)}
+                  <SocraticChat question={q.q} ms={q.ms} aiResult={aiResult}/>
                 </div>
               )}
               {aiResult?.error&&<div style={{marginTop:8,background:'#fff5f5',borderRadius:8,padding:'8px 12px',color:'#E74C3C',fontSize:12}}>{aiResult.error}</div>}
@@ -645,7 +1068,7 @@ function MockQCard({q,idx,working,selfMark,onSelfMark}){
   );
 }
 
-export function MockExam(){
+export function MockExam({onXP=()=>{}}){
   const questions=useMemo(()=>shuffle(ALL_QUESTIONS).slice(0,20),[]);
   const TOTAL_TIME=45*60;
   const [timeLeft,setTimeLeft]=useState(TOTAL_TIME);
@@ -653,10 +1076,15 @@ export function MockExam(){
   const [submitted,setSubmitted]=useState(false);
   const [workings,setWorkings]=useState({});
   const [selfMarks,setSelfMarks]=useState({});
+  const xpAwarded=useRef(false);
+  const handleSubmit=useCallback(()=>{
+    if(!xpAwarded.current){xpAwarded.current=true;onXP(100);}
+    setSubmitted(true);
+  },[onXP]);
 
   useEffect(()=>{
     if(!started||submitted)return;
-    if(timeLeft<=0){setSubmitted(true);return;}
+    if(timeLeft<=0){handleSubmit();return;}
     const t=setInterval(()=>setTimeLeft(s=>s-1),1000);
     return()=>clearInterval(t);
   },[started,submitted,timeLeft]);
@@ -727,7 +1155,7 @@ export function MockExam(){
           <div style={{fontSize:10,fontWeight:700,color:'#888',textTransform:'uppercase'}}>Progress</div>
           <div style={{fontSize:14,fontWeight:800,color:'#1B2A4A'}}>20 Qs · {totalMarks} marks</div>
         </div>
-        <button onClick={()=>setSubmitted(true)} style={{padding:'10px 18px',borderRadius:10,border:'none',background:'#1B2A4A',color:'#fff',fontWeight:800,fontSize:12,cursor:'pointer'}}>Submit →</button>
+        <button onClick={handleSubmit} style={{padding:'10px 18px',borderRadius:10,border:'none',background:'#1B2A4A',color:'#fff',fontWeight:800,fontSize:12,cursor:'pointer'}}>Submit →</button>
         <div style={{position:'absolute',bottom:0,left:0,height:3,background:timeLeft<300?'#E74C3C':'#1B2A4A',width:`${(timeLeft/TOTAL_TIME)*100}%`,transition:'width 1s linear'}}/>
       </div>
 
@@ -745,7 +1173,7 @@ export function MockExam(){
           </div>
         </div>
       ))}
-      <button onClick={()=>setSubmitted(true)} style={{width:'100%',padding:14,borderRadius:12,border:'none',background:'linear-gradient(135deg,#1B2A4A,#0D6E72)',color:'#fff',fontSize:14,fontWeight:900,cursor:'pointer',marginBottom:24}}>
+      <button onClick={handleSubmit} style={{width:'100%',padding:14,borderRadius:12,border:'none',background:'linear-gradient(135deg,#1B2A4A,#0D6E72)',color:'#fff',fontSize:14,fontWeight:900,cursor:'pointer',marginBottom:24}}>
         📤 Submit Exam
       </button>
     </div>

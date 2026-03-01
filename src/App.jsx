@@ -58,11 +58,27 @@ function recordPerf(topicId,correct){
   if(!p[topicId])p[topicId]={correct:0,total:0};
   p[topicId].total++;if(correct)p[topicId].correct++;lsSet('gcse_perf',p);
 }
+// ═══ DESIGN SYSTEM ════════════════════════════════════════════════════════════
+const DS={
+  bg:{base:'#0E1117',surface:'#161B22',elevated:'#1C2128',overlay:'#21262D',deep:'#080C10'},
+  accent:{
+    amber:'#F5B700',amberDim:'rgba(245,183,0,0.10)',
+    teal:'#00C9B1',tealDim:'rgba(0,201,177,0.10)',
+    red:'#FF4C4C',redDim:'rgba(255,76,76,0.10)',
+  },
+  text:{primary:'#F0F6FC',secondary:'#8B949E',muted:'#484F58'},
+  border:'rgba(255,255,255,0.08)',
+  borderHi:'rgba(255,255,255,0.14)',
+  radius:{sm:8,md:12,lg:16,xl:20},
+  shadow:'0 4px 32px rgba(0,0,0,0.55)',
+  tr:'all 0.22s ease',
+};
+
 function heatColor(r){
-  if(r===null)return{bg:'#f0f0f0',c:'#999'};
-  if(r>=0.7)return{bg:'#d4edda',c:'#155724'};
-  if(r>=0.4)return{bg:'#fff3cd',c:'#856404'};
-  return{bg:'#f8d7da',c:'#721c24'};
+  if(r===null)return{bg:DS.bg.elevated,c:DS.text.muted};
+  if(r>=0.7)return{bg:DS.accent.tealDim,c:DS.accent.teal};
+  if(r>=0.4)return{bg:DS.accent.amberDim,c:DS.accent.amber};
+  return{bg:DS.accent.redDim,c:DS.accent.red};
 }
 function shuffle(arr){const a=[...arr];for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
 
@@ -144,34 +160,34 @@ function SocraticChat({question,ms,aiResult}){
   };
 
   return(
-    <div style={{marginTop:14,borderTop:'1.5px dashed #d8d0ff',paddingTop:12}}>
-      <div style={{fontSize:11,fontWeight:800,color:'#7B68EE',textTransform:'uppercase',letterSpacing:1,marginBottom:10}}>💬 Socratic Tutor — Keep going until you get it</div>
-      <div style={{maxHeight:260,overflowY:'auto',display:'flex',flexDirection:'column',gap:8,marginBottom:10}}>
+    <div style={{marginTop:14,borderTop:`1px solid ${DS.border}`,paddingTop:12}}>
+      <div style={{fontSize:10,fontWeight:800,color:DS.accent.teal,textTransform:'uppercase',letterSpacing:1.5,marginBottom:10}}>Socratic Tutor</div>
+      <div style={{maxHeight:260,overflowY:'auto',display:'flex',flexDirection:'column',gap:6,marginBottom:10}}>
         {loading&&messages.length===0&&(
-          <div style={{display:'flex',gap:8,alignItems:'flex-start'}}>
-            <div style={{width:26,height:26,borderRadius:'50%',background:'#7B68EE',color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,flexShrink:0}}>🧑‍🏫</div>
-            <div style={{background:'#f0edff',borderRadius:'0 10px 10px 10px',padding:'8px 12px',fontSize:13,color:'#888',fontStyle:'italic'}}>Preparing your question…</div>
-          </div>
+          <div style={{background:DS.bg.elevated,borderLeft:`3px solid ${DS.accent.teal}`,borderRadius:`0 ${DS.radius.sm}px ${DS.radius.sm}px 0`,padding:'8px 12px',fontSize:13,color:DS.text.muted,fontStyle:'italic'}}>Preparing your question…</div>
         )}
         {messages.map((m,i)=>(
-          <div key={i} style={{display:'flex',gap:8,alignItems:'flex-start',flexDirection:m.from==='tutor'?'row':'row-reverse'}}>
-            <div style={{width:26,height:26,borderRadius:'50%',background:m.from==='tutor'?'#7B68EE':'#1B2A4A',color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,flexShrink:0}}>{m.from==='tutor'?'🧑‍🏫':'✏️'}</div>
-            <div style={{background:m.from==='tutor'?'#f0edff':'#1B2A4A',border:`1.5px solid ${m.from==='tutor'?'#d8d0ff':'#1B2A4A'}`,borderRadius:m.from==='tutor'?'0 10px 10px 10px':'10px 0 10px 10px',padding:'8px 12px',fontSize:13,color:m.from==='tutor'?'#2d2070':'#fff',maxWidth:'82%',lineHeight:1.55}}>
-              {m.text}
-            </div>
+          <div key={i} style={{display:'flex',flexDirection:'column',alignItems:m.from==='tutor'?'flex-start':'flex-end'}}>
+            <div style={{fontSize:9,fontWeight:800,color:m.from==='tutor'?DS.accent.teal:DS.accent.amber,marginBottom:2,paddingLeft:m.from==='tutor'?4:0,paddingRight:m.from==='student'?4:0}}>{m.from==='tutor'?'TUTOR':'YOU'}</div>
+            <div style={{
+              background:m.from==='tutor'?DS.bg.elevated:DS.bg.surface,
+              borderLeft:m.from==='tutor'?`3px solid ${DS.accent.teal}`:'none',
+              borderRight:m.from==='student'?`3px solid ${DS.accent.amber}`:'none',
+              borderRadius:DS.radius.sm,padding:'8px 12px',fontSize:13,
+              color:DS.text.primary,maxWidth:'85%',lineHeight:1.6
+            }}>{m.text}</div>
           </div>
         ))}
         {loading&&messages.length>0&&(
-          <div style={{display:'flex',gap:8,alignItems:'flex-start'}}>
-            <div style={{width:26,height:26,borderRadius:'50%',background:'#7B68EE',color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,flexShrink:0}}>🧑‍🏫</div>
-            <div style={{background:'#f0edff',borderRadius:'0 10px 10px 10px',padding:'8px 12px',fontSize:13,color:'#888',fontStyle:'italic'}}>Thinking…</div>
-          </div>
+          <div style={{background:DS.bg.elevated,borderLeft:`3px solid ${DS.accent.teal}`,borderRadius:`0 ${DS.radius.sm}px ${DS.radius.sm}px 0`,padding:'8px 12px',fontSize:13,color:DS.text.muted,fontStyle:'italic'}}>Thinking…</div>
         )}
         <div ref={bottomRef}/>
       </div>
       <div style={{display:'flex',gap:8}}>
-        <input value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>e.key==='Enter'&&!e.shiftKey&&handleSend()} placeholder="Type your response and press Enter…" disabled={loading} style={{flex:1,padding:'8px 12px',borderRadius:8,border:'1.5px solid #d8d0ff',fontSize:13,fontFamily:'inherit',outline:'none',background:loading?'#f8f8f8':'#fff'}}/>
-        <button onClick={handleSend} disabled={loading||!input.trim()} style={{padding:'8px 14px',borderRadius:8,border:'none',background:loading||!input.trim()?'#ccc':'#7B68EE',color:'#fff',fontWeight:800,fontSize:14,cursor:loading||!input.trim()?'not-allowed':'pointer'}}>→</button>
+        <input value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>e.key==='Enter'&&!e.shiftKey&&handleSend()} placeholder="Type your response and press Enter…" disabled={loading}
+          style={{flex:1,padding:'8px 12px',borderRadius:DS.radius.sm,border:`1.5px solid ${DS.border}`,fontSize:13,fontFamily:'inherit',outline:'none',background:DS.bg.elevated,color:DS.text.primary}}
+          onFocus={e=>e.target.style.borderColor=DS.accent.amber} onBlur={e=>e.target.style.borderColor=DS.border}/>
+        <button onClick={handleSend} disabled={loading||!input.trim()} style={{padding:'8px 14px',borderRadius:DS.radius.sm,border:'none',background:loading||!input.trim()?DS.bg.overlay:DS.accent.amber,color:loading||!input.trim()?DS.text.muted:DS.bg.base,fontWeight:800,fontSize:14,cursor:loading||!input.trim()?'not-allowed':'pointer',transition:DS.tr}}>→</button>
       </div>
     </div>
   );
@@ -346,7 +362,11 @@ const ALL_QUESTIONS = Object.values(QUESTION_MAP);
 function findModForTopic(topicId){return MODULES.find(m=>m.topics.some(t=>t.id===topicId));}
 
 // ═══ CONSTANTS ═══════════════════════════════════════════════════════════════
-const DIFF={Starter:{c:"#27AE60",bg:"#E9F7EF"},Mid:{c:"#E8B84B",bg:"#FEF9E7"},Killer:{c:"#E74C3C",bg:"#FDECEA"}};
+const DIFF={
+  Starter:{bg:'rgba(0,201,177,0.10)',c:'#00C9B1'},
+  Mid:    {bg:'rgba(245,183,0,0.10)',c:'#F5B700'},
+  Killer: {bg:'rgba(255,76,76,0.10)',c:'#FF4C4C'},
+};
 const TOPICS=[
   {module:"Number",id:"rounding",label:"Rounding & Bounds"},{module:"Number",id:"fractions",label:"Fractions"},
   {module:"Number",id:"percentages",label:"Percentages"},{module:"Number",id:"powers_surds",label:"Powers, Roots & Surds"},
@@ -370,7 +390,60 @@ function AnimStyles(){
       @keyframes celebPop{0%{transform:scale(0.5);opacity:0}60%{transform:scale(1.15)}100%{transform:scale(1);opacity:1}}
       @keyframes celebFade{0%{opacity:1}70%{opacity:1}100%{opacity:0}}
       @keyframes fadeInUp{0%{transform:translateY(20px);opacity:0}100%{transform:translateY(0);opacity:1}}
+      @keyframes ringFill{0%{stroke-dashoffset:var(--circ)}100%{stroke-dashoffset:var(--offset)}}
+      @keyframes slideIn{0%{transform:translateX(-12px);opacity:0}100%{transform:translateX(0);opacity:1}}
+      @keyframes pulseAmber{0%,100%{box-shadow:0 0 0 0 rgba(245,183,0,0.0)}50%{box-shadow:0 0 0 6px rgba(245,183,0,0.18)}}
+      @keyframes dotPulse{0%,80%,100%{opacity:0.2}40%{opacity:1}}
+      @keyframes spin{to{transform:rotate(360deg)}}
     `}</style>
+  );
+}
+
+// ═══ MASTERY RING ═════════════════════════════════════════════════════════════
+function MasteryRing({ratio,color,size=52,stroke=4}){
+  const r=(size-stroke*2)/2;
+  const circ=2*Math.PI*r;
+  const offset=circ-(ratio||0)*circ;
+  return(
+    <svg width={size} height={size} style={{transform:'rotate(-90deg)',flexShrink:0}}>
+      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={DS.bg.overlay} strokeWidth={stroke}/>
+      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color||DS.accent.amber} strokeWidth={stroke}
+        strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round"
+        style={{transition:'stroke-dashoffset 0.8s ease'}}/>
+    </svg>
+  );
+}
+
+// ═══ PREDICTED GRADE ══════════════════════════════════════════════════════════
+function PredictedGrade({perf}){
+  const entries=Object.values(perf).filter(p=>p.total>0);
+  if(!entries.length)return(
+    <div style={{textAlign:'center',padding:'16px 12px'}}>
+      <div style={{fontSize:44,fontWeight:900,color:DS.accent.amber,lineHeight:1}}>–</div>
+      <div style={{fontSize:11,fontWeight:800,color:DS.text.secondary,marginTop:4}}>Predicted Grade</div>
+      <div style={{fontSize:10,color:DS.text.muted,marginTop:2}}>Answer questions to unlock</div>
+    </div>
+  );
+  const avg=entries.reduce((s,p)=>s+(p.correct/p.total),0)/entries.length;
+  const grade=avg>=0.9?'9':avg>=0.80?'8':avg>=0.70?'7':avg>=0.60?'6':avg>=0.50?'5':avg>=0.40?'4':'U';
+  const gradeColor=avg>=0.70?DS.accent.teal:avg>=0.50?DS.accent.amber:DS.accent.red;
+  return(
+    <div style={{textAlign:'center',padding:'16px 12px'}}>
+      <div style={{fontSize:52,fontWeight:900,color:gradeColor,lineHeight:1}}>{grade}</div>
+      <div style={{fontSize:11,fontWeight:800,color:DS.text.secondary,marginTop:4}}>Predicted Grade</div>
+      <div style={{fontSize:10,color:DS.text.muted,marginTop:2}}>{Math.round(avg*100)}% avg · {entries.length} topics</div>
+    </div>
+  );
+}
+
+// ═══ STUDY MODE TOGGLE ════════════════════════════════════════════════════════
+function StudyModeToggle({mode,setMode}){
+  return(
+    <div style={{display:'flex',gap:2,background:DS.bg.elevated,borderRadius:DS.radius.sm,padding:2,border:`1px solid ${DS.border}`}}>
+      {[{id:'sprint',label:'⚡ Sprint'},{id:'deep',label:'🎯 Focus'}].map(m=>(
+        <button key={m.id} onClick={()=>setMode(m.id)} style={{padding:'4px 10px',borderRadius:6,border:'none',fontSize:11,fontWeight:700,cursor:'pointer',background:mode===m.id?DS.accent.amber:'transparent',color:mode===m.id?DS.bg.base:DS.text.secondary,transition:DS.tr}}>{m.label}</button>
+      ))}
+    </div>
   );
 }
 
@@ -379,11 +452,11 @@ function Celebration({data,onDone}){
   useEffect(()=>{const t=setTimeout(onDone,2400);return()=>clearTimeout(t);},[]);
   if(!data)return null;
   return(
-    <div style={{position:'fixed',inset:0,zIndex:9999,display:'flex',alignItems:'center',justifyContent:'center',pointerEvents:'none',animation:'celebFade 2.4s forwards'}}>
-      <div style={{background:'linear-gradient(135deg,#1B2A4A,#0D6E72)',borderRadius:20,padding:'28px 40px',textAlign:'center',boxShadow:'0 8px 40px rgba(0,0,0,0.4)',animation:'celebPop 0.5s ease-out'}}>
+    <div style={{position:'fixed',inset:0,zIndex:9999,display:'flex',alignItems:'center',justifyContent:'center',pointerEvents:'none',animation:'celebFade 2.4s forwards',background:'rgba(0,0,0,0.4)'}}>
+      <div style={{background:DS.bg.elevated,borderRadius:DS.radius.xl,padding:'28px 40px',textAlign:'center',boxShadow:DS.shadow,animation:'celebPop 0.5s ease-out',border:`1.5px solid ${DS.borderHi}`}}>
         <div style={{fontSize:56,marginBottom:8}}>{data.icon}</div>
-        <div style={{fontSize:22,fontWeight:900,color:'#D4A017',marginBottom:6}}>{data.title}</div>
-        <div style={{fontSize:14,color:'rgba(255,255,255,0.85)'}}>{data.body}</div>
+        <div style={{fontSize:22,fontWeight:900,color:DS.accent.amber,marginBottom:6}}>{data.title}</div>
+        <div style={{fontSize:14,color:DS.text.secondary}}>{data.body}</div>
       </div>
     </div>
   );
@@ -396,25 +469,27 @@ function GamificationBar({xp}){
   const pct=next?Math.round(((xp-lvl.min)/(next.min-lvl.min))*100):100;
   const streak=getStreakData();
   return(
-    <div style={{background:'#fff',borderRadius:14,padding:'14px 18px',marginBottom:16,border:'1.5px solid #e8e8e8',boxShadow:'0 2px 8px rgba(0,0,0,0.04)'}}>
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
-        <div style={{display:'flex',alignItems:'center',gap:10}}>
-          <span style={{fontSize:28}}>{lvl.icon}</span>
-          <div>
-            <div style={{fontSize:13,fontWeight:800,color:'#1B2A4A'}}>{lvl.name} · {xp} XP</div>
-            <div style={{fontSize:10,color:'#888'}}>{next?`${next.min-xp} XP to ${next.name}`:'Max level — Legend! 🏆'}</div>
-          </div>
-        </div>
-        <div style={{textAlign:'right'}}>
-          <div style={{fontSize:22}}>🔥</div>
-          <div style={{fontSize:11,fontWeight:800,color:'#1B2A4A'}}>{streak.current} day streak</div>
-          {streak.freezes>0&&<div style={{fontSize:9,color:'#888'}}>❄️ {streak.freezes} freeze{streak.freezes!==1?'s':''}</div>}
+    <div style={{background:DS.bg.surface,borderRadius:DS.radius.md,padding:'10px 14px',border:`1px solid ${DS.border}`,display:'flex',alignItems:'center',gap:10}}>
+      <div style={{display:'flex',alignItems:'center',gap:8,minWidth:0,flex:1}}>
+        <span style={{fontSize:20,flexShrink:0}}>{lvl.icon}</span>
+        <div style={{minWidth:0}}>
+          <div style={{fontSize:12,fontWeight:800,color:DS.text.primary,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{lvl.name} · {xp} XP</div>
+          <div style={{fontSize:9,color:DS.text.muted}}>{next?`${next.min-xp} XP to ${next.name}`:'Max level 🏆'}</div>
         </div>
       </div>
-      <div style={{background:'#f0f0f0',borderRadius:6,height:8,overflow:'hidden'}}>
-        <div style={{height:'100%',borderRadius:6,background:`linear-gradient(90deg,${lvl.color},${next?.color||lvl.color})`,width:`${pct}%`,transition:'width 0.6s ease'}}/>
+      <div style={{flex:2,minWidth:60}}>
+        <div style={{background:DS.bg.elevated,borderRadius:4,height:6,overflow:'hidden'}}>
+          <div style={{height:'100%',borderRadius:4,background:`linear-gradient(90deg,${DS.accent.amber},${DS.accent.teal})`,width:`${pct}%`,transition:'width 0.6s ease'}}/>
+        </div>
+        <div style={{fontSize:9,color:DS.text.muted,marginTop:2,textAlign:'right'}}>{pct}%</div>
       </div>
-      <div style={{fontSize:10,color:'#aaa',marginTop:4,textAlign:'right'}}>{pct}% to {next?.name||'Max'}</div>
+      <div style={{display:'flex',alignItems:'center',gap:4,flexShrink:0}}>
+        <span style={{fontSize:16}}>🔥</span>
+        <div>
+          <div style={{fontSize:13,fontWeight:800,color:DS.text.primary,lineHeight:1}}>{streak.current}</div>
+          <div style={{fontSize:9,color:DS.text.muted}}>streak</div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -444,28 +519,28 @@ function Onboarding({onComplete}){
     else{lsSet('lumora_profile',{...profile,createdAt:new Date().toISOString()});onComplete(profile);}
   };
   return(
-    <div style={{fontFamily:"'Segoe UI',sans-serif",minHeight:'100vh',background:'linear-gradient(135deg,#1B2A4A 0%,#0D3D3D 100%)',display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
-      <div style={{width:'100%',maxWidth:460,background:'#fff',borderRadius:20,overflow:'hidden',boxShadow:'0 20px 60px rgba(0,0,0,0.3)'}}>
-        <div style={{height:4,background:'#f0f0f0'}}><div style={{height:'100%',background:'#D4A017',width:`${(step/5)*100}%`,transition:'width 0.4s ease'}}/></div>
+    <div style={{fontFamily:"'Segoe UI',sans-serif",minHeight:'100vh',background:DS.bg.base,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
+      <div style={{width:'100%',maxWidth:460,background:DS.bg.surface,borderRadius:DS.radius.xl,overflow:'hidden',boxShadow:DS.shadow,border:`1px solid ${DS.border}`}}>
+        <div style={{height:4,background:DS.bg.elevated}}><div style={{height:'100%',background:DS.accent.amber,width:`${(step/5)*100}%`,transition:'width 0.4s ease'}}/></div>
         <div style={{padding:'28px 28px 24px'}}>
-          <div style={{fontSize:10,fontWeight:800,color:'#D4A017',letterSpacing:2,textTransform:'uppercase',marginBottom:16}}>Step {step} of 5</div>
+          <div style={{fontSize:10,fontWeight:800,color:DS.accent.amber,letterSpacing:2,textTransform:'uppercase',marginBottom:16}}>Step {step} of 5</div>
           {step===1&&(
             <div style={{animation:'fadeInUp 0.3s ease'}}>
               <div style={{fontSize:36,marginBottom:8}}>👋</div>
-              <div style={{fontSize:22,fontWeight:900,color:'#1B2A4A',marginBottom:6}}>What's your name?</div>
-              <div style={{fontSize:13,color:'#888',marginBottom:20}}>Let's personalise your experience</div>
-              <input value={profile.name} onChange={e=>update('name',e.target.value)} placeholder="e.g. Alex" autoFocus style={{width:'100%',padding:'14px 16px',borderRadius:10,border:'1.5px solid #e0e0e0',fontSize:16,fontFamily:'inherit',outline:'none',boxSizing:'border-box',color:'#1B2A4A'}} onFocus={e=>e.target.style.borderColor='#D4A017'} onBlur={e=>e.target.style.borderColor='#e0e0e0'}/>
+              <div style={{fontSize:22,fontWeight:900,color:DS.text.primary,marginBottom:6}}>What's your name?</div>
+              <div style={{fontSize:13,color:DS.text.secondary,marginBottom:20}}>Let's personalise your experience</div>
+              <input value={profile.name} onChange={e=>update('name',e.target.value)} placeholder="e.g. Alex" autoFocus style={{width:'100%',padding:'14px 16px',borderRadius:DS.radius.md,border:`1.5px solid ${DS.border}`,fontSize:16,fontFamily:'inherit',outline:'none',boxSizing:'border-box',color:DS.text.primary,background:DS.bg.elevated}} onFocus={e=>e.target.style.borderColor=DS.accent.amber} onBlur={e=>e.target.style.borderColor=DS.border}/>
             </div>
           )}
           {step===2&&(
             <div style={{animation:'fadeInUp 0.3s ease'}}>
               <div style={{fontSize:36,marginBottom:8}}>📋</div>
-              <div style={{fontSize:22,fontWeight:900,color:'#1B2A4A',marginBottom:6}}>Which exam board?</div>
-              <div style={{fontSize:13,color:'#888',marginBottom:20}}>We'll highlight board-specific tips for you</div>
+              <div style={{fontSize:22,fontWeight:900,color:DS.text.primary,marginBottom:6}}>Which exam board?</div>
+              <div style={{fontSize:13,color:DS.text.secondary,marginBottom:20}}>We'll highlight board-specific tips for you</div>
               <div style={{display:'grid',gap:10}}>
                 {boards.map(b=>(
-                  <button key={b} onClick={()=>update('board',b)} style={{padding:'16px 20px',borderRadius:12,border:`2px solid ${profile.board===b?'#1B2A4A':'#e8e8e8'}`,background:profile.board===b?'#1B2A4A':'#fff',color:profile.board===b?'#fff':'#1a1a2e',fontWeight:700,fontSize:14,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-                    {b}{profile.board===b&&<span>✓</span>}
+                  <button key={b} onClick={()=>update('board',b)} style={{padding:'16px 20px',borderRadius:DS.radius.md,border:`1.5px solid ${profile.board===b?DS.accent.amber:DS.border}`,background:profile.board===b?DS.accent.amberDim:DS.bg.elevated,color:profile.board===b?DS.accent.amber:DS.text.primary,fontWeight:700,fontSize:14,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',justifyContent:'space-between',transition:DS.tr}}>
+                    {b}{profile.board===b&&<span style={{color:DS.accent.amber}}>✓</span>}
                   </button>
                 ))}
               </div>
@@ -474,11 +549,11 @@ function Onboarding({onComplete}){
           {step===3&&(
             <div style={{animation:'fadeInUp 0.3s ease'}}>
               <div style={{fontSize:36,marginBottom:8}}>🎯</div>
-              <div style={{fontSize:22,fontWeight:900,color:'#1B2A4A',marginBottom:6}}>Target grade?</div>
-              <div style={{fontSize:13,color:'#888',marginBottom:20}}>Lumora will tune difficulty to your goal</div>
+              <div style={{fontSize:22,fontWeight:900,color:DS.text.primary,marginBottom:6}}>Target grade?</div>
+              <div style={{fontSize:13,color:DS.text.secondary,marginBottom:20}}>Lumora will tune difficulty to your goal</div>
               <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:10}}>
                 {grades.map(g=>(
-                  <button key={g} onClick={()=>update('grade',g)} style={{padding:'18px 0',borderRadius:12,border:`2px solid ${profile.grade===g?'#D4A017':'#e8e8e8'}`,background:profile.grade===g?'#D4A017':'#fff',color:profile.grade===g?'#1B2A4A':'#555',fontWeight:900,fontSize:22,cursor:'pointer'}}>
+                  <button key={g} onClick={()=>update('grade',g)} style={{padding:'18px 0',borderRadius:DS.radius.md,border:`1.5px solid ${profile.grade===g?DS.accent.amber:DS.border}`,background:profile.grade===g?DS.accent.amberDim:DS.bg.elevated,color:profile.grade===g?DS.accent.amber:DS.text.secondary,fontWeight:900,fontSize:22,cursor:'pointer',transition:DS.tr}}>
                     {g}
                   </button>
                 ))}
@@ -488,35 +563,35 @@ function Onboarding({onComplete}){
           {step===4&&(
             <div style={{animation:'fadeInUp 0.3s ease'}}>
               <div style={{fontSize:36,marginBottom:8}}>📅</div>
-              <div style={{fontSize:22,fontWeight:900,color:'#1B2A4A',marginBottom:6}}>When's your exam?</div>
-              <div style={{fontSize:13,color:'#888',marginBottom:20}}>We'll create a revision countdown for you</div>
-              <input type="date" value={profile.examDate} onChange={e=>update('examDate',e.target.value)} style={{width:'100%',padding:'14px 16px',borderRadius:10,border:'1.5px solid #e0e0e0',fontSize:16,fontFamily:'inherit',outline:'none',boxSizing:'border-box',color:'#1B2A4A'}}/>
-              {weeks!==null&&<div style={{marginTop:12,background:'#f0f8ff',borderRadius:10,padding:'12px 16px',fontSize:13,color:'#1B2A4A',fontWeight:700}}>📆 {weeks} week{weeks!==1?'s':''} to go — let's make every session count</div>}
+              <div style={{fontSize:22,fontWeight:900,color:DS.text.primary,marginBottom:6}}>When's your exam?</div>
+              <div style={{fontSize:13,color:DS.text.secondary,marginBottom:20}}>We'll create a revision countdown for you</div>
+              <input type="date" value={profile.examDate} onChange={e=>update('examDate',e.target.value)} style={{width:'100%',padding:'14px 16px',borderRadius:DS.radius.md,border:`1.5px solid ${DS.border}`,fontSize:16,fontFamily:'inherit',outline:'none',boxSizing:'border-box',color:DS.text.primary,background:DS.bg.elevated,colorScheme:'dark'}} onFocus={e=>e.target.style.borderColor=DS.accent.amber} onBlur={e=>e.target.style.borderColor=DS.border}/>
+              {weeks!==null&&<div style={{marginTop:12,background:DS.accent.amberDim,borderRadius:DS.radius.md,padding:'12px 16px',fontSize:13,color:DS.accent.amber,fontWeight:700,border:`1px solid ${DS.accent.amber}33`}}>📆 {weeks} week{weeks!==1?'s':''} to go — let's make every session count</div>}
             </div>
           )}
           {step===5&&(
             <div style={{animation:'fadeInUp 0.3s ease'}}>
               <div style={{fontSize:36,marginBottom:8}}>📊</div>
-              <div style={{fontSize:22,fontWeight:900,color:'#1B2A4A',marginBottom:6}}>Your biggest weaknesses?</div>
-              <div style={{fontSize:13,color:'#888',marginBottom:16}}>Pick up to 3 topics — we'll prioritise these first</div>
+              <div style={{fontSize:22,fontWeight:900,color:DS.text.primary,marginBottom:6}}>Your biggest weaknesses?</div>
+              <div style={{fontSize:13,color:DS.text.secondary,marginBottom:16}}>Pick up to 3 topics — we'll prioritise these first</div>
               <div style={{maxHeight:280,overflowY:'auto',display:'grid',gap:6}}>
                 {allTopics.map(t=>{
                   const sel=profile.weaknesses.includes(t.id);
                   const dis=!sel&&profile.weaknesses.length>=3;
                   return(
-                    <button key={t.id} onClick={()=>!dis&&toggleWeak(t.id)} style={{padding:'10px 14px',borderRadius:10,border:`1.5px solid ${sel?'#1B2A4A':'#e0e0e0'}`,background:sel?'#1B2A4A':'#fff',color:sel?'#fff':'#555',fontWeight:sel?700:400,fontSize:12,cursor:dis?'not-allowed':'pointer',textAlign:'left',opacity:dis?0.4:1,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                      <span>{t.title}</span>{sel&&<span>✓</span>}
+                    <button key={t.id} onClick={()=>!dis&&toggleWeak(t.id)} style={{padding:'10px 14px',borderRadius:DS.radius.sm,border:`1.5px solid ${sel?DS.accent.amber:DS.border}`,background:sel?DS.accent.amberDim:DS.bg.elevated,color:sel?DS.accent.amber:DS.text.secondary,fontWeight:sel?700:400,fontSize:12,cursor:dis?'not-allowed':'pointer',textAlign:'left',opacity:dis?0.4:1,display:'flex',justifyContent:'space-between',alignItems:'center',transition:DS.tr}}>
+                      <span>{t.title}</span>{sel&&<span style={{color:DS.accent.amber}}>✓</span>}
                     </button>
                   );
                 })}
               </div>
-              <div style={{fontSize:11,color:'#888',marginTop:8}}>{profile.weaknesses.length}/3 selected</div>
+              <div style={{fontSize:11,color:DS.text.muted,marginTop:8}}>{profile.weaknesses.length}/3 selected</div>
             </div>
           )}
-          <button onClick={handleNext} disabled={!canNext} style={{marginTop:24,width:'100%',padding:'15px 0',borderRadius:12,border:'none',background:canNext?'linear-gradient(135deg,#1B2A4A,#0D6E72)':'#e0e0e0',color:canNext?'#fff':'#aaa',fontWeight:900,fontSize:15,cursor:canNext?'pointer':'not-allowed',transition:'all 0.2s'}}>
+          <button onClick={handleNext} disabled={!canNext} style={{marginTop:24,width:'100%',padding:'15px 0',borderRadius:DS.radius.md,border:'none',background:canNext?DS.accent.amber:DS.bg.overlay,color:canNext?DS.bg.base:DS.text.muted,fontWeight:900,fontSize:15,cursor:canNext?'pointer':'not-allowed',transition:DS.tr}}>
             {step<5?'Continue →':`Let's go, ${profile.name}! 🚀`}
           </button>
-          {step>1&&<button onClick={()=>setStep(s=>s-1)} style={{marginTop:8,width:'100%',padding:'10px 0',borderRadius:12,border:'none',background:'transparent',color:'#aaa',fontSize:13,cursor:'pointer'}}>← Back</button>}
+          {step>1&&<button onClick={()=>setStep(s=>s-1)} style={{marginTop:8,width:'100%',padding:'10px 0',borderRadius:DS.radius.md,border:'none',background:'transparent',color:DS.text.muted,fontSize:13,cursor:'pointer'}}>← Back</button>}
         </div>
       </div>
     </div>
@@ -531,81 +606,75 @@ function LandingPage({onStart}){
   const lvl=getLevel(xp);
   const streak=getStreakData();
   return(
-    <div style={{fontFamily:"'Segoe UI',sans-serif",background:'#0D1B2A',minHeight:'100vh'}}>
-      {/* Nav */}
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'16px 24px',borderBottom:'1px solid rgba(255,255,255,0.08)'}}>
-        <div style={{fontSize:18,fontWeight:900,color:'#D4A017',letterSpacing:1}}>📐 Lumora</div>
-        <button onClick={onStart} style={{padding:'10px 24px',borderRadius:24,border:'none',background:'#D4A017',color:'#1B2A4A',fontWeight:900,fontSize:13,cursor:'pointer'}}>
+    <div style={{fontFamily:"'Segoe UI',sans-serif",background:DS.bg.base,minHeight:'100vh'}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'16px 24px',borderBottom:`1px solid ${DS.border}`,background:DS.bg.surface}}>
+        <div style={{fontSize:18,fontWeight:900,color:DS.accent.amber,letterSpacing:1}}>📐 Lumora</div>
+        <button onClick={onStart} style={{padding:'10px 24px',borderRadius:24,border:'none',background:DS.accent.amber,color:DS.bg.base,fontWeight:900,fontSize:13,cursor:'pointer'}}>
           {profile?'Continue Learning →':'Start Free'}
         </button>
       </div>
-      {/* Hero */}
       <div style={{textAlign:'center',padding:'60px 24px 40px',maxWidth:640,margin:'0 auto'}}>
         {profile&&(
-          <div style={{background:'rgba(212,160,23,0.15)',border:'1.5px solid rgba(212,160,23,0.3)',borderRadius:16,padding:'14px 20px',marginBottom:28,display:'inline-block'}}>
-            <div style={{fontSize:14,color:'#D4A017',fontWeight:700}}>
-              Welcome back, {profile.name}! {lvl.icon} {xp} XP · 🔥 {streak.current} day streak{weeks!==null?` · 📅 ${weeks} weeks to exam`:''}
+          <div style={{background:DS.accent.amberDim,border:`1.5px solid ${DS.accent.amber}44`,borderRadius:DS.radius.lg,padding:'14px 20px',marginBottom:28,display:'inline-block'}}>
+            <div style={{fontSize:14,color:DS.accent.amber,fontWeight:700}}>
+              Welcome back, {profile.name}! {lvl.icon} {xp} XP · 🔥 {streak.current} day streak{weeks!==null?` · 📅 ${weeks}w to exam`:''}
             </div>
           </div>
         )}
         <div style={{fontSize:48,marginBottom:16}}>🎓</div>
-        <h1 style={{fontSize:40,fontWeight:900,color:'#fff',lineHeight:1.1,margin:'0 0 16px'}}>Meet <span style={{color:'#D4A017'}}>Lumora</span></h1>
-        <p style={{fontSize:17,color:'rgba(255,255,255,0.7)',lineHeight:1.6,margin:'0 0 32px'}}>The AI tutor that thinks like your best teacher</p>
-        <button onClick={onStart} style={{padding:'16px 40px',borderRadius:50,border:'none',background:'linear-gradient(135deg,#D4A017,#E8B84B)',color:'#1B2A4A',fontWeight:900,fontSize:16,cursor:'pointer',boxShadow:'0 8px 32px rgba(212,160,23,0.35)'}}>
+        <h1 style={{fontSize:40,fontWeight:900,color:DS.text.primary,lineHeight:1.1,margin:'0 0 16px'}}>Meet <span style={{color:DS.accent.amber}}>Lumora</span></h1>
+        <p style={{fontSize:17,color:DS.text.secondary,lineHeight:1.6,margin:'0 0 32px'}}>The AI tutor that thinks like your best teacher</p>
+        <button onClick={onStart} style={{padding:'16px 40px',borderRadius:50,border:'none',background:`linear-gradient(135deg,${DS.accent.amber},#E8B84B)`,color:DS.bg.base,fontWeight:900,fontSize:16,cursor:'pointer',boxShadow:`0 8px 32px ${DS.accent.amber}44`}}>
           {profile?'Continue Learning →':'Start Free — No credit card needed'}
         </button>
       </div>
-      {/* Problem stats */}
-      <div style={{background:'rgba(255,255,255,0.04)',padding:'40px 24px'}}>
+      <div style={{background:DS.bg.surface,padding:'40px 24px'}}>
         <div style={{maxWidth:680,margin:'0 auto'}}>
-          <div style={{textAlign:'center',fontSize:12,fontWeight:800,color:'#D4A017',letterSpacing:2,textTransform:'uppercase',marginBottom:24}}>The Problem With Traditional Revision</div>
+          <div style={{textAlign:'center',fontSize:12,fontWeight:800,color:DS.accent.amber,letterSpacing:2,textTransform:'uppercase',marginBottom:24}}>The Problem With Traditional Revision</div>
           <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:14,textAlign:'center'}}>
             {[{stat:'1 in 3',desc:'students underperform in GCSE Maths despite revising'},{stat:'£60/hr',desc:'average private tutor — unaffordable for most families'},{stat:'957K',desc:'young people NEET — often held back by basic Maths'}].map(s=>(
-              <div key={s.stat} style={{background:'rgba(255,255,255,0.05)',borderRadius:14,padding:'20px 12px'}}>
-                <div style={{fontSize:28,fontWeight:900,color:'#D4A017',marginBottom:8}}>{s.stat}</div>
-                <div style={{fontSize:11,color:'rgba(255,255,255,0.6)',lineHeight:1.5}}>{s.desc}</div>
+              <div key={s.stat} style={{background:DS.bg.elevated,borderRadius:DS.radius.lg,padding:'20px 12px',border:`1px solid ${DS.border}`}}>
+                <div style={{fontSize:28,fontWeight:900,color:DS.accent.amber,marginBottom:8}}>{s.stat}</div>
+                <div style={{fontSize:11,color:DS.text.secondary,lineHeight:1.5}}>{s.desc}</div>
               </div>
             ))}
           </div>
         </div>
       </div>
-      {/* How it works */}
       <div style={{padding:'48px 24px',maxWidth:640,margin:'0 auto'}}>
-        <div style={{textAlign:'center',fontSize:12,fontWeight:800,color:'#D4A017',letterSpacing:2,textTransform:'uppercase',marginBottom:8}}>How It Works</div>
-        <div style={{textAlign:'center',fontSize:22,fontWeight:900,color:'#fff',marginBottom:28}}>Four steps from confused to confident</div>
+        <div style={{textAlign:'center',fontSize:12,fontWeight:800,color:DS.accent.amber,letterSpacing:2,textTransform:'uppercase',marginBottom:8}}>How It Works</div>
+        <div style={{textAlign:'center',fontSize:22,fontWeight:900,color:DS.text.primary,marginBottom:28}}>Four steps from confused to confident</div>
         <div style={{display:'grid',gap:14}}>
           {[{n:1,icon:'📝',t:'Practice',d:'Work through exam-style questions at 3 difficulty levels across all GCSE Maths topics'},{n:2,icon:'🤖',t:'AI Marks Your Working',d:'Claude analyses your method step-by-step, just like a real examiner would'},{n:3,icon:'📊',t:'Progress Tracked',d:'Spaced repetition schedules your revision. Heatmaps show exactly where to focus next'},{n:4,icon:'🏆',t:'Level Up',d:'Earn XP, build streaks, and unlock levels as you improve. Revision that actually feels rewarding'}].map(s=>(
-            <div key={s.n} style={{display:'flex',gap:16,alignItems:'flex-start',background:'rgba(255,255,255,0.04)',borderRadius:14,padding:'18px 20px'}}>
-              <div style={{width:40,height:40,borderRadius:10,background:'#D4A017',display:'flex',alignItems:'center',justifyContent:'center',fontSize:20,flexShrink:0}}>{s.icon}</div>
-              <div><div style={{fontSize:15,fontWeight:800,color:'#fff',marginBottom:4}}>{s.t}</div><div style={{fontSize:13,color:'rgba(255,255,255,0.6)',lineHeight:1.5}}>{s.d}</div></div>
+            <div key={s.n} style={{display:'flex',gap:16,alignItems:'flex-start',background:DS.bg.surface,borderRadius:DS.radius.lg,padding:'18px 20px',border:`1px solid ${DS.border}`}}>
+              <div style={{width:40,height:40,borderRadius:DS.radius.sm,background:DS.accent.amberDim,border:`1px solid ${DS.accent.amber}44`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:20,flexShrink:0}}>{s.icon}</div>
+              <div><div style={{fontSize:15,fontWeight:800,color:DS.text.primary,marginBottom:4}}>{s.t}</div><div style={{fontSize:13,color:DS.text.secondary,lineHeight:1.5}}>{s.d}</div></div>
             </div>
           ))}
         </div>
       </div>
-      {/* Pricing */}
-      <div style={{background:'rgba(255,255,255,0.04)',padding:'48px 24px'}}>
+      <div style={{background:DS.bg.surface,padding:'48px 24px'}}>
         <div style={{maxWidth:680,margin:'0 auto'}}>
-          <div style={{textAlign:'center',fontSize:12,fontWeight:800,color:'#D4A017',letterSpacing:2,textTransform:'uppercase',marginBottom:8}}>Pricing</div>
-          <div style={{textAlign:'center',fontSize:22,fontWeight:900,color:'#fff',marginBottom:28}}>Simple, fair pricing</div>
+          <div style={{textAlign:'center',fontSize:12,fontWeight:800,color:DS.accent.amber,letterSpacing:2,textTransform:'uppercase',marginBottom:8}}>Pricing</div>
+          <div style={{textAlign:'center',fontSize:22,fontWeight:900,color:DS.text.primary,marginBottom:28}}>Simple, fair pricing</div>
           <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:14}}>
             {[{name:'Free',price:'£0',period:' forever',features:['All topics & questions','AI marking (5/day)','Spaced repetition','Streak tracking'],cta:'Start Free',hi:false},{name:'Student Plus',price:'£7.99',period:'/mo',features:['Unlimited AI marking','Socratic tutoring','Progress reports','XP & level system'],cta:'Start 7-day trial',hi:true},{name:'Tutor Connect',price:'£12.99',period:'/mo',features:['Everything in Plus','Parent dashboard','Tutor assignment','Weekly reports'],cta:'Get started',hi:false}].map(p=>(
-              <div key={p.name} style={{background:p.hi?'linear-gradient(135deg,#D4A017,#E8B84B)':'rgba(255,255,255,0.06)',borderRadius:16,padding:'22px 16px',border:p.hi?'none':'1px solid rgba(255,255,255,0.1)',position:'relative'}}>
-                {p.hi&&<div style={{position:'absolute',top:-10,left:'50%',transform:'translateX(-50%)',background:'#1B2A4A',color:'#D4A017',fontSize:8,fontWeight:800,padding:'3px 10px',borderRadius:6,letterSpacing:1,whiteSpace:'nowrap'}}>MOST POPULAR</div>}
-                <div style={{fontSize:14,fontWeight:800,color:p.hi?'#1B2A4A':'#fff',marginBottom:4}}>{p.name}</div>
-                <div style={{fontSize:28,fontWeight:900,color:p.hi?'#1B2A4A':'#D4A017',marginBottom:2}}>{p.price}<span style={{fontSize:11,fontWeight:500}}>{p.period}</span></div>
-                <div style={{margin:'14px 0',borderTop:`1px solid ${p.hi?'rgba(0,0,0,0.1)':'rgba(255,255,255,0.1)'}`,paddingTop:14}}>
-                  {p.features.map(f=><div key={f} style={{fontSize:10,color:p.hi?'#1B2A4A':'rgba(255,255,255,0.7)',marginBottom:5,display:'flex',gap:5}}><span style={{fontWeight:800}}>✓</span>{f}</div>)}
+              <div key={p.name} style={{background:p.hi?DS.accent.amber:DS.bg.elevated,borderRadius:DS.radius.lg,padding:'22px 16px',border:p.hi?'none':`1px solid ${DS.border}`,position:'relative'}}>
+                {p.hi&&<div style={{position:'absolute',top:-10,left:'50%',transform:'translateX(-50%)',background:DS.bg.elevated,color:DS.accent.amber,fontSize:8,fontWeight:800,padding:'3px 10px',borderRadius:6,letterSpacing:1,whiteSpace:'nowrap',border:`1px solid ${DS.accent.amber}44`}}>MOST POPULAR</div>}
+                <div style={{fontSize:14,fontWeight:800,color:p.hi?DS.bg.base:DS.text.primary,marginBottom:4}}>{p.name}</div>
+                <div style={{fontSize:28,fontWeight:900,color:p.hi?DS.bg.base:DS.accent.amber,marginBottom:2}}>{p.price}<span style={{fontSize:11,fontWeight:500}}>{p.period}</span></div>
+                <div style={{margin:'14px 0',borderTop:`1px solid ${p.hi?'rgba(0,0,0,0.15)':DS.border}`,paddingTop:14}}>
+                  {p.features.map(f=><div key={f} style={{fontSize:10,color:p.hi?DS.bg.base:DS.text.secondary,marginBottom:5,display:'flex',gap:5}}><span style={{fontWeight:800}}>✓</span>{f}</div>)}
                 </div>
-                <button onClick={onStart} style={{width:'100%',padding:'9px 0',borderRadius:10,border:'none',background:p.hi?'#1B2A4A':'rgba(255,255,255,0.1)',color:p.hi?'#fff':'rgba(255,255,255,0.9)',fontWeight:800,fontSize:11,cursor:'pointer'}}>{p.cta}</button>
+                <button onClick={onStart} style={{width:'100%',padding:'9px 0',borderRadius:DS.radius.sm,border:'none',background:p.hi?DS.bg.base:DS.bg.overlay,color:p.hi?DS.accent.amber:DS.text.secondary,fontWeight:800,fontSize:11,cursor:'pointer'}}>{p.cta}</button>
               </div>
             ))}
           </div>
         </div>
       </div>
-      {/* Footer */}
-      <div style={{textAlign:'center',padding:'28px 24px',borderTop:'1px solid rgba(255,255,255,0.08)'}}>
-        <div style={{fontSize:16,fontWeight:900,color:'#D4A017',marginBottom:4}}>📐 Lumora</div>
-        <div style={{fontSize:11,color:'rgba(255,255,255,0.3)'}}>Built to close the attainment gap · GCSE Maths · AQA · Edexcel · OCR</div>
+      <div style={{textAlign:'center',padding:'28px 24px',borderTop:`1px solid ${DS.border}`}}>
+        <div style={{fontSize:16,fontWeight:900,color:DS.accent.amber,marginBottom:4}}>📐 Lumora</div>
+        <div style={{fontSize:11,color:DS.text.muted}}>Built to close the attainment gap · GCSE Maths · AQA · Edexcel · OCR</div>
       </div>
     </div>
   );
@@ -617,6 +686,7 @@ export default function App(){
   const [page,setPage]=useState("platform");
   const [xpV,setXpV]=useState(0);
   const [celebration,setCelebration]=useState(null);
+  const [mode,setMode]=useState('sprint');
 
   const awardXP=useCallback((amount)=>{
     const result=addXP(amount);
@@ -637,25 +707,34 @@ export default function App(){
   if(screen==='landing')return<><AnimStyles/><LandingPage onStart={()=>setScreen('app')}/></>;
 
   const xp=getXP();
+  const streak=getStreakData();
   return(
-    <div style={{fontFamily:"'Segoe UI',sans-serif",background:"#f8f9fc",minHeight:"100vh"}}>
+    <div style={{fontFamily:"'Segoe UI',sans-serif",background:DS.bg.base,minHeight:"100vh"}}>
       <AnimStyles/>
       {celebration&&<Celebration data={celebration} onDone={()=>setCelebration(null)}/>}
-      <div style={{background:"#1B2A4A",padding:"0 16px",display:"flex",alignItems:"center",position:"sticky",top:0,zIndex:100,boxShadow:"0 2px 12px rgba(0,0,0,0.2)",gap:4}}>
-        <button onClick={()=>setScreen('landing')} style={{fontSize:13,fontWeight:900,color:"#D4A017",letterSpacing:1,marginRight:16,padding:"14px 0",whiteSpace:"nowrap",background:'none',border:'none',cursor:'pointer'}}>📐 Lumora</button>
+      <div style={{background:DS.bg.surface,padding:"0 16px",display:"flex",alignItems:"center",position:"sticky",top:0,zIndex:100,borderBottom:`1px solid ${DS.border}`,gap:4,boxShadow:DS.shadow}}>
+        <button onClick={()=>setScreen('landing')} style={{fontSize:14,fontWeight:900,color:DS.accent.amber,letterSpacing:0.5,marginRight:12,padding:"14px 0",whiteSpace:"nowrap",background:'none',border:'none',cursor:'pointer'}}>📐 Lumora</button>
         {[{id:"platform",label:"📚 Revision"},{id:"generator",label:"⚡ Generator"},{id:"mock",label:"📝 Mock"}].map(tab=>(
-          <button key={tab.id} onClick={()=>setPage(tab.id)} style={{padding:"14px 14px",border:"none",background:"none",cursor:"pointer",borderBottom:page===tab.id?"3px solid #D4A017":"3px solid transparent",color:page===tab.id?"#fff":"rgba(255,255,255,0.5)",fontWeight:page===tab.id?800:500,fontSize:12,transition:"all 0.2s",whiteSpace:"nowrap"}}>
+          <button key={tab.id} onClick={()=>setPage(tab.id)} style={{padding:"6px 12px",margin:"6px 0",borderRadius:DS.radius.sm,border:"none",background:page===tab.id?DS.accent.amberDim:"transparent",cursor:"pointer",color:page===tab.id?DS.accent.amber:DS.text.muted,fontWeight:page===tab.id?800:500,fontSize:12,transition:DS.tr,whiteSpace:"nowrap"}}>
             {tab.label}
           </button>
         ))}
         <div style={{marginLeft:'auto',display:'flex',alignItems:'center',gap:10,padding:'0 4px'}}>
-          <div style={{fontSize:11,color:'#D4A017',fontWeight:800}}>{getLevel(xp).icon} {xp} XP</div>
-          <div style={{fontSize:11,color:'rgba(255,255,255,0.65)',fontWeight:700}}>🔥 {getStreakData().current}</div>
+          {mode==='sprint'&&(
+            <div style={{display:'flex',alignItems:'center',gap:6}}>
+              <div style={{width:80,height:5,background:DS.bg.elevated,borderRadius:3,overflow:'hidden'}}>
+                <div style={{height:'100%',background:DS.accent.amber,width:`${Math.min(100,Math.round(((xp-(getLevel(xp).min))/((LEVELS.find(l=>l.min>xp)?.min||xp+1)-(getLevel(xp).min)))*100))}%`,transition:'width 0.6s ease',borderRadius:3}}/>
+              </div>
+              <div style={{fontSize:11,color:DS.accent.amber,fontWeight:800}}>{xp} XP</div>
+            </div>
+          )}
+          <div style={{fontSize:12,color:DS.text.secondary,fontWeight:700}}>🔥 {streak.current}</div>
+          <StudyModeToggle mode={mode} setMode={setMode}/>
         </div>
       </div>
-      {page==="platform"&&<Platform onXP={awardXP} xpV={xpV}/>}
+      {page==="platform"&&<Platform onXP={awardXP} xpV={xpV} mode={mode}/>}
       {page==="generator"&&<Generator/>}
-      {page==="mock"&&<MockExam onXP={awardXP}/>}
+      {page==="mock"&&<MockExam onXP={awardXP} mode={mode}/>}
     </div>
   );
 }
@@ -685,71 +764,71 @@ function QCard({q,idx,topicId,onAnswered,onXP}){
     setAiLoading(false);
   };
 
-  const border=answered==='right'?'#27AE60':answered==='wrong'?'#E74C3C':'#e8e8e8';
-  const bg=answered==='right'?'#f0fff4':answered==='wrong'?'#fff5f5':'#fff';
+  const borderColor=answered==='right'?DS.accent.teal:answered==='wrong'?DS.accent.red:DS.border;
 
   return(
-    <div style={{border:`1.5px solid ${border}`,borderRadius:12,marginBottom:12,overflow:'hidden',background:bg,transition:'all 0.2s'}}>
-      <div style={{padding:'14px 18px'}}>
+    <div style={{border:`1.5px solid ${borderColor}`,borderRadius:DS.radius.md,marginBottom:12,overflow:'hidden',background:DS.bg.surface,transition:DS.tr,position:'relative'}}>
+      <div style={{position:'absolute',left:0,top:0,bottom:0,width:3,background:d.c,borderRadius:'3px 0 0 3px'}}/>
+      <div style={{padding:'14px 18px 14px 22px'}}>
         <div style={{display:'flex',gap:8,marginBottom:8,flexWrap:'wrap',alignItems:'center'}}>
-          <span style={{width:24,height:24,borderRadius:'50%',background:'#1B2A4A',color:'#D4A017',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:900,fontSize:11,flexShrink:0}}>{idx+1}</span>
+          <span style={{width:24,height:24,borderRadius:'50%',background:DS.bg.elevated,color:DS.accent.amber,display:'flex',alignItems:'center',justifyContent:'center',fontWeight:900,fontSize:11,flexShrink:0}}>{idx+1}</span>
           <span style={{background:d.bg,color:d.c,fontSize:11,fontWeight:800,padding:'2px 8px',borderRadius:6}}>{q.diff}</span>
-          <span style={{fontSize:11,color:'#999',fontWeight:600}}>[{q.marks} mark{q.marks>1?'s':''}]</span>
-          {answered&&<span style={{fontSize:11,fontWeight:800,color:answered==='right'?'#27AE60':'#E74C3C'}}>{answered==='right'?'✓ Got it':'✗ Wrong'}</span>}
+          <span style={{fontSize:11,color:DS.text.muted,fontWeight:600}}>[{q.marks} mark{q.marks>1?'s':''}]</span>
+          {answered&&<span style={{fontSize:11,fontWeight:800,color:answered==='right'?DS.accent.teal:DS.accent.red}}>{answered==='right'?'✓ Got it':'✗ Wrong'}</span>}
         </div>
-        <p style={{margin:'0 0 12px',fontSize:14,lineHeight:1.65,color:'#1a1a2e',whiteSpace:'pre-line'}}>{q.q}</p>
+        <p style={{margin:'0 0 12px',fontSize:15,lineHeight:1.65,color:DS.text.primary,whiteSpace:'pre-line'}}>{q.q}</p>
         <div>
-          <div style={{fontSize:11,fontWeight:700,color:'#888',marginBottom:4}}>📝 Your working:</div>
-          <textarea value={working} onChange={e=>setWorking(e.target.value)} placeholder="Write your working here..." style={{width:'100%',minHeight:68,padding:10,borderRadius:8,border:'1.5px solid #e0e0e0',fontSize:13,fontFamily:'inherit',resize:'vertical',boxSizing:'border-box',outline:'none'}}/>
+          <div style={{fontSize:11,fontWeight:700,color:DS.text.secondary,marginBottom:4}}>Your working:</div>
+          <textarea value={working} onChange={e=>setWorking(e.target.value)} placeholder="Write your working here..." style={{width:'100%',minHeight:68,padding:10,borderRadius:DS.radius.sm,border:`1.5px solid ${DS.border}`,fontSize:13,fontFamily:'inherit',resize:'vertical',boxSizing:'border-box',outline:'none',background:DS.bg.elevated,color:DS.text.primary}} onFocus={e=>e.target.style.borderColor=DS.accent.amber} onBlur={e=>e.target.style.borderColor=DS.border}/>
         </div>
       </div>
 
       {open&&(
-        <div style={{borderTop:'1.5px solid #e8f5e9',background:'#f8fffe',padding:'14px 18px'}}>
-          <div style={{fontSize:11,fontWeight:800,color:'#27AE60',textTransform:'uppercase',letterSpacing:1,marginBottom:8}}>✓ Mark Scheme</div>
-          {q.ms.map((m,i)=><div key={i} style={{fontSize:13,color:'#2d3436',padding:'3px 0',display:'flex',gap:8}}><span style={{color:'#27AE60',fontWeight:700}}>›</span>{m}</div>)}
-          {q.insight&&<div style={{background:'#E8F4F8',borderLeft:'3px solid #0D6E72',borderRadius:'0 8px 8px 0',padding:'10px 14px',marginTop:10}}>
-            <div style={{fontSize:11,fontWeight:800,color:'#0D6E72'}}>💡 Examiner Insight</div>
-            <p style={{margin:'4px 0 0',fontSize:13,color:'#2d3436',lineHeight:1.5}}>{q.insight}</p>
+        <div style={{borderTop:`1px solid ${DS.border}`,background:DS.bg.elevated,padding:'14px 18px 14px 22px'}}>
+          <div style={{fontSize:10,fontWeight:800,color:DS.accent.teal,textTransform:'uppercase',letterSpacing:1.5,marginBottom:8,borderLeft:`3px solid ${DS.accent.teal}`,paddingLeft:8}}>Mark Scheme</div>
+          {q.ms.map((m,i)=><div key={i} style={{fontSize:13,color:DS.text.primary,padding:'3px 0',display:'flex',gap:8}}><span style={{color:DS.accent.teal,fontWeight:700}}>›</span>{m}</div>)}
+          {q.insight&&<div style={{background:DS.bg.surface,borderLeft:`3px solid ${DS.accent.teal}`,borderRadius:`0 ${DS.radius.sm}px ${DS.radius.sm}px 0`,padding:'10px 14px',marginTop:10}}>
+            <div style={{fontSize:10,fontWeight:800,color:DS.accent.teal}}>💡 Examiner Insight</div>
+            <p style={{margin:'4px 0 0',fontSize:13,color:DS.text.secondary,lineHeight:1.5}}>{q.insight}</p>
           </div>}
 
           {!answered&&(
             <div style={{marginTop:14}}>
-              <div style={{fontSize:11,fontWeight:700,color:'#555',marginBottom:8}}>After checking the mark scheme, how did you do?</div>
+              <div style={{fontSize:11,fontWeight:700,color:DS.text.secondary,marginBottom:8}}>After checking the mark scheme, how did you do?</div>
               <div style={{display:'flex',gap:8}}>
-                <button onClick={()=>handleAnswer(true)} style={{flex:1,padding:9,borderRadius:8,border:'none',background:'#27AE60',color:'#fff',fontWeight:800,fontSize:12,cursor:'pointer'}}>✓ Got It</button>
-                <button onClick={()=>handleAnswer(false)} style={{flex:1,padding:9,borderRadius:8,border:'none',background:'#E74C3C',color:'#fff',fontWeight:800,fontSize:12,cursor:'pointer'}}>✗ Wrong</button>
+                <button onClick={()=>handleAnswer(true)} style={{flex:1,padding:9,borderRadius:DS.radius.sm,border:'none',background:DS.accent.teal,color:DS.bg.base,fontWeight:800,fontSize:12,cursor:'pointer'}}>✓ Got It</button>
+                <button onClick={()=>handleAnswer(false)} style={{flex:1,padding:9,borderRadius:DS.radius.sm,border:'none',background:DS.accent.red,color:'#fff',fontWeight:800,fontSize:12,cursor:'pointer'}}>✗ Wrong</button>
               </div>
             </div>
           )}
 
           {working.trim()&&(
             <div style={{marginTop:12}}>
-              <button onClick={handleAI} disabled={aiLoading} style={{width:'100%',padding:9,borderRadius:8,border:'none',background:aiLoading?'#ccc':'linear-gradient(135deg,#1B2A4A,#0D6E72)',color:'#fff',fontWeight:800,fontSize:12,cursor:aiLoading?'not-allowed':'pointer'}}>
+              <button onClick={handleAI} disabled={aiLoading} style={{width:'100%',padding:9,borderRadius:DS.radius.sm,border:`1.5px solid ${DS.borderHi}`,background:aiLoading?DS.bg.overlay:DS.bg.surface,color:aiLoading?DS.text.muted:DS.accent.amber,fontWeight:800,fontSize:12,cursor:aiLoading?'not-allowed':'pointer',transition:DS.tr}}>
                 {aiLoading?'🤖 Marking your working...':'🤖 Get AI Feedback on My Working'}
               </button>
               {aiResult&&!aiResult.error&&(
-                <div style={{marginTop:10,background:'#f0f8ff',border:'1.5px solid #3498DB',borderRadius:10,padding:14}}>
-                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
-                    <div style={{fontSize:13,fontWeight:800,color:'#1B2A4A'}}>🤖 AI Feedback</div>
-                    <div style={{fontSize:22,fontWeight:900,color:aiResult.marksEarned===aiResult.maxMarks?'#27AE60':aiResult.marksEarned>0?'#E8B84B':'#E74C3C'}}>
-                      {aiResult.marksEarned}/{q.marks}
+                <div style={{marginTop:10,background:DS.bg.surface,border:`1.5px solid ${DS.borderHi}`,borderRadius:DS.radius.md,padding:14}}>
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+                    <div style={{fontSize:12,fontWeight:800,color:DS.text.primary}}>AI Feedback</div>
+                    <div style={{width:44,height:44,borderRadius:'50%',background:aiResult.marksEarned===q.marks?DS.accent.tealDim:aiResult.marksEarned>0?DS.accent.amberDim:DS.accent.redDim,border:`2px solid ${aiResult.marksEarned===q.marks?DS.accent.teal:aiResult.marksEarned>0?DS.accent.amber:DS.accent.red}`,display:'flex',alignItems:'center',justifyContent:'center'}}>
+                      <span style={{fontSize:12,fontWeight:900,color:aiResult.marksEarned===q.marks?DS.accent.teal:aiResult.marksEarned>0?DS.accent.amber:DS.accent.red}}>{aiResult.marksEarned}/{q.marks}</span>
                     </div>
                   </div>
-                  {aiResult.feedback&&<p style={{margin:'0 0 6px',fontSize:13,color:'#2d3436',lineHeight:1.5}}>✓ {aiResult.feedback}</p>}
-                  {aiResult.improvements&&<p style={{margin:'0 0 8px',fontSize:13,color:'#2d3436',lineHeight:1.5}}>→ {aiResult.improvements}</p>}
-                  {aiResult.breakdown?.map((m,i)=><div key={i} style={{fontSize:12,color:'#555',padding:'2px 0',fontFamily:'monospace'}}>{m}</div>)}
+                  {aiResult.feedback&&<div style={{borderLeft:`3px solid ${DS.accent.teal}`,paddingLeft:10,marginBottom:8}}><div style={{fontSize:9,fontWeight:800,color:DS.accent.teal,marginBottom:2}}>WHAT YOU GOT RIGHT</div><p style={{margin:0,fontSize:13,color:DS.text.secondary,lineHeight:1.5}}>{aiResult.feedback}</p></div>}
+                  {aiResult.improvements&&<div style={{borderLeft:`3px solid ${DS.accent.amber}`,paddingLeft:10,marginBottom:8}}><div style={{fontSize:9,fontWeight:800,color:DS.accent.amber,marginBottom:2}}>WHAT TO IMPROVE</div><p style={{margin:0,fontSize:13,color:DS.text.secondary,lineHeight:1.5}}>{aiResult.improvements}</p></div>}
+                  {aiResult.breakdown?.length>0&&<div style={{background:DS.bg.elevated,borderRadius:DS.radius.sm,padding:'8px 12px',marginTop:4}}><div style={{fontSize:9,fontWeight:800,color:DS.text.muted,marginBottom:4}}>MARK BREAKDOWN</div>{aiResult.breakdown.map((m,i)=><div key={i} style={{fontSize:12,color:DS.text.secondary,padding:'2px 0',fontFamily:'monospace'}}>{m}</div>)}</div>}
                   <SocraticChat question={q.q} ms={q.ms} aiResult={aiResult}/>
                 </div>
               )}
-              {aiResult?.error&&<div style={{marginTop:8,background:'#fff5f5',borderRadius:8,padding:'8px 12px',color:'#E74C3C',fontSize:12}}>{aiResult.error}</div>}
+              {aiResult?.error&&<div style={{marginTop:8,background:DS.accent.redDim,borderRadius:DS.radius.sm,padding:'8px 12px',color:DS.accent.red,fontSize:12,border:`1px solid ${DS.accent.red}33`}}>{aiResult.error}</div>}
             </div>
           )}
         </div>
       )}
 
-      <div style={{padding:'8px 18px',display:'flex',gap:8,background:'#fafafa',borderTop:'1px solid #f0f0f0'}}>
-        <button onClick={()=>setOpen(!open)} style={{flex:1,padding:'7px 0',borderRadius:7,border:'1.5px solid #1B2A4A',background:open?'#1B2A4A':'transparent',color:open?'#fff':'#1B2A4A',fontSize:11,fontWeight:700,cursor:'pointer'}}>
+      <div style={{padding:'8px 18px 8px 22px',display:'flex',gap:8,background:DS.bg.base,borderTop:`1px solid ${DS.border}`}}>
+        <button onClick={()=>setOpen(!open)} style={{flex:1,padding:'7px 0',borderRadius:DS.radius.sm,border:`1.5px solid ${open?DS.accent.amber:DS.border}`,background:open?DS.accent.amberDim:'transparent',color:open?DS.accent.amber:DS.text.secondary,fontSize:11,fontWeight:700,cursor:'pointer',transition:DS.tr}}>
           {open?'Hide Answer':'Show Mark Scheme'}
         </button>
       </div>
@@ -761,59 +840,64 @@ function QCard({q,idx,topicId,onAnswered,onXP}){
 function TopicPage({topic,moduleColor,onAnswered,onXP}){
   const [tab,setTab]=useState("questions");
   const tabs=[{id:"questions",l:"Questions"},{id:"boards",l:"Board Diff"},{id:"concept",l:"Core Concept"},{id:"markscheme",l:"Mark Scheme"},{id:"mistakes",l:"Mistakes"}];
+  const boardColors={AQA:{bd:'#1B2A4A',c:'#7B9FC4'},Edexcel:{bd:'#C0392B',c:'#E07B6A'},OCR:{bd:'#0D6E72',c:'#00C9B1'}};
   return(
     <div>
-      <div style={{display:'flex',gap:4,marginBottom:18,overflowX:'auto'}}>
-        {tabs.map(t=><button key={t.id} onClick={()=>setTab(t.id)} style={{padding:'7px 12px',borderRadius:8,border:'none',background:tab===t.id?moduleColor:'#f0f0f0',color:tab===t.id?'#fff':'#555',fontWeight:700,fontSize:12,cursor:'pointer',flexShrink:0}}>{t.l}</button>)}
+      <div style={{display:'flex',gap:4,marginBottom:18,overflowX:'auto',paddingBottom:2}}>
+        {tabs.map(t=><button key={t.id} onClick={()=>setTab(t.id)} style={{padding:'7px 14px',borderRadius:DS.radius.sm,border:`1.5px solid ${tab===t.id?DS.accent.amber:DS.border}`,background:tab===t.id?DS.accent.amberDim:DS.bg.surface,color:tab===t.id?DS.accent.amber:DS.text.secondary,fontWeight:700,fontSize:12,cursor:'pointer',flexShrink:0,transition:DS.tr}}>{t.l}</button>)}
       </div>
       {tab==="questions"&&topic.questions.map((q,i)=><QCard key={i} q={q} idx={i} topicId={topic.id} onAnswered={onAnswered} onXP={onXP}/>)}
       {tab==="boards"&&Object.entries(topic.boards).map(([b,txt])=>{
-        const bc={AQA:{bg:"#EBF5FB",bd:"#1B2A4A",c:"#1B2A4A"},Edexcel:{bg:"#FDEDEC",bd:"#C0392B",c:"#C0392B"},OCR:{bg:"#E8F8F5",bd:"#0D6E72",c:"#0D6E72"}}[b];
-        return<div key={b} style={{background:bc.bg,border:`1.5px solid ${bc.bd}`,borderRadius:10,padding:'14px 18px',marginBottom:10}}>
-          <span style={{background:bc.c,color:'#fff',fontSize:10,fontWeight:800,padding:'2px 8px',borderRadius:4,letterSpacing:1,display:'inline-block',marginBottom:8}}>{b}</span>
-          <p style={{margin:0,fontSize:13,lineHeight:1.6,color:'#2d3436'}}>{txt}</p>
+        const bc=boardColors[b]||{bd:DS.border,c:DS.text.secondary};
+        return<div key={b} style={{background:DS.bg.elevated,borderLeft:`3px solid ${bc.bd}`,borderRadius:DS.radius.md,padding:'14px 18px',marginBottom:10,border:`1px solid ${DS.border}`}}>
+          <span style={{background:bc.bd,color:'#fff',fontSize:10,fontWeight:800,padding:'2px 8px',borderRadius:4,letterSpacing:1,display:'inline-block',marginBottom:8}}>{b}</span>
+          <p style={{margin:0,fontSize:13,lineHeight:1.6,color:DS.text.secondary}}>{txt}</p>
         </div>;
       })}
-      {tab==="concept"&&<div style={{background:'linear-gradient(135deg,#1B2A4A,#0D6E72)',borderRadius:14,padding:24,color:'#fff'}}>
+      {tab==="concept"&&<div style={{background:DS.bg.elevated,borderRadius:DS.radius.lg,padding:24,border:`1px solid ${DS.border}`}}>
         <div style={{fontSize:36,marginBottom:8}}>{topic.analogy.icon}</div>
-        <div style={{fontSize:17,fontWeight:800,color:'#D4A017',marginBottom:14}}>{topic.analogy.title}</div>
-        {topic.analogy.lines.map((l,i)=><div key={i} style={{fontSize:13,lineHeight:1.8,color:l.startsWith(" ")?"#93cfdf":"#fff",fontFamily:l.startsWith(" ")?"monospace":"inherit"}}>{l||" "}</div>)}
+        <div style={{fontSize:17,fontWeight:800,color:DS.accent.amber,marginBottom:14}}>{topic.analogy.title}</div>
+        {topic.analogy.lines.map((l,i)=><div key={i} style={{fontSize:13,lineHeight:1.8,color:l.startsWith(" ")?DS.accent.teal:DS.text.primary,fontFamily:l.startsWith(" ")?"monospace":"inherit"}}>{l||" "}</div>)}
       </div>}
-      {tab==="markscheme"&&<div style={{background:'#f0fff4',border:'1.5px solid #27AE60',borderRadius:12,padding:20}}>
-        <div style={{fontSize:12,fontWeight:800,color:'#27AE60',textTransform:'uppercase',letterSpacing:1,marginBottom:12}}>✓ What Earns Marks</div>
-        {topic.markScheme.map((m,i)=><div key={i} style={{display:'flex',gap:10,marginBottom:10}}><div style={{width:6,height:6,borderRadius:'50%',background:'#27AE60',marginTop:7,flexShrink:0}}/><p style={{margin:0,fontSize:13,lineHeight:1.6,color:'#2d3436'}}>{m}</p></div>)}
+      {tab==="markscheme"&&<div style={{background:DS.bg.elevated,borderLeft:`3px solid ${DS.accent.teal}`,borderRadius:DS.radius.md,padding:20,border:`1px solid ${DS.border}`}}>
+        <div style={{fontSize:10,fontWeight:800,color:DS.accent.teal,textTransform:'uppercase',letterSpacing:1.5,marginBottom:12}}>What Earns Marks</div>
+        {topic.markScheme.map((m,i)=><div key={i} style={{display:'flex',gap:10,marginBottom:10}}><div style={{width:6,height:6,borderRadius:'50%',background:DS.accent.teal,marginTop:7,flexShrink:0}}/><p style={{margin:0,fontSize:13,lineHeight:1.6,color:DS.text.secondary}}>{m}</p></div>)}
       </div>}
-      {tab==="mistakes"&&<div style={{background:'#fff5f5',border:'1.5px solid #E74C3C',borderRadius:12,padding:20}}>
-        <div style={{fontSize:12,fontWeight:800,color:'#E74C3C',textTransform:'uppercase',letterSpacing:1,marginBottom:12}}>✗ Common Mistakes</div>
-        {topic.mistakes.map((m,i)=><div key={i} style={{display:'flex',gap:10,marginBottom:12}}><div style={{minWidth:20,height:20,borderRadius:'50%',background:'#E74C3C',color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,fontWeight:800,flexShrink:0}}>{i+1}</div><p style={{margin:0,fontSize:13,lineHeight:1.6,color:'#2d3436'}}>{m}</p></div>)}
+      {tab==="mistakes"&&<div style={{background:DS.bg.elevated,borderLeft:`3px solid ${DS.accent.red}`,borderRadius:DS.radius.md,padding:20,border:`1px solid ${DS.border}`}}>
+        <div style={{fontSize:10,fontWeight:800,color:DS.accent.red,textTransform:'uppercase',letterSpacing:1.5,marginBottom:12}}>Common Mistakes</div>
+        {topic.mistakes.map((m,i)=><div key={i} style={{display:'flex',gap:10,marginBottom:12}}><div style={{minWidth:20,height:20,borderRadius:'50%',background:DS.accent.redDim,color:DS.accent.red,border:`1px solid ${DS.accent.red}44`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,fontWeight:800,flexShrink:0}}>{i+1}</div><p style={{margin:0,fontSize:13,lineHeight:1.6,color:DS.text.secondary}}>{m}</p></div>)}
       </div>}
     </div>
   );
 }
 
-// ═══ DUE FOR REVIEW ══════════════════════════════════════════════════════════
+// ═══ FOCUS TODAY (DUE FOR REVIEW) ════════════════════════════════════════════
 function DueForReview({onNavigate,version}){
   const dueIds=getDueIds();
   const dueQs=dueIds.map(id=>QUESTION_MAP[id]).filter(Boolean);
+  const urgent=dueQs.length>3;
   if(!dueQs.length)return(
-    <div style={{background:'#f0fff4',border:'1.5px solid #27AE60',borderRadius:12,padding:'12px 18px',marginBottom:16}}>
-      <div style={{fontSize:12,fontWeight:800,color:'#27AE60'}}>✓ No reviews due today — you're all caught up!</div>
+    <div style={{background:DS.bg.surface,borderLeft:`3px solid ${DS.accent.teal}`,borderRadius:DS.radius.md,padding:'12px 18px',marginBottom:16,border:`1px solid ${DS.border}`}}>
+      <div style={{fontSize:12,fontWeight:800,color:DS.accent.teal}}>✓ No reviews due today — you're all caught up!</div>
     </div>
   );
   return(
-    <div style={{background:'#fff3cd',border:'1.5px solid #E8B84B',borderRadius:12,padding:'14px 18px',marginBottom:16}}>
-      <div style={{fontSize:12,fontWeight:800,color:'#856404',marginBottom:10}}>🔔 Due for Review — {dueQs.length} question{dueQs.length!==1?'s':''}</div>
-      <div style={{display:'grid',gap:8}}>
+    <div style={{background:DS.bg.surface,borderLeft:`3px solid ${DS.accent.amber}`,borderRadius:DS.radius.md,padding:'14px 18px',marginBottom:16,border:`1px solid ${DS.border}`,animation:urgent?'pulseAmber 2s ease-in-out infinite':undefined}}>
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
+        <div style={{fontSize:12,fontWeight:800,color:DS.accent.amber}}>Focus Today — {dueQs.length} due</div>
+        <div style={{fontSize:10,color:DS.text.muted}}>Memory decay active</div>
+      </div>
+      <div style={{display:'grid',gap:7}}>
         {dueQs.slice(0,5).map(q=>(
-          <div key={q.qid} style={{background:'#fff',borderRadius:8,padding:'10px 12px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:10}}>
+          <div key={q.qid} style={{background:DS.bg.elevated,borderRadius:DS.radius.sm,padding:'10px 12px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:10,border:`1px solid ${DS.border}`}}>
             <div style={{overflow:'hidden'}}>
-              <div style={{fontSize:12,fontWeight:700,color:'#1a1a2e',marginBottom:2}}>{q.topicTitle}</div>
-              <div style={{fontSize:11,color:'#888',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',maxWidth:220}}>{q.q?.slice(0,55)}...</div>
+              <div style={{fontSize:12,fontWeight:700,color:DS.text.primary,marginBottom:1}}>{q.topicTitle}</div>
+              <div style={{fontSize:11,color:DS.text.muted,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',maxWidth:220}}>{q.q?.slice(0,55)}…</div>
             </div>
-            <button onClick={()=>onNavigate(q.topicId)} style={{padding:'6px 12px',borderRadius:8,border:'none',background:'#E8B84B',color:'#1B2A4A',fontWeight:800,fontSize:11,cursor:'pointer',flexShrink:0}}>Review →</button>
+            <button onClick={()=>onNavigate(q.topicId)} style={{padding:'5px 10px',borderRadius:DS.radius.sm,border:`1px solid ${DS.accent.amber}`,background:DS.accent.amberDim,color:DS.accent.amber,fontWeight:800,fontSize:11,cursor:'pointer',flexShrink:0,transition:DS.tr}}>Review →</button>
           </div>
         ))}
-        {dueQs.length>5&&<div style={{fontSize:11,color:'#856404',textAlign:'center'}}>+{dueQs.length-5} more due today</div>}
+        {dueQs.length>5&&<div style={{fontSize:11,color:DS.text.muted,textAlign:'center'}}>+{dueQs.length-5} more due today</div>}
       </div>
     </div>
   );
@@ -824,27 +908,27 @@ function WeaknessHeatmap({onNavigate,version}){
   const perf=lsGet('gcse_perf',{});
   const allTopics=MODULES.flatMap(m=>m.topics.map(t=>({...t,moduleLabel:m.label,moduleColor:m.color})));
   return(
-    <div style={{background:'#fff',borderRadius:12,border:'1.5px solid #e8e8e8',padding:'16px 18px',marginBottom:16}}>
-      <div style={{fontSize:12,fontWeight:800,color:'#888',textTransform:'uppercase',letterSpacing:1,marginBottom:12}}>🌡️ Performance Heatmap</div>
-      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(135px,1fr))',gap:7}}>
+    <div style={{background:DS.bg.surface,borderRadius:DS.radius.md,border:`1px solid ${DS.border}`,padding:'16px 18px',marginBottom:16}}>
+      <div style={{fontSize:10,fontWeight:800,color:DS.text.secondary,textTransform:'uppercase',letterSpacing:1.5,marginBottom:12}}>Performance Analytics</div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(130px,1fr))',gap:6}}>
         {allTopics.map(t=>{
           const p=perf[t.id];
           const ratio=p&&p.total>0?p.correct/p.total:null;
           const hc=heatColor(ratio);
           return(
-            <button key={t.id} onClick={()=>onNavigate(t.id)} style={{background:hc.bg,border:`1.5px solid ${hc.c}33`,borderRadius:8,padding:'8px 10px',textAlign:'left',cursor:'pointer',transition:'all 0.2s'}}>
+            <button key={t.id} onClick={()=>onNavigate(t.id)} style={{background:DS.bg.elevated,border:`1px solid ${DS.border}`,borderRadius:DS.radius.sm,padding:'8px 10px',textAlign:'left',cursor:'pointer',transition:DS.tr}} onMouseEnter={e=>e.currentTarget.style.borderColor=hc.c} onMouseLeave={e=>e.currentTarget.style.borderColor=DS.border}>
               <div style={{fontSize:9,fontWeight:800,color:hc.c,textTransform:'uppercase',marginBottom:2}}>{t.moduleLabel}</div>
-              <div style={{fontSize:11,fontWeight:700,color:hc.c,lineHeight:1.3,marginBottom:3}}>{t.title}</div>
-              <div style={{fontSize:10,color:hc.c}}>{ratio!==null?`${Math.round(ratio*100)}% (${p.correct}/${p.total})`:'Not attempted'}</div>
+              <div style={{fontSize:11,fontWeight:700,color:DS.text.primary,lineHeight:1.3,marginBottom:3}}>{t.title}</div>
+              <div style={{fontSize:10,color:hc.c,fontWeight:600}}>{ratio!==null?`${Math.round(ratio*100)}% (${p.correct}/${p.total})`:'Not attempted'}</div>
             </button>
           );
         })}
       </div>
       <div style={{display:'flex',gap:14,marginTop:10,flexWrap:'wrap'}}>
-        {[{bg:'#d4edda',c:'#155724',l:'Strong ≥70%'},{bg:'#fff3cd',c:'#856404',l:'Improving 40–69%'},{bg:'#f8d7da',c:'#721c24',l:'Needs work <40%'},{bg:'#f0f0f0',c:'#999',l:'Not attempted'}].map(x=>(
+        {[{c:DS.accent.teal,l:'Strong ≥70%'},{c:DS.accent.amber,l:'Improving 40–69%'},{c:DS.accent.red,l:'Needs work <40%'},{c:DS.text.muted,l:'Not attempted'}].map(x=>(
           <div key={x.l} style={{display:'flex',gap:5,alignItems:'center'}}>
-            <div style={{width:10,height:10,borderRadius:2,background:x.bg,border:`1px solid ${x.c}55`}}/>
-            <span style={{fontSize:10,color:'#666'}}>{x.l}</span>
+            <div style={{width:8,height:8,borderRadius:'50%',background:x.c}}/>
+            <span style={{fontSize:10,color:DS.text.muted}}>{x.l}</span>
           </div>
         ))}
       </div>
@@ -886,18 +970,18 @@ export function Platform({onXP=()=>{},xpV=0}){
   };
 
   if(topic)return(
-    <div style={{fontFamily:"'Segoe UI',sans-serif",maxWidth:680,margin:"0 auto",padding:16,background:"#f8f9fc",minHeight:"100vh"}}>
-      <div style={{background:"#fff",borderRadius:14,padding:"14px 18px",marginBottom:14,boxShadow:"0 2px 10px rgba(0,0,0,0.06)"}}>
+    <div style={{fontFamily:"'Segoe UI',sans-serif",maxWidth:680,margin:"0 auto",padding:16,background:DS.bg.base,minHeight:"100vh"}}>
+      <div style={{background:DS.bg.surface,borderRadius:DS.radius.lg,padding:"14px 18px",marginBottom:14,border:`1px solid ${DS.border}`}}>
         <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10,flexWrap:"wrap"}}>
-          <button onClick={()=>{setModId(null);setTopicId(null);}} style={{background:"none",border:"none",cursor:"pointer",fontSize:16}}>⌂</button>
-          <span style={{color:"#ccc"}}>›</span>
+          <button onClick={()=>{setModId(null);setTopicId(null);}} style={{background:"none",border:"none",cursor:"pointer",fontSize:16,color:DS.text.secondary}}>⌂</button>
+          <span style={{color:DS.text.muted}}>›</span>
           <button onClick={()=>setTopicId(null)} style={{background:"none",border:"none",cursor:"pointer",fontSize:12,color:mod.color,fontWeight:700}}>{mod.label}</button>
-          <span style={{color:"#ccc"}}>›</span>
-          <span style={{fontSize:12,color:"#555",fontWeight:600}}>{topic.title}</span>
+          <span style={{color:DS.text.muted}}>›</span>
+          <span style={{fontSize:12,color:DS.text.secondary,fontWeight:600}}>{topic.title}</span>
         </div>
         <div style={{display:"flex",alignItems:"center",gap:12}}>
-          <div style={{width:44,height:44,borderRadius:10,background:mod.color,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,color:"#fff",flexShrink:0}}>{mod.icon}</div>
-          <div><div style={{fontSize:17,fontWeight:800,color:"#1a1a2e"}}>{topic.title}</div><div style={{fontSize:11,color:"#888",marginTop:2}}>{topic.questions.length} questions · 3 difficulty levels</div></div>
+          <div style={{width:44,height:44,borderRadius:DS.radius.md,background:mod.color,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,color:"#fff",flexShrink:0}}>{mod.icon}</div>
+          <div><div style={{fontSize:17,fontWeight:800,color:DS.text.primary}}>{topic.title}</div><div style={{fontSize:11,color:DS.text.muted,marginTop:2}}>{topic.questions.length} questions · 3 difficulty levels</div></div>
         </div>
       </div>
       <TopicPage topic={topic} moduleColor={mod.color} onAnswered={handleAnswered} onXP={onXP}/>
@@ -905,21 +989,21 @@ export function Platform({onXP=()=>{},xpV=0}){
   );
 
   if(mod)return(
-    <div style={{fontFamily:"'Segoe UI',sans-serif",maxWidth:680,margin:"0 auto",padding:16,background:"#f8f9fc",minHeight:"100vh"}}>
-      <div style={{background:mod.color,borderRadius:16,padding:"22px",marginBottom:14,position:"relative",overflow:"hidden"}}>
-        <div style={{position:"absolute",right:-20,top:-20,fontSize:110,opacity:0.1,fontWeight:900}}>{mod.icon}</div>
-        <button onClick={()=>setModId(null)} style={{background:"rgba(255,255,255,0.2)",border:"none",borderRadius:8,padding:"5px 12px",color:"#fff",fontSize:12,fontWeight:700,cursor:"pointer",marginBottom:10}}>← Back</button>
-        <div style={{fontSize:22,fontWeight:900,color:"#fff"}}>{mod.label}</div>
-        <div style={{fontSize:12,color:"rgba(255,255,255,0.8)",marginTop:4}}>{mod.topics.length} topics</div>
+    <div style={{fontFamily:"'Segoe UI',sans-serif",maxWidth:680,margin:"0 auto",padding:16,background:DS.bg.base,minHeight:"100vh"}}>
+      <div style={{background:DS.bg.elevated,borderRadius:DS.radius.lg,padding:"22px",marginBottom:14,position:"relative",overflow:"hidden",border:`1px solid ${DS.border}`,borderLeft:`4px solid ${mod.color}`}}>
+        <div style={{position:"absolute",right:-20,top:-20,fontSize:110,opacity:0.05,fontWeight:900}}>{mod.icon}</div>
+        <button onClick={()=>setModId(null)} style={{background:DS.bg.surface,border:`1px solid ${DS.border}`,borderRadius:DS.radius.sm,padding:"5px 12px",color:DS.text.secondary,fontSize:12,fontWeight:700,cursor:"pointer",marginBottom:10}}>← Back</button>
+        <div style={{fontSize:22,fontWeight:900,color:DS.text.primary}}>{mod.label}</div>
+        <div style={{fontSize:12,color:DS.text.muted,marginTop:4}}>{mod.topics.length} topics</div>
       </div>
-      <div style={{display:"grid",gap:10}}>
+      <div style={{display:"grid",gap:8}}>
         {mod.topics.map(t=>(
-          <button key={t.id} onClick={()=>setTopicId(t.id)} style={{background:"#fff",border:"1.5px solid #e8e8e8",borderRadius:12,padding:"16px 18px",textAlign:"left",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+          <button key={t.id} onClick={()=>setTopicId(t.id)} style={{background:DS.bg.surface,border:`1px solid ${DS.border}`,borderRadius:DS.radius.md,padding:"16px 18px",textAlign:"left",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"space-between",transition:DS.tr}} onMouseEnter={e=>e.currentTarget.style.borderColor=mod.color} onMouseLeave={e=>e.currentTarget.style.borderColor=DS.border}>
             <div>
-              <div style={{fontSize:14,fontWeight:700,color:"#1a1a2e",marginBottom:4}}>{t.title}</div>
+              <div style={{fontSize:14,fontWeight:700,color:DS.text.primary,marginBottom:4}}>{t.title}</div>
               <div style={{display:"flex",gap:5,alignItems:"center"}}>
-                {t.questions.map((q,i)=><span key={i} style={{width:8,height:8,borderRadius:"50%",background:DIFF[q.diff].c,display:"inline-block"}}/>)}
-                <span style={{fontSize:10,color:"#aaa",marginLeft:4}}>{t.questions.length} questions</span>
+                {t.questions.map((q,i)=><span key={i} style={{width:8,height:8,borderRadius:"50%",background:(DIFF[q.diff]||DIFF.Mid).c,display:"inline-block"}}/>)}
+                <span style={{fontSize:10,color:DS.text.muted,marginLeft:4}}>{t.questions.length} questions</span>
               </div>
             </div>
             <span style={{fontSize:20,color:mod.color}}>›</span>
@@ -929,58 +1013,86 @@ export function Platform({onXP=()=>{},xpV=0}){
     </div>
   );
 
+  const perf=lsGet('gcse_perf',{});
   return(
-    <div style={{fontFamily:"'Segoe UI',sans-serif",maxWidth:680,margin:"0 auto",padding:16,background:"#f8f9fc",minHeight:"100vh"}}>
-      <div style={{background:"linear-gradient(135deg,#1B2A4A,#0D4A4A)",borderRadius:18,padding:"26px 22px",marginBottom:18,position:"relative",overflow:"hidden"}}>
-        <div style={{position:"absolute",right:-20,top:-20,width:140,height:140,borderRadius:"50%",background:"rgba(212,160,23,0.15)"}}/>
-        <div style={{position:"relative"}}>
-          <div style={{fontSize:10,fontWeight:800,color:"#D4A017",letterSpacing:2,textTransform:"uppercase",marginBottom:6}}>GCSE Maths · AQA · Edexcel · OCR</div>
-          <div style={{fontSize:24,fontWeight:900,color:"#fff",lineHeight:1.2,marginBottom:4}}>Master Framework</div>
-          <div style={{fontSize:12,color:"rgba(255,255,255,0.7)",marginBottom:14}}>Every topic · Every board · Taught from the mark scheme</div>
+    <div style={{fontFamily:"'Segoe UI',sans-serif",maxWidth:680,margin:"0 auto",padding:16,background:DS.bg.base,minHeight:"100vh"}}>
+      {/* Hero Row: Predicted Grade + GamificationBar */}
+      <div style={{display:"grid",gridTemplateColumns:"auto 1fr",gap:12,marginBottom:16}}>
+        <div style={{background:DS.bg.surface,borderRadius:DS.radius.lg,border:`1px solid ${DS.border}`,minWidth:120}}>
+          <PredictedGrade perf={perf}/>
+        </div>
+        <div style={{display:"flex",flexDirection:"column",gap:10}}>
+          <GamificationBar key={`gam-${xpV}`} xp={xp}/>
           <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-            {["AQA","Edexcel","OCR"].map(b=><button key={b} onClick={()=>setBoard(board===b?"All":b)} style={{padding:"5px 12px",borderRadius:20,border:`1.5px solid ${board===b?"#D4A017":"rgba(255,255,255,0.3)"}`,background:board===b?"#D4A017":"transparent",color:board===b?"#1B2A4A":"#fff",fontSize:11,fontWeight:800,cursor:"pointer",letterSpacing:1}}>{b}</button>)}
+            {["AQA","Edexcel","OCR"].map(b=><button key={b} onClick={()=>setBoard(board===b?"All":b)} style={{padding:"4px 10px",borderRadius:DS.radius.sm,border:`1px solid ${board===b?DS.accent.amber:DS.border}`,background:board===b?DS.accent.amberDim:"transparent",color:board===b?DS.accent.amber:DS.text.muted,fontSize:11,fontWeight:700,cursor:"pointer",transition:DS.tr}}>{b}</button>)}
           </div>
         </div>
       </div>
 
-      <div style={{position:"relative",marginBottom:16}}>
-        <span style={{position:"absolute",left:14,top:"50%",transform:"translateY(-50%)",fontSize:15,color:"#aaa"}}>⌕</span>
-        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search topics..." style={{width:"100%",padding:"11px 16px 11px 40px",borderRadius:10,border:"1.5px solid #e0e0e0",fontSize:14,background:"#fff",outline:"none",boxSizing:"border-box"}}/>
+      {/* Search */}
+      <div style={{position:"relative",marginBottom:14}}>
+        <span style={{position:"absolute",left:14,top:"50%",transform:"translateY(-50%)",fontSize:15,color:DS.text.muted}}>⌕</span>
+        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search topics..." style={{width:"100%",padding:"10px 16px 10px 40px",borderRadius:DS.radius.md,border:`1.5px solid ${DS.border}`,fontSize:14,background:DS.bg.surface,outline:"none",boxSizing:"border-box",color:DS.text.primary}} onFocus={e=>e.target.style.borderColor=DS.accent.amber} onBlur={e=>e.target.style.borderColor=DS.border}/>
       </div>
       {search.trim().length>1&&(
-        <div style={{marginBottom:16}}>
-          <div style={{fontSize:11,fontWeight:700,color:"#888",textTransform:"uppercase",letterSpacing:1,marginBottom:10}}>{searchRes.length} result{searchRes.length!==1?"s":""}</div>
-          {searchRes.map(t=><button key={t.id} onClick={()=>{setModId(t.mod.id);setTopicId(t.id);setSearch("");}} style={{width:"100%",background:"#fff",border:"1.5px solid #e0e0e0",borderRadius:10,padding:"12px 16px",textAlign:"left",cursor:"pointer",marginBottom:8,display:"flex",alignItems:"center",gap:12}}>
-            <div style={{width:32,height:32,borderRadius:8,background:t.mod.color,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontSize:14,flexShrink:0}}>{t.mod.icon}</div>
-            <div><div style={{fontSize:13,fontWeight:700,color:"#1a1a2e"}}>{t.title}</div><div style={{fontSize:11,color:"#888"}}>{t.mod.label}</div></div>
+        <div style={{marginBottom:14}}>
+          <div style={{fontSize:10,fontWeight:700,color:DS.text.muted,textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>{searchRes.length} result{searchRes.length!==1?"s":""}</div>
+          {searchRes.map(t=><button key={t.id} onClick={()=>{setModId(t.mod.id);setTopicId(t.id);setSearch("");}} style={{width:"100%",background:DS.bg.surface,border:`1px solid ${DS.border}`,borderRadius:DS.radius.md,padding:"12px 16px",textAlign:"left",cursor:"pointer",marginBottom:6,display:"flex",alignItems:"center",gap:12,transition:DS.tr}}>
+            <div style={{width:32,height:32,borderRadius:DS.radius.sm,background:t.mod.color,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontSize:14,flexShrink:0}}>{t.mod.icon}</div>
+            <div><div style={{fontSize:13,fontWeight:700,color:DS.text.primary}}>{t.title}</div><div style={{fontSize:11,color:DS.text.muted}}>{t.mod.label}</div></div>
           </button>)}
         </div>
       )}
 
-      <GamificationBar key={`gam-${xpV}`} xp={xp}/>
+      {/* Focus Today */}
       <DueForReview key={`due-${version}`} onNavigate={navigateToTopic} version={version}/>
+
+      {/* Module Mastery Grid */}
+      <div style={{fontSize:10,fontWeight:800,color:DS.text.muted,textTransform:"uppercase",letterSpacing:1.5,marginBottom:10}}>Module Mastery</div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginBottom:16}}>
+        {MODULES.map(m=>{
+          const mPerf=m.topics.flatMap(t=>{const p=perf[t.id];return p&&p.total>0?[p.correct/p.total]:[];});
+          const ratio=mPerf.length>0?mPerf.reduce((s,v)=>s+v,0)/mPerf.length:0;
+          const attempted=mPerf.length;
+          return(
+            <button key={m.id} onClick={()=>setModId(m.id)} style={{background:DS.bg.surface,border:`1px solid ${DS.border}`,borderRadius:DS.radius.md,padding:"12px",textAlign:"left",cursor:"pointer",transition:DS.tr,display:"flex",flexDirection:"column",gap:8}} onMouseEnter={e=>e.currentTarget.style.borderColor=m.color} onMouseLeave={e=>e.currentTarget.style.borderColor=DS.border}>
+              <div style={{display:"flex",alignItems:"center",gap:8}}>
+                <MasteryRing ratio={attempted>0?ratio:0} color={m.color} size={40} stroke={3}/>
+                <div>
+                  <div style={{fontSize:12,fontWeight:800,color:DS.text.primary,lineHeight:1.2}}>{m.label}</div>
+                  <div style={{fontSize:10,color:DS.text.muted}}>{m.topics.length} topics</div>
+                </div>
+              </div>
+              <div style={{fontSize:10,color:attempted>0?m.color:DS.text.muted,fontWeight:600}}>{attempted>0?`${Math.round(ratio*100)}% avg`:'Not started'}</div>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Analytics */}
       <WeaknessHeatmap key={`heat-${version}`} onNavigate={navigateToTopic} version={version}/>
 
-      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,marginBottom:16}}>
-        {[{l:"Modules",v:MODULES.length,c:"#1B2A4A"},{l:"Topics",v:totalT,c:"#0D6E72"},{l:"Questions",v:totalQ,c:"#D4A017"}].map(s=>(
-          <div key={s.l} style={{background:"#fff",borderRadius:10,padding:"12px",textAlign:"center",border:"1.5px solid #f0f0f0"}}>
-            <div style={{fontSize:22,fontWeight:900,color:s.c}}>{s.v}</div>
-            <div style={{fontSize:10,color:"#888",fontWeight:600,marginTop:2}}>{s.l}</div>
+      {/* Stats */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginBottom:14}}>
+        {[{l:"Modules",v:MODULES.length,c:DS.accent.amber},{l:"Topics",v:totalT,c:DS.accent.teal},{l:"Questions",v:totalQ,c:DS.accent.amber}].map(s=>(
+          <div key={s.l} style={{background:DS.bg.surface,borderRadius:DS.radius.sm,padding:"10px",textAlign:"center",border:`1px solid ${DS.border}`}}>
+            <div style={{fontSize:20,fontWeight:900,color:s.c}}>{s.v}</div>
+            <div style={{fontSize:10,color:DS.text.muted,fontWeight:600,marginTop:1}}>{s.l}</div>
           </div>
         ))}
       </div>
-      <div style={{fontSize:11,fontWeight:800,color:"#888",textTransform:"uppercase",letterSpacing:1,marginBottom:12}}>All Modules</div>
-      <div style={{display:"grid",gap:12}}>
+      <div style={{fontSize:10,fontWeight:800,color:DS.text.muted,textTransform:"uppercase",letterSpacing:1.5,marginBottom:10}}>All Modules</div>
+      <div style={{display:"grid",gap:8}}>
         {MODULES.map(m=>(
-          <button key={m.id} onClick={()=>setModId(m.id)} style={{background:"#fff",border:"1.5px solid #e8e8e8",borderRadius:14,padding:"18px",textAlign:"left",cursor:"pointer",position:"relative",overflow:"hidden"}}>
-            <div style={{position:"absolute",right:-10,top:-10,fontSize:65,opacity:0.07,fontWeight:900}}>{m.icon}</div>
+          <button key={m.id} onClick={()=>setModId(m.id)} style={{background:DS.bg.surface,border:`1px solid ${DS.border}`,borderRadius:DS.radius.lg,padding:"16px",textAlign:"left",cursor:"pointer",position:"relative",overflow:"hidden",transition:DS.tr}} onMouseEnter={e=>e.currentTarget.style.borderColor=m.color} onMouseLeave={e=>e.currentTarget.style.borderColor=DS.border}>
+            <div style={{position:"absolute",right:-10,top:-10,fontSize:65,opacity:0.04,fontWeight:900}}>{m.icon}</div>
             <div style={{display:"flex",alignItems:"center",gap:12}}>
-              <div style={{width:46,height:46,borderRadius:12,background:m.color,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,color:"#fff",flexShrink:0}}>{m.icon}</div>
+              <div style={{width:44,height:44,borderRadius:DS.radius.md,background:m.color,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,color:"#fff",flexShrink:0}}>{m.icon}</div>
               <div style={{flex:1}}>
-                <div style={{display:"flex",justifyContent:"space-between"}}><span style={{fontSize:10,fontWeight:800,color:m.color,letterSpacing:1}}>{m.code}</span><span style={{fontSize:12,color:"#aaa"}}>{m.topics.length} topics →</span></div>
-                <div style={{fontSize:15,fontWeight:800,color:"#1a1a2e",marginTop:2}}>{m.label}</div>
-                <div style={{display:"flex",gap:4,marginTop:8,flexWrap:"wrap"}}>
-                  {m.topics.map(t=><span key={t.id} style={{fontSize:9,color:"#777",background:"#f5f5f5",padding:"2px 6px",borderRadius:4}}>{t.title}</span>)}
+                <div style={{display:"flex",justifyContent:"space-between"}}><span style={{fontSize:10,fontWeight:800,color:m.color,letterSpacing:1}}>{m.code}</span><span style={{fontSize:11,color:DS.text.muted}}>{m.topics.length} topics →</span></div>
+                <div style={{fontSize:14,fontWeight:800,color:DS.text.primary,marginTop:2}}>{m.label}</div>
+                <div style={{display:"flex",gap:4,marginTop:6,flexWrap:"wrap"}}>
+                  {m.topics.map(t=><span key={t.id} style={{fontSize:9,color:DS.text.muted,background:DS.bg.elevated,padding:"2px 5px",borderRadius:3,border:`1px solid ${DS.border}`}}>{t.title}</span>)}
                 </div>
               </div>
             </div>
@@ -1005,70 +1117,73 @@ function MockQCard({q,idx,working,selfMark,onSelfMark}){
     setAiLoading(false);
   };
 
+  const markBorderColor=selfMark!=null?selfMark>0?DS.accent.teal:DS.accent.red:DS.border;
   return(
-    <div style={{background:'#fff',border:`1.5px solid ${selfMark!=null?selfMark>0?'#27AE60':'#E74C3C':'#e8e8e8'}`,borderRadius:12,marginBottom:12,overflow:'hidden'}}>
+    <div style={{background:DS.bg.surface,border:`1.5px solid ${markBorderColor}`,borderRadius:DS.radius.md,marginBottom:10,overflow:'hidden',transition:DS.tr}}>
       <div style={{padding:'14px 18px'}}>
         <div style={{display:'flex',gap:8,marginBottom:8,alignItems:'center',flexWrap:'wrap'}}>
-          <span style={{width:24,height:24,borderRadius:'50%',background:'#1B2A4A',color:'#D4A017',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:900,fontSize:11,flexShrink:0}}>{idx+1}</span>
+          <span style={{width:24,height:24,borderRadius:'50%',background:DS.bg.elevated,color:DS.accent.amber,display:'flex',alignItems:'center',justifyContent:'center',fontWeight:900,fontSize:11,flexShrink:0}}>{idx+1}</span>
           <span style={{background:d.bg,color:d.c,fontSize:11,fontWeight:800,padding:'2px 8px',borderRadius:6}}>{q.diff}</span>
-          <span style={{fontSize:11,color:'#999',fontWeight:600}}>[{q.marks} marks]</span>
-          <span style={{fontSize:10,color:'#bbb'}}>{q.topicTitle}</span>
-          {selfMark!=null&&<span style={{fontSize:12,fontWeight:800,color:selfMark>0?'#27AE60':'#E74C3C',marginLeft:'auto'}}>{selfMark}/{q.marks}</span>}
+          <span style={{fontSize:11,color:DS.text.muted,fontWeight:600}}>[{q.marks} marks]</span>
+          <span style={{fontSize:10,color:DS.text.muted}}>{q.topicTitle}</span>
+          {selfMark!=null&&<span style={{fontSize:12,fontWeight:800,color:selfMark>0?DS.accent.teal:DS.accent.red,marginLeft:'auto'}}>{selfMark}/{q.marks}</span>}
         </div>
-        <p style={{margin:0,fontSize:14,lineHeight:1.65,color:'#1a1a2e',whiteSpace:'pre-line'}}>{q.q}</p>
-        {working&&<div style={{marginTop:10,background:'#f8f9fa',borderRadius:8,padding:'10px 12px'}}>
-          <div style={{fontSize:10,fontWeight:700,color:'#888',marginBottom:4,textTransform:'uppercase'}}>Your Working</div>
-          <div style={{fontSize:13,color:'#2d3436',whiteSpace:'pre-wrap',fontFamily:'monospace'}}>{working}</div>
+        <p style={{margin:0,fontSize:14,lineHeight:1.65,color:DS.text.primary,whiteSpace:'pre-line'}}>{q.q}</p>
+        {working&&<div style={{marginTop:10,background:DS.bg.elevated,borderRadius:DS.radius.sm,padding:'10px 12px',border:`1px solid ${DS.border}`}}>
+          <div style={{fontSize:9,fontWeight:700,color:DS.text.muted,marginBottom:4,textTransform:'uppercase'}}>Your Working</div>
+          <div style={{fontSize:13,color:DS.text.secondary,whiteSpace:'pre-wrap',fontFamily:'monospace'}}>{working}</div>
         </div>}
       </div>
       {showMS&&(
-        <div style={{borderTop:'1.5px solid #e8f5e9',background:'#f8fffe',padding:'14px 18px'}}>
-          <div style={{fontSize:11,fontWeight:800,color:'#27AE60',textTransform:'uppercase',letterSpacing:1,marginBottom:8}}>✓ Mark Scheme</div>
-          {q.ms.map((m,i)=><div key={i} style={{fontSize:13,color:'#2d3436',padding:'3px 0',display:'flex',gap:8}}><span style={{color:'#27AE60',fontWeight:700}}>›</span>{m}</div>)}
-          {q.insight&&<div style={{background:'#E8F4F8',borderLeft:'3px solid #0D6E72',borderRadius:'0 8px 8px 0',padding:'10px 14px',marginTop:10}}>
-            <div style={{fontSize:11,fontWeight:800,color:'#0D6E72'}}>💡 Examiner Insight</div>
-            <p style={{margin:'4px 0 0',fontSize:13,color:'#2d3436',lineHeight:1.5}}>{q.insight}</p>
+        <div style={{borderTop:`1px solid ${DS.border}`,background:DS.bg.elevated,padding:'14px 18px'}}>
+          <div style={{fontSize:10,fontWeight:800,color:DS.accent.teal,textTransform:'uppercase',letterSpacing:1.5,marginBottom:8,borderLeft:`3px solid ${DS.accent.teal}`,paddingLeft:8}}>Mark Scheme</div>
+          {q.ms.map((m,i)=><div key={i} style={{fontSize:13,color:DS.text.primary,padding:'3px 0',display:'flex',gap:8}}><span style={{color:DS.accent.teal,fontWeight:700}}>›</span>{m}</div>)}
+          {q.insight&&<div style={{background:DS.bg.surface,borderLeft:`3px solid ${DS.accent.teal}`,borderRadius:`0 ${DS.radius.sm}px ${DS.radius.sm}px 0`,padding:'10px 14px',marginTop:10}}>
+            <div style={{fontSize:10,fontWeight:800,color:DS.accent.teal}}>💡 Examiner Insight</div>
+            <p style={{margin:'4px 0 0',fontSize:13,color:DS.text.secondary,lineHeight:1.5}}>{q.insight}</p>
           </div>}
-          <div style={{marginTop:12,background:'#fff9e6',borderRadius:10,padding:12}}>
-            <div style={{fontSize:11,fontWeight:700,color:'#856404',marginBottom:8}}>Self-mark: how many marks did you earn?</div>
+          <div style={{marginTop:12,background:DS.bg.surface,borderRadius:DS.radius.md,padding:12,border:`1px solid ${DS.border}`}}>
+            <div style={{fontSize:10,fontWeight:700,color:DS.text.secondary,marginBottom:8}}>Self-mark: how many marks?</div>
             <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
               {Array.from({length:q.marks+1},(_,i)=>i).map(m=>(
-                <button key={m} onClick={()=>onSelfMark(m)} style={{padding:'8px 14px',borderRadius:8,border:`1.5px solid ${selfMark===m?'#1B2A4A':'#e0e0e0'}`,background:selfMark===m?'#1B2A4A':'#fff',color:selfMark===m?'#fff':'#555',fontWeight:800,fontSize:13,cursor:'pointer'}}>{m}/{q.marks}</button>
+                <button key={m} onClick={()=>onSelfMark(m)} style={{padding:'7px 12px',borderRadius:DS.radius.sm,border:`1.5px solid ${selfMark===m?DS.accent.amber:DS.border}`,background:selfMark===m?DS.accent.amberDim:DS.bg.elevated,color:selfMark===m?DS.accent.amber:DS.text.secondary,fontWeight:800,fontSize:13,cursor:'pointer',transition:DS.tr}}>{m}/{q.marks}</button>
               ))}
             </div>
           </div>
           {working&&(
             <div style={{marginTop:10}}>
-              <button onClick={handleAI} disabled={aiLoading} style={{width:'100%',padding:9,borderRadius:8,border:'none',background:aiLoading?'#ccc':'linear-gradient(135deg,#1B2A4A,#0D6E72)',color:'#fff',fontWeight:800,fontSize:12,cursor:aiLoading?'not-allowed':'pointer'}}>
+              <button onClick={handleAI} disabled={aiLoading} style={{width:'100%',padding:9,borderRadius:DS.radius.sm,border:`1.5px solid ${DS.borderHi}`,background:aiLoading?DS.bg.overlay:DS.bg.surface,color:aiLoading?DS.text.muted:DS.accent.amber,fontWeight:800,fontSize:12,cursor:aiLoading?'not-allowed':'pointer',transition:DS.tr}}>
                 {aiLoading?'🤖 Marking...':'🤖 Get AI Feedback on My Working'}
               </button>
               {aiResult&&!aiResult.error&&(
-                <div style={{marginTop:10,background:'#f0f8ff',border:'1.5px solid #3498DB',borderRadius:10,padding:14}}>
-                  <div style={{display:'flex',justifyContent:'space-between',marginBottom:8}}>
-                    <span style={{fontSize:13,fontWeight:800,color:'#1B2A4A'}}>🤖 AI Feedback</span>
-                    <span style={{fontSize:20,fontWeight:900,color:aiResult.marksEarned===q.marks?'#27AE60':aiResult.marksEarned>0?'#E8B84B':'#E74C3C'}}>{aiResult.marksEarned}/{q.marks}</span>
+                <div style={{marginTop:10,background:DS.bg.surface,border:`1.5px solid ${DS.borderHi}`,borderRadius:DS.radius.md,padding:14}}>
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
+                    <span style={{fontSize:12,fontWeight:800,color:DS.text.primary}}>AI Feedback</span>
+                    <div style={{width:38,height:38,borderRadius:'50%',background:aiResult.marksEarned===q.marks?DS.accent.tealDim:aiResult.marksEarned>0?DS.accent.amberDim:DS.accent.redDim,border:`2px solid ${aiResult.marksEarned===q.marks?DS.accent.teal:aiResult.marksEarned>0?DS.accent.amber:DS.accent.red}`,display:'flex',alignItems:'center',justifyContent:'center'}}>
+                      <span style={{fontSize:11,fontWeight:900,color:aiResult.marksEarned===q.marks?DS.accent.teal:aiResult.marksEarned>0?DS.accent.amber:DS.accent.red}}>{aiResult.marksEarned}/{q.marks}</span>
+                    </div>
                   </div>
-                  {aiResult.feedback&&<p style={{margin:'0 0 6px',fontSize:13,lineHeight:1.5}}>✓ {aiResult.feedback}</p>}
-                  {aiResult.improvements&&<p style={{margin:'0 0 8px',fontSize:13,lineHeight:1.5}}>→ {aiResult.improvements}</p>}
-                  {aiResult.breakdown?.map((m,i)=><div key={i} style={{fontSize:12,color:'#555',padding:'2px 0',fontFamily:'monospace'}}>{m}</div>)}
+                  {aiResult.feedback&&<div style={{borderLeft:`3px solid ${DS.accent.teal}`,paddingLeft:8,marginBottom:6}}><p style={{margin:0,fontSize:13,color:DS.text.secondary,lineHeight:1.5}}>{aiResult.feedback}</p></div>}
+                  {aiResult.improvements&&<div style={{borderLeft:`3px solid ${DS.accent.amber}`,paddingLeft:8,marginBottom:6}}><p style={{margin:0,fontSize:13,color:DS.text.secondary,lineHeight:1.5}}>{aiResult.improvements}</p></div>}
+                  {aiResult.breakdown?.map((m,i)=><div key={i} style={{fontSize:12,color:DS.text.muted,padding:'2px 0',fontFamily:'monospace'}}>{m}</div>)}
                   <SocraticChat question={q.q} ms={q.ms} aiResult={aiResult}/>
                 </div>
               )}
-              {aiResult?.error&&<div style={{marginTop:8,background:'#fff5f5',borderRadius:8,padding:'8px 12px',color:'#E74C3C',fontSize:12}}>{aiResult.error}</div>}
+              {aiResult?.error&&<div style={{marginTop:8,background:DS.accent.redDim,borderRadius:DS.radius.sm,padding:'8px 12px',color:DS.accent.red,fontSize:12}}>{aiResult.error}</div>}
             </div>
           )}
         </div>
       )}
-      <div style={{padding:'8px 18px',background:'#fafafa',borderTop:'1px solid #f0f0f0'}}>
-        <button onClick={()=>setShowMS(!showMS)} style={{width:'100%',padding:'7px 0',borderRadius:7,border:'1.5px solid #27AE60',background:showMS?'#27AE60':'transparent',color:showMS?'#fff':'#27AE60',fontSize:11,fontWeight:700,cursor:'pointer'}}>
-          {showMS?'Hide Mark Scheme':'✓ Show Mark Scheme & Self-Mark'}
+      <div style={{padding:'8px 18px',background:DS.bg.base,borderTop:`1px solid ${DS.border}`}}>
+        <button onClick={()=>setShowMS(!showMS)} style={{width:'100%',padding:'7px 0',borderRadius:DS.radius.sm,border:`1.5px solid ${showMS?DS.accent.teal:DS.border}`,background:showMS?DS.accent.tealDim:'transparent',color:showMS?DS.accent.teal:DS.text.secondary,fontSize:11,fontWeight:700,cursor:'pointer',transition:DS.tr}}>
+          {showMS?'Hide Mark Scheme':'Show Mark Scheme & Self-Mark'}
         </button>
       </div>
     </div>
   );
 }
 
-export function MockExam({onXP=()=>{}}){
+export function MockExam({onXP=()=>{},mode='sprint'}){
   const questions=useMemo(()=>shuffle(ALL_QUESTIONS).slice(0,20),[]);
   const TOTAL_TIME=45*60;
   const [timeLeft,setTimeLeft]=useState(TOTAL_TIME);
@@ -1096,46 +1211,47 @@ export function MockExam({onXP=()=>{}}){
   const pct=totalMarks>0?Math.round(earnedMarks/totalMarks*100):0;
 
   if(!started)return(
-    <div style={{maxWidth:640,margin:'0 auto',padding:24,fontFamily:"'Segoe UI',sans-serif"}}>
-      <div style={{background:'linear-gradient(135deg,#1B2A4A,#0D4A4A)',borderRadius:18,padding:28,color:'#fff',textAlign:'center',marginBottom:20}}>
-        <div style={{fontSize:48,marginBottom:12}}>📝</div>
-        <div style={{fontSize:24,fontWeight:900,marginBottom:8}}>Timed Mock Exam</div>
-        <div style={{fontSize:13,color:'rgba(255,255,255,0.7)',marginBottom:20}}>20 mixed questions from all topics</div>
-        <div style={{display:'flex',gap:12,justifyContent:'center',flexWrap:'wrap'}}>
+    <div style={{maxWidth:640,margin:'0 auto',padding:24,fontFamily:"'Inter','Segoe UI',sans-serif",background:mode==='deep'?DS.bg.deep:DS.bg.base,minHeight:'100vh'}}>
+      <div style={{background:DS.bg.surface,borderRadius:DS.radius.xl,padding:32,textAlign:'center',marginBottom:16,border:`1px solid ${DS.border}`,boxShadow:DS.shadow}}>
+        <div style={{width:64,height:64,borderRadius:'50%',background:DS.accent.amberDim,border:`2px solid ${DS.accent.amber}`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:28,margin:'0 auto 16px'}}>📝</div>
+        <div style={{fontSize:22,fontWeight:900,color:DS.text.primary,marginBottom:6}}>Timed Mock Exam</div>
+        <div style={{fontSize:13,color:DS.text.secondary,marginBottom:24}}>20 mixed questions from all topics · 45 minutes</div>
+        <div style={{display:'flex',gap:10,justifyContent:'center',flexWrap:'wrap'}}>
           {[{l:'Questions',v:'20'},{l:'Time',v:'45 min'},{l:'Topics',v:'Mixed'},{l:'Total Marks',v:String(totalMarks)}].map(s=>(
-            <div key={s.l} style={{background:'rgba(255,255,255,0.1)',borderRadius:10,padding:'10px 16px',minWidth:80}}>
-              <div style={{fontSize:20,fontWeight:900,color:'#D4A017'}}>{s.v}</div>
-              <div style={{fontSize:10,color:'rgba(255,255,255,0.6)'}}>{s.l}</div>
+            <div key={s.l} style={{background:DS.bg.elevated,borderRadius:DS.radius.md,padding:'12px 18px',minWidth:80,border:`1px solid ${DS.border}`}}>
+              <div style={{fontSize:22,fontWeight:900,color:DS.accent.amber}}>{s.v}</div>
+              <div style={{fontSize:10,color:DS.text.muted,fontWeight:600,textTransform:'uppercase',letterSpacing:1}}>{s.l}</div>
             </div>
           ))}
         </div>
       </div>
-      <div style={{background:'#fff',borderRadius:14,padding:20,marginBottom:16,border:'1.5px solid #e8e8e8'}}>
-        <div style={{fontSize:13,fontWeight:800,color:'#1B2A4A',marginBottom:10}}>📋 Instructions</div>
+      <div style={{background:DS.bg.surface,borderRadius:DS.radius.lg,padding:20,marginBottom:16,border:`1px solid ${DS.border}`}}>
+        <div style={{fontSize:11,fontWeight:800,color:DS.text.secondary,textTransform:'uppercase',letterSpacing:1,marginBottom:12}}>Instructions</div>
         {['45 minutes for 20 questions from all topics.','Write your working in the boxes provided.','Submit when done — or the timer will auto-submit.','After submission, reveal each mark scheme and self-mark.','AI marking is available if you have an API key set up.'].map((t,i)=>(
-          <div key={i} style={{display:'flex',gap:8,marginBottom:6,fontSize:13,color:'#444'}}>
-            <span style={{color:'#D4A017',fontWeight:700,flexShrink:0}}>{i+1}.</span>{t}
+          <div key={i} style={{display:'flex',gap:10,marginBottom:8,fontSize:13,color:DS.text.secondary,lineHeight:1.5}}>
+            <span style={{color:DS.accent.amber,fontWeight:700,flexShrink:0,minWidth:16}}>{i+1}.</span>{t}
           </div>
         ))}
       </div>
-      <button onClick={()=>setStarted(true)} style={{width:'100%',padding:16,borderRadius:12,border:'none',background:'linear-gradient(135deg,#1B2A4A,#0D6E72)',color:'#fff',fontSize:15,fontWeight:900,cursor:'pointer',boxShadow:'0 4px 18px rgba(27,42,74,0.3)'}}>
-        🏁 Start Exam
+      <button onClick={()=>setStarted(true)} style={{width:'100%',padding:16,borderRadius:DS.radius.md,border:'none',background:DS.accent.amber,color:DS.bg.deep,fontSize:15,fontWeight:900,cursor:'pointer',boxShadow:`0 4px 18px ${DS.accent.amberDim}`,transition:DS.tr}}>
+        Start Exam
       </button>
     </div>
   );
 
   if(submitted)return(
-    <div style={{maxWidth:680,margin:'0 auto',padding:20,fontFamily:"'Segoe UI',sans-serif"}}>
-      <div style={{background:'linear-gradient(135deg,#1B2A4A,#0D4A4A)',borderRadius:18,padding:24,color:'#fff',textAlign:'center',marginBottom:20}}>
-        <div style={{fontSize:40,marginBottom:8}}>{pct>=70?'🏆':pct>=50?'📊':'📚'}</div>
-        <div style={{fontSize:20,fontWeight:900,marginBottom:4}}>Exam Complete!</div>
+    <div style={{maxWidth:680,margin:'0 auto',padding:20,fontFamily:"'Inter','Segoe UI',sans-serif",background:mode==='deep'?DS.bg.deep:DS.bg.base,minHeight:'100vh'}}>
+      <div style={{background:DS.bg.surface,borderRadius:DS.radius.xl,padding:28,textAlign:'center',marginBottom:16,border:`1px solid ${DS.border}`,boxShadow:DS.shadow,position:'relative',overflow:'hidden'}}>
+        <div style={{position:'absolute',top:0,left:0,right:0,height:3,background:`linear-gradient(90deg,${DS.accent.amber},${DS.accent.teal})`,opacity:0.7}}/>
+        <div style={{width:72,height:72,borderRadius:'50%',background:pct>=70?DS.accent.amberDim:pct>=50?DS.accent.tealDim:DS.bg.elevated,border:`2px solid ${pct>=70?DS.accent.amber:pct>=50?DS.accent.teal:DS.border}`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:32,margin:'0 auto 16px'}}>{pct>=70?'🏆':pct>=50?'📊':'📚'}</div>
+        <div style={{fontSize:18,fontWeight:900,color:DS.text.primary,marginBottom:4}}>Exam Complete</div>
         {markedCount>0?(
           <>
-            <div style={{fontSize:44,fontWeight:900,color:'#D4A017'}}>{earnedMarks}/{totalMarks}</div>
-            <div style={{fontSize:14,color:'rgba(255,255,255,0.8)'}}>{pct}% — {markedCount}/{questions.length} questions self-marked</div>
+            <div style={{fontSize:52,fontWeight:900,color:DS.accent.amber,lineHeight:1.1}}>{earnedMarks}<span style={{fontSize:24,color:DS.text.muted}}>/{totalMarks}</span></div>
+            <div style={{fontSize:13,color:DS.text.secondary,marginTop:6}}>{pct}% · {markedCount}/{questions.length} questions self-marked</div>
           </>
         ):(
-          <div style={{fontSize:14,color:'rgba(255,255,255,0.7)'}}>Reveal each mark scheme below and self-mark to see your score</div>
+          <div style={{fontSize:13,color:DS.text.secondary,marginTop:8}}>Reveal each mark scheme below and self-mark to see your score</div>
         )}
       </div>
       {questions.map((q,i)=>(
@@ -1145,36 +1261,38 @@ export function MockExam({onXP=()=>{}}){
   );
 
   return(
-    <div style={{maxWidth:680,margin:'0 auto',padding:20,fontFamily:"'Segoe UI',sans-serif"}}>
-      <div style={{position:'sticky',top:52,zIndex:99,background:'#fff',borderRadius:12,padding:'10px 16px',marginBottom:14,boxShadow:'0 2px 10px rgba(0,0,0,0.1)',display:'flex',justifyContent:'space-between',alignItems:'center',border:`1.5px solid ${timeLeft<300?'#E74C3C':'#e0e0e0'}`,overflow:'hidden'}}>
+    <div style={{maxWidth:680,margin:'0 auto',padding:20,fontFamily:"'Inter','Segoe UI',sans-serif",background:mode==='deep'?DS.bg.deep:DS.bg.base,minHeight:'100vh'}}>
+      {/* Sticky timer bar */}
+      <div style={{position:'sticky',top:52,zIndex:99,background:DS.bg.surface,borderRadius:DS.radius.md,padding:'10px 16px',marginBottom:14,boxShadow:DS.shadow,display:'flex',justifyContent:'space-between',alignItems:'center',border:`1px solid ${timeLeft<300?DS.accent.red:DS.border}`,overflow:'hidden'}}>
         <div>
-          <div style={{fontSize:10,fontWeight:700,color:'#888',textTransform:'uppercase'}}>Time Remaining</div>
-          <div style={{fontSize:24,fontWeight:900,color:timeLeft<300?'#E74C3C':'#1B2A4A',fontFamily:'monospace'}}>{fmt(timeLeft)}</div>
+          <div style={{fontSize:9,fontWeight:700,color:DS.text.muted,textTransform:'uppercase',letterSpacing:1}}>Time Remaining</div>
+          <div style={{fontSize:24,fontWeight:900,color:timeLeft<300?DS.accent.red:DS.text.primary,fontFamily:'monospace'}}>{fmt(timeLeft)}</div>
         </div>
         <div style={{textAlign:'center'}}>
-          <div style={{fontSize:10,fontWeight:700,color:'#888',textTransform:'uppercase'}}>Progress</div>
-          <div style={{fontSize:14,fontWeight:800,color:'#1B2A4A'}}>20 Qs · {totalMarks} marks</div>
+          <div style={{fontSize:9,fontWeight:700,color:DS.text.muted,textTransform:'uppercase',letterSpacing:1}}>Progress</div>
+          <div style={{fontSize:13,fontWeight:800,color:DS.text.secondary}}>20 Qs · {totalMarks} marks</div>
         </div>
-        <button onClick={handleSubmit} style={{padding:'10px 18px',borderRadius:10,border:'none',background:'#1B2A4A',color:'#fff',fontWeight:800,fontSize:12,cursor:'pointer'}}>Submit →</button>
-        <div style={{position:'absolute',bottom:0,left:0,height:3,background:timeLeft<300?'#E74C3C':'#1B2A4A',width:`${(timeLeft/TOTAL_TIME)*100}%`,transition:'width 1s linear'}}/>
+        <button onClick={handleSubmit} style={{padding:'9px 16px',borderRadius:DS.radius.sm,border:'none',background:DS.accent.amber,color:DS.bg.deep,fontWeight:900,fontSize:12,cursor:'pointer',transition:DS.tr}}>Submit →</button>
+        {/* Amber progress line */}
+        <div style={{position:'absolute',bottom:0,left:0,height:2,background:timeLeft<300?DS.accent.red:DS.accent.amber,width:`${(timeLeft/TOTAL_TIME)*100}%`,transition:'width 1s linear'}}/>
       </div>
 
       {questions.map((q,i)=>(
-        <div key={q.qid} style={{background:'#fff',border:'1.5px solid #e8e8e8',borderRadius:12,marginBottom:10,overflow:'hidden'}}>
+        <div key={q.qid} style={{background:DS.bg.surface,border:`1px solid ${DS.border}`,borderRadius:DS.radius.md,marginBottom:10,overflow:'hidden'}}>
           <div style={{padding:'14px 18px'}}>
-            <div style={{display:'flex',gap:8,marginBottom:8,alignItems:'center',flexWrap:'wrap'}}>
-              <span style={{width:24,height:24,borderRadius:'50%',background:'#1B2A4A',color:'#D4A017',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:900,fontSize:11,flexShrink:0}}>{i+1}</span>
-              <span style={{background:(DIFF[q.diff]||DIFF.Mid).bg,color:(DIFF[q.diff]||DIFF.Mid).c,fontSize:11,fontWeight:800,padding:'2px 8px',borderRadius:6}}>{q.diff}</span>
-              <span style={{fontSize:11,color:'#999',fontWeight:600}}>[{q.marks} mark{q.marks>1?'s':''}]</span>
-              <span style={{fontSize:10,color:'#bbb'}}>{q.topicTitle}</span>
+            <div style={{display:'flex',gap:8,marginBottom:10,alignItems:'center',flexWrap:'wrap'}}>
+              <span style={{width:24,height:24,borderRadius:'50%',background:DS.accent.amberDim,border:`1px solid ${DS.accent.amber}`,color:DS.accent.amber,display:'flex',alignItems:'center',justifyContent:'center',fontWeight:900,fontSize:11,flexShrink:0}}>{i+1}</span>
+              <span style={{background:(DIFF[q.diff]||DIFF.Mid).bg,color:(DIFF[q.diff]||DIFF.Mid).c,fontSize:10,fontWeight:800,padding:'2px 8px',borderRadius:6}}>{q.diff}</span>
+              <span style={{fontSize:11,color:DS.text.muted,fontWeight:600}}>[{q.marks} mark{q.marks>1?'s':''}]</span>
+              {mode!=='deep'&&<span style={{fontSize:10,color:DS.text.muted}}>{q.topicTitle}</span>}
             </div>
-            <p style={{margin:'0 0 10px',fontSize:14,lineHeight:1.65,color:'#1a1a2e',whiteSpace:'pre-line'}}>{q.q}</p>
-            <textarea value={workings[i]||''} onChange={e=>setWorkings(w=>({...w,[i]:e.target.value}))} placeholder="Write your working here..." style={{width:'100%',minHeight:68,padding:10,borderRadius:8,border:'1.5px solid #e0e0e0',fontSize:13,fontFamily:'inherit',resize:'vertical',boxSizing:'border-box',outline:'none'}}/>
+            <p style={{margin:'0 0 10px',fontSize:14,lineHeight:1.7,color:DS.text.primary,whiteSpace:'pre-line'}}>{q.q}</p>
+            <textarea value={workings[i]||''} onChange={e=>setWorkings(w=>({...w,[i]:e.target.value}))} placeholder="Write your working here..." style={{width:'100%',minHeight:68,padding:10,borderRadius:DS.radius.sm,border:`1.5px solid ${DS.border}`,background:DS.bg.elevated,color:DS.text.primary,fontSize:13,fontFamily:'inherit',resize:'vertical',boxSizing:'border-box',outline:'none'}}/>
           </div>
         </div>
       ))}
-      <button onClick={handleSubmit} style={{width:'100%',padding:14,borderRadius:12,border:'none',background:'linear-gradient(135deg,#1B2A4A,#0D6E72)',color:'#fff',fontSize:14,fontWeight:900,cursor:'pointer',marginBottom:24}}>
-        📤 Submit Exam
+      <button onClick={handleSubmit} style={{width:'100%',padding:14,borderRadius:DS.radius.md,border:'none',background:DS.accent.amber,color:DS.bg.deep,fontSize:14,fontWeight:900,cursor:'pointer',marginBottom:24,transition:DS.tr}}>
+        Submit Exam
       </button>
     </div>
   );
@@ -1207,48 +1325,50 @@ async function callAPI(cfg){
 function QCardGen({q,idx,board}){
   const [show,setShow]=useState("none");
   const d=(DIFF[q.difficulty]||DIFF.Mid);
-  const bc=BCOLORS[board]||'#1B2A4A';
+  const bc=BCOLORS[board]||DS.accent.amber;
+  const showWorking=show==="working"||show==="both";
+  const showMarks=show==="marks"||show==="both";
   return(
-    <div style={{background:"#fff",border:"1.5px solid #e8e8e8",borderRadius:14,marginBottom:16,overflow:"hidden",boxShadow:"0 2px 10px rgba(0,0,0,0.05)"}}>
-      <div style={{padding:"16px 20px 12px",borderBottom:"1px solid #f5f5f5"}}>
-        <div style={{display:"flex",justifyContent:"space-between",marginBottom:10}}>
-          <div style={{display:"flex",gap:7,alignItems:"center",flexWrap:"wrap"}}>
-            <div style={{width:26,height:26,borderRadius:"50%",background:"#1B2A4A",color:"#D4A017",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:900,fontSize:11}}>{idx+1}</div>
-            <span style={{background:bc,color:"#fff",fontSize:10,fontWeight:800,padding:"2px 8px",borderRadius:4,letterSpacing:1}}>{board}</span>
-            <span style={{background:d.bg,color:d.c,fontSize:11,fontWeight:800,padding:"2px 8px",borderRadius:6}}>{q.difficulty}</span>
-            <span style={{fontSize:11,color:"#999",fontWeight:600}}>[{q.marks} mark{q.marks>1?"s":""}]</span>
-          </div>
+    <div style={{background:DS.bg.surface,border:`1px solid ${DS.border}`,borderRadius:DS.radius.lg,marginBottom:16,overflow:"hidden",boxShadow:DS.shadow,position:'relative'}}>
+      {/* Left accent strip */}
+      <div style={{position:'absolute',top:0,left:0,bottom:0,width:3,background:d.c}}/>
+      <div style={{padding:"16px 20px 14px 20px"}}>
+        <div style={{display:"flex",gap:7,alignItems:"center",flexWrap:"wrap",marginBottom:10}}>
+          <div style={{width:26,height:26,borderRadius:"50%",background:DS.accent.amberDim,border:`1px solid ${DS.accent.amber}`,color:DS.accent.amber,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:900,fontSize:11}}>{idx+1}</div>
+          <span style={{background:`${bc}22`,color:bc,fontSize:10,fontWeight:800,padding:"2px 8px",borderRadius:4,letterSpacing:1}}>{board}</span>
+          <span style={{background:d.bg,color:d.c,fontSize:10,fontWeight:800,padding:"2px 8px",borderRadius:6}}>{q.difficulty}</span>
+          <span style={{fontSize:11,color:DS.text.muted,fontWeight:600}}>[{q.marks} mark{q.marks>1?"s":""}]</span>
         </div>
-        <p style={{margin:0,fontSize:14,lineHeight:1.7,color:"#1a1a2e",whiteSpace:"pre-line"}}>{q.question}</p>
+        <p style={{margin:0,fontSize:14,lineHeight:1.75,color:DS.text.primary,whiteSpace:"pre-line"}}>{q.question}</p>
       </div>
-      {(show==="working"||show==="both")&&(
-        <div style={{padding:"14px 20px",background:"#F8F9FA",borderBottom:"1px solid #eee"}}>
-          <div style={{fontSize:11,fontWeight:800,color:"#555",textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>📝 Worked Solution</div>
-          <div style={{fontSize:13,lineHeight:1.9,color:"#2d3436",whiteSpace:"pre-line",fontFamily:"'Courier New',monospace"}}>{q.working}</div>
+      {showWorking&&(
+        <div style={{padding:"14px 20px",background:DS.bg.elevated,borderTop:`1px solid ${DS.border}`,borderBottom:`1px solid ${DS.border}`}}>
+          <div style={{fontSize:10,fontWeight:800,color:DS.accent.amber,textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>Worked Solution</div>
+          <div style={{fontSize:13,lineHeight:1.9,color:DS.text.secondary,whiteSpace:"pre-line",fontFamily:"'Courier New',monospace"}}>{q.working}</div>
         </div>
       )}
-      {(show==="marks"||show==="both")&&(
-        <div style={{padding:"14px 20px",background:"#f0fff4",borderBottom:"1px solid #d5f5e3"}}>
-          <div style={{fontSize:11,fontWeight:800,color:"#27AE60",textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>✓ Mark Scheme</div>
-          {q.mark_scheme.map((m,i)=><div key={i} style={{fontSize:13,color:"#2d3436",padding:"3px 0",display:"flex",gap:8}}><span style={{color:"#27AE60",fontWeight:700}}>›</span>{m}</div>)}
-          {q.examiner_insight&&<div style={{background:"#E8F4F8",borderLeft:"3px solid #0D6E72",borderRadius:"0 8px 8px 0",padding:"10px 14px",marginTop:10}}>
-            <div style={{fontSize:11,fontWeight:800,color:"#0D6E72",marginBottom:4}}>💡 {board} Examiner Insight</div>
-            <p style={{margin:0,fontSize:13,color:"#2d3436",lineHeight:1.5}}>{q.examiner_insight}</p>
+      {showMarks&&(
+        <div style={{padding:"14px 20px",background:DS.bg.elevated,borderTop:`1px solid ${DS.border}`,borderBottom:`1px solid ${DS.border}`}}>
+          <div style={{fontSize:10,fontWeight:800,color:DS.accent.teal,textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>Mark Scheme</div>
+          {q.mark_scheme.map((m,i)=><div key={i} style={{fontSize:13,color:DS.text.secondary,padding:"4px 0",display:"flex",gap:8,borderBottom:`1px solid ${DS.border}`}}><span style={{color:DS.accent.teal,fontWeight:700,flexShrink:0}}>›</span>{m}</div>)}
+          {q.examiner_insight&&<div style={{background:DS.bg.overlay,borderLeft:`3px solid ${DS.accent.teal}`,borderRadius:`0 ${DS.radius.sm}px ${DS.radius.sm}px 0`,padding:"10px 14px",marginTop:10}}>
+            <div style={{fontSize:10,fontWeight:800,color:DS.accent.teal,marginBottom:4,textTransform:'uppercase',letterSpacing:1}}>{board} Examiner Insight</div>
+            <p style={{margin:0,fontSize:13,color:DS.text.secondary,lineHeight:1.6}}>{q.examiner_insight}</p>
           </div>}
-          {q.common_mistake&&<div style={{background:"#FFF5F5",borderLeft:"3px solid #E74C3C",borderRadius:"0 8px 8px 0",padding:"10px 14px",marginTop:8}}>
-            <div style={{fontSize:11,fontWeight:800,color:"#E74C3C",marginBottom:4}}>✗ Most Common Mistake</div>
-            <p style={{margin:0,fontSize:13,color:"#2d3436",lineHeight:1.5}}>{q.common_mistake}</p>
+          {q.common_mistake&&<div style={{background:DS.accent.redDim,borderLeft:`3px solid ${DS.accent.red}`,borderRadius:`0 ${DS.radius.sm}px ${DS.radius.sm}px 0`,padding:"10px 14px",marginTop:8}}>
+            <div style={{fontSize:10,fontWeight:800,color:DS.accent.red,marginBottom:4,textTransform:'uppercase',letterSpacing:1}}>Most Common Mistake</div>
+            <p style={{margin:0,fontSize:13,color:DS.text.secondary,lineHeight:1.6}}>{q.common_mistake}</p>
           </div>}
         </div>
       )}
-      <div style={{padding:"10px 20px",display:"flex",gap:7,background:"#fafafa",flexWrap:"wrap"}}>
+      <div style={{padding:"10px 18px",display:"flex",gap:7,background:DS.bg.base,flexWrap:"wrap"}}>
         <button onClick={()=>setShow(s=>s==="working"?"none":s==="marks"?"both":s==="both"?"marks":"working")}
-          style={{flex:1,minWidth:110,padding:"7px 0",borderRadius:7,border:"1.5px solid #1B2A4A",background:(show==="working"||show==="both")?"#1B2A4A":"transparent",color:(show==="working"||show==="both")?"#fff":"#1B2A4A",fontSize:11,fontWeight:700,cursor:"pointer"}}>
-          {(show==="working"||show==="both")?"Hide Working":"Show Working"}
+          style={{flex:1,minWidth:110,padding:"7px 0",borderRadius:DS.radius.sm,border:`1.5px solid ${showWorking?DS.accent.amber:DS.border}`,background:showWorking?DS.accent.amberDim:'transparent',color:showWorking?DS.accent.amber:DS.text.secondary,fontSize:11,fontWeight:700,cursor:"pointer",transition:DS.tr}}>
+          {showWorking?"Hide Working":"Show Working"}
         </button>
         <button onClick={()=>setShow(s=>s==="marks"?"none":s==="working"?"both":s==="both"?"working":"marks")}
-          style={{flex:1,minWidth:110,padding:"7px 0",borderRadius:7,border:"1.5px solid #27AE60",background:(show==="marks"||show==="both")?"#27AE60":"transparent",color:(show==="marks"||show==="both")?"#fff":"#27AE60",fontSize:11,fontWeight:700,cursor:"pointer"}}>
-          {(show==="marks"||show==="both")?"Hide Mark Scheme":"Show Mark Scheme"}
+          style={{flex:1,minWidth:110,padding:"7px 0",borderRadius:DS.radius.sm,border:`1.5px solid ${showMarks?DS.accent.teal:DS.border}`,background:showMarks?DS.accent.tealDim:'transparent',color:showMarks?DS.accent.teal:DS.text.secondary,fontSize:11,fontWeight:700,cursor:"pointer",transition:DS.tr}}>
+          {showMarks?"Hide Mark Scheme":"Show Mark Scheme"}
         </button>
       </div>
     </div>
@@ -1273,96 +1393,96 @@ export function Generator(){
   };
 
   return(
-    <div style={{fontFamily:"'Segoe UI',sans-serif",maxWidth:820,margin:"0 auto",background:"#f8f9fc",minHeight:"100vh"}}>
-      <div style={{background:"linear-gradient(135deg,#1B2A4A,#0D4A4A)",padding:"20px 24px"}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
-          <div>
-            <div style={{fontSize:10,fontWeight:800,color:"#D4A017",letterSpacing:2,textTransform:"uppercase",marginBottom:4}}>GCSE MATHS</div>
-            <div style={{fontSize:22,fontWeight:900,color:"#fff"}}>AI Question Generator</div>
-            <div style={{fontSize:12,color:"rgba(255,255,255,0.6)",marginTop:3}}>Infinite questions · Board-specific mark schemes · Examiner insights</div>
-          </div>
-          {total>0&&<div style={{background:"rgba(212,160,23,0.2)",borderRadius:10,padding:"8px 16px",textAlign:"center"}}>
-            <div style={{fontSize:22,fontWeight:900,color:"#D4A017"}}>{total}</div>
-            <div style={{fontSize:9,color:"rgba(255,255,255,0.6)",fontWeight:700,textTransform:"uppercase",letterSpacing:1}}>sets made</div>
-          </div>}
+    <div style={{fontFamily:"'Inter','Segoe UI',sans-serif",maxWidth:860,margin:"0 auto",background:DS.bg.base,minHeight:"100vh"}}>
+      {/* Header */}
+      <div style={{background:DS.bg.surface,borderBottom:`1px solid ${DS.border}`,padding:"18px 24px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <div>
+          <div style={{fontSize:9,fontWeight:800,color:DS.accent.amber,letterSpacing:2,textTransform:"uppercase",marginBottom:4}}>GCSE MATHS</div>
+          <div style={{fontSize:20,fontWeight:900,color:DS.text.primary}}>AI Question Generator</div>
+          <div style={{fontSize:12,color:DS.text.muted,marginTop:2}}>Infinite questions · Board-specific mark schemes · Examiner insights</div>
         </div>
+        {total>0&&<div style={{background:DS.accent.amberDim,borderRadius:DS.radius.md,padding:"8px 18px",textAlign:"center",border:`1px solid ${DS.accent.amber}`}}>
+          <div style={{fontSize:24,fontWeight:900,color:DS.accent.amber}}>{total}</div>
+          <div style={{fontSize:9,color:DS.text.muted,fontWeight:700,textTransform:"uppercase",letterSpacing:1}}>sets made</div>
+        </div>}
       </div>
       <div style={{padding:"20px 24px"}}>
-        {!import.meta.env.VITE_ANTHROPIC_API_KEY&&<div style={{background:'#fff3cd',border:'1.5px solid #E8B84B',borderRadius:10,padding:'12px 16px',marginBottom:16,fontSize:13,color:'#856404'}}>
-          ⚠️ <strong>API key not set.</strong> Create <code>.env.local</code> in the project root with: <code>VITE_ANTHROPIC_API_KEY=sk-ant-...</code> then restart the dev server.
+        {!import.meta.env.VITE_ANTHROPIC_API_KEY&&<div style={{background:DS.accent.amberDim,border:`1.5px solid ${DS.accent.amber}`,borderRadius:DS.radius.md,padding:'12px 16px',marginBottom:16,fontSize:13,color:DS.accent.amber}}>
+          API key not set. Create <code>.env.local</code> with: <code>VITE_ANTHROPIC_API_KEY=sk-ant-...</code> then restart.
         </div>}
-        <div style={{display:"grid",gridTemplateColumns:"280px 1fr",gap:20,alignItems:"start"}}>
-          <div style={{background:"#fff",borderRadius:14,border:"1.5px solid #e8e8e8",overflow:"hidden",position:"sticky",top:60}}>
-            <div style={{padding:"14px 16px",borderBottom:"1px solid #f0f0f0"}}>
-              <div style={{fontSize:10,fontWeight:800,color:"#888",textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>Exam Board</div>
+        <div style={{display:"grid",gridTemplateColumns:"260px 1fr",gap:20,alignItems:"start"}}>
+          {/* Sidebar */}
+          <div style={{background:DS.bg.surface,borderRadius:DS.radius.lg,border:`1px solid ${DS.border}`,overflow:"hidden",position:"sticky",top:60}}>
+            <div style={{padding:"14px 16px",borderBottom:`1px solid ${DS.border}`}}>
+              <div style={{fontSize:9,fontWeight:800,color:DS.text.muted,textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>Exam Board</div>
               <div style={{display:"flex",gap:5}}>
-                {["AQA","Edexcel","OCR"].map(b=><button key={b} onClick={()=>setCfg(c=>({...c,board:b}))} style={{flex:1,padding:"8px 0",borderRadius:8,border:`1.5px solid ${cfg.board===b?BCOLORS[b]:"#e0e0e0"}`,background:cfg.board===b?BCOLORS[b]:"#fff",color:cfg.board===b?"#fff":"#555",fontWeight:800,fontSize:11,cursor:"pointer"}}>{b}</button>)}
+                {["AQA","Edexcel","OCR"].map(b=><button key={b} onClick={()=>setCfg(c=>({...c,board:b}))} style={{flex:1,padding:"8px 0",borderRadius:DS.radius.sm,border:`1.5px solid ${cfg.board===b?BCOLORS[b]:DS.border}`,background:cfg.board===b?`${BCOLORS[b]}22`:DS.bg.elevated,color:cfg.board===b?BCOLORS[b]:DS.text.secondary,fontWeight:800,fontSize:11,cursor:"pointer",transition:DS.tr}}>{b}</button>)}
               </div>
             </div>
-            <div style={{padding:"12px 16px",borderBottom:"1px solid #f0f0f0"}}>
-              <div style={{fontSize:10,fontWeight:800,color:"#888",textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>Tier</div>
+            <div style={{padding:"12px 16px",borderBottom:`1px solid ${DS.border}`}}>
+              <div style={{fontSize:9,fontWeight:800,color:DS.text.muted,textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>Tier</div>
               <div style={{display:"flex",gap:5}}>
-                {["Foundation","Higher"].map(t=><button key={t} onClick={()=>setCfg(c=>({...c,tier:t}))} style={{flex:1,padding:"7px 0",borderRadius:8,border:`1.5px solid ${cfg.tier===t?"#1B2A4A":"#e0e0e0"}`,background:cfg.tier===t?"#1B2A4A":"#fff",color:cfg.tier===t?"#fff":"#555",fontWeight:700,fontSize:11,cursor:"pointer"}}>{t}</button>)}
+                {["Foundation","Higher"].map(t=><button key={t} onClick={()=>setCfg(c=>({...c,tier:t}))} style={{flex:1,padding:"7px 0",borderRadius:DS.radius.sm,border:`1.5px solid ${cfg.tier===t?DS.accent.amber:DS.border}`,background:cfg.tier===t?DS.accent.amberDim:DS.bg.elevated,color:cfg.tier===t?DS.accent.amber:DS.text.secondary,fontWeight:700,fontSize:11,cursor:"pointer",transition:DS.tr}}>{t}</button>)}
               </div>
             </div>
-            <div style={{padding:"12px 16px",borderBottom:"1px solid #f0f0f0"}}>
-              <div style={{fontSize:10,fontWeight:800,color:"#888",textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>Difficulty</div>
+            <div style={{padding:"12px 16px",borderBottom:`1px solid ${DS.border}`}}>
+              <div style={{fontSize:9,fontWeight:800,color:DS.text.muted,textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>Difficulty</div>
               <div style={{display:"grid",gap:5}}>
                 {[{id:"Starter",desc:"1–2 marks · direct"},{id:"Mid",desc:"3–4 marks · multi-step"},{id:"Killer",desc:"4–6 marks · proof/evaluate"}].map(d=>{
                   const dc=DIFF[d.id];
-                  return<button key={d.id} onClick={()=>setCfg(c=>({...c,diff:d.id}))} style={{padding:"8px 10px",borderRadius:8,border:`1.5px solid ${cfg.diff===d.id?dc.c:"#e0e0e0"}`,background:cfg.diff===d.id?dc.bg:"#fff",textAlign:"left",cursor:"pointer"}}>
-                    <div style={{fontSize:12,fontWeight:800,color:cfg.diff===d.id?dc.c:"#555"}}>{d.id}</div>
-                    <div style={{fontSize:10,color:"#aaa"}}>{d.desc}</div>
+                  return<button key={d.id} onClick={()=>setCfg(c=>({...c,diff:d.id}))} style={{padding:"8px 10px",borderRadius:DS.radius.sm,border:`1.5px solid ${cfg.diff===d.id?dc.c:DS.border}`,background:cfg.diff===d.id?dc.bg:DS.bg.elevated,textAlign:"left",cursor:"pointer",transition:DS.tr}}>
+                    <div style={{fontSize:12,fontWeight:800,color:cfg.diff===d.id?dc.c:DS.text.secondary}}>{d.id}</div>
+                    <div style={{fontSize:10,color:DS.text.muted}}>{d.desc}</div>
                   </button>;
                 })}
               </div>
             </div>
-            <div style={{padding:"12px 16px",borderBottom:"1px solid #f0f0f0"}}>
-              <div style={{fontSize:10,fontWeight:800,color:"#888",textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>
-                Questions: <span style={{color:"#1B2A4A",fontSize:14,fontWeight:900}}>{cfg.count}</span>
+            <div style={{padding:"12px 16px",borderBottom:`1px solid ${DS.border}`}}>
+              <div style={{fontSize:9,fontWeight:800,color:DS.text.muted,textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>
+                Questions: <span style={{color:DS.accent.amber,fontSize:14,fontWeight:900}}>{cfg.count}</span>
               </div>
-              <input type="range" min={1} max={5} value={cfg.count} onChange={e=>setCfg(c=>({...c,count:+e.target.value}))} style={{width:"100%",accentColor:"#1B2A4A"}}/>
+              <input type="range" min={1} max={5} value={cfg.count} onChange={e=>setCfg(c=>({...c,count:+e.target.value}))} style={{width:"100%",accentColor:DS.accent.amber}}/>
             </div>
             <div style={{padding:"12px 16px"}}>
-              <div style={{fontSize:10,fontWeight:800,color:"#888",textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>Topic</div>
+              <div style={{fontSize:9,fontWeight:800,color:DS.text.muted,textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>Topic</div>
               <div style={{display:"flex",gap:4,marginBottom:8,flexWrap:"wrap"}}>
-                {modules.map(m=><button key={m} onClick={()=>setFilterMod(m)} style={{padding:"3px 7px",borderRadius:5,border:"none",background:filterMod===m?(MCOLORS[m]||"#1B2A4A"):"#f0f0f0",color:filterMod===m?"#fff":"#555",fontSize:9,fontWeight:700,cursor:"pointer"}}>{m==="All"?"All":m.split(" ")[0]}</button>)}
+                {modules.map(m=><button key={m} onClick={()=>setFilterMod(m)} style={{padding:"3px 7px",borderRadius:5,border:"none",background:filterMod===m?(MCOLORS[m]||DS.accent.amber):DS.bg.overlay,color:filterMod===m?"#fff":DS.text.secondary,fontSize:9,fontWeight:700,cursor:"pointer"}}>{m==="All"?"All":m.split(" ")[0]}</button>)}
               </div>
-              <div style={{maxHeight:190,overflowY:"auto",display:"grid",gap:4}}>
-                {visibleTopics.map(t=><button key={t.id} onClick={()=>setCfg(c=>({...c,topic:t.id,topicLabel:t.label}))} style={{padding:"8px 10px",borderRadius:7,border:`1.5px solid ${cfg.topic===t.id?(MCOLORS[t.module]||"#1B2A4A"):"#e8e8e8"}`,background:cfg.topic===t.id?"#f8f5ff":"#fff",textAlign:"left",cursor:"pointer"}}>
-                  <div style={{fontSize:12,fontWeight:cfg.topic===t.id?700:400,color:cfg.topic===t.id?(MCOLORS[t.module]||"#1B2A4A"):"#444"}}>{t.label}</div>
-                  <div style={{fontSize:10,color:"#bbb"}}>{t.module}</div>
+              <div style={{maxHeight:200,overflowY:"auto",display:"grid",gap:4}}>
+                {visibleTopics.map(t=><button key={t.id} onClick={()=>setCfg(c=>({...c,topic:t.id,topicLabel:t.label}))} style={{padding:"8px 10px",borderRadius:DS.radius.sm,border:`1.5px solid ${cfg.topic===t.id?(MCOLORS[t.module]||DS.accent.amber):DS.border}`,background:cfg.topic===t.id?DS.bg.overlay:DS.bg.elevated,textAlign:"left",cursor:"pointer",transition:DS.tr}}>
+                  <div style={{fontSize:12,fontWeight:cfg.topic===t.id?700:400,color:cfg.topic===t.id?(MCOLORS[t.module]||DS.accent.amber):DS.text.secondary}}>{t.label}</div>
+                  <div style={{fontSize:10,color:DS.text.muted}}>{t.module}</div>
                 </button>)}
               </div>
             </div>
           </div>
+          {/* Main content */}
           <div>
-            <button onClick={run} disabled={loading} style={{width:"100%",padding:"15px",borderRadius:12,border:"none",background:loading?"#ccc":"linear-gradient(135deg,#1B2A4A,#0D6E72)",color:"#fff",fontSize:14,fontWeight:900,cursor:loading?"not-allowed":"pointer",marginBottom:16,display:"flex",alignItems:"center",justifyContent:"center",gap:10,boxShadow:loading?"none":"0 4px 18px rgba(27,42,74,0.3)"}}>
-              {loading?(<><div style={{width:16,height:16,border:"2px solid rgba(255,255,255,0.4)",borderTopColor:"#fff",borderRadius:"50%",animation:"spin 0.8s linear infinite"}}/>Generating {cfg.count} question{cfg.count>1?"s":""}...</>)
-                :`⚡ Generate ${cfg.count} ${cfg.topicLabel} — ${cfg.board} ${cfg.tier} ${cfg.diff}`}
+            <button onClick={run} disabled={loading} style={{width:"100%",padding:"15px",borderRadius:DS.radius.md,border:"none",background:loading?DS.bg.elevated:DS.accent.amber,color:loading?DS.text.muted:DS.bg.deep,fontSize:14,fontWeight:900,cursor:loading?"not-allowed":"pointer",marginBottom:16,display:"flex",alignItems:"center",justifyContent:"center",gap:10,transition:DS.tr,boxShadow:loading?"none":`0 4px 18px ${DS.accent.amberDim}`}}>
+              {loading?(<><div style={{width:16,height:16,border:`2px solid ${DS.border}`,borderTopColor:DS.text.primary,borderRadius:"50%",animation:"spin 0.8s linear infinite"}}/>Generating {cfg.count} question{cfg.count>1?"s":""}...</>)
+                :`Generate ${cfg.count} ${cfg.topicLabel} — ${cfg.board} ${cfg.tier} ${cfg.diff}`}
             </button>
-            {err&&<div style={{background:"#fff5f5",border:"1.5px solid #E74C3C",borderRadius:10,padding:"12px 16px",marginBottom:14,color:"#C0392B",fontSize:13}}>⚠ {err}</div>}
-            {loading&&!qs.length&&<div style={{textAlign:"center",padding:"60px 20px",color:"#888"}}>
-              <div style={{fontSize:40,marginBottom:12}}>⚡</div>
-              <div style={{fontSize:15,fontWeight:700,color:"#1B2A4A",marginBottom:6}}>Writing your questions...</div>
-              <div style={{fontSize:13}}>Creating {cfg.board}-style {cfg.diff} questions on {cfg.topicLabel}</div>
+            {err&&<div style={{background:DS.accent.redDim,border:`1.5px solid ${DS.accent.red}`,borderRadius:DS.radius.md,padding:"12px 16px",marginBottom:14,color:DS.accent.red,fontSize:13}}>{err}</div>}
+            {loading&&!qs.length&&<div style={{textAlign:"center",padding:"60px 20px",color:DS.text.muted}}>
+              <div style={{fontSize:36,marginBottom:12,color:DS.accent.amber}}>⚡</div>
+              <div style={{fontSize:15,fontWeight:700,color:DS.text.primary,marginBottom:6}}>Writing your questions...</div>
+              <div style={{fontSize:13,color:DS.text.secondary}}>Creating {cfg.board}-style {cfg.diff} questions on {cfg.topicLabel}</div>
             </div>}
             {qs.length>0&&!loading&&<>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
-                <div style={{fontSize:11,fontWeight:800,color:"#888",textTransform:"uppercase",letterSpacing:1}}>{qs.length} question{qs.length>1?"s":""} generated</div>
-                <button onClick={run} style={{background:"none",border:"1.5px solid #e0e0e0",borderRadius:8,padding:"6px 12px",fontSize:11,fontWeight:700,color:"#555",cursor:"pointer"}}>↺ Regenerate</button>
+                <div style={{fontSize:10,fontWeight:800,color:DS.text.muted,textTransform:"uppercase",letterSpacing:1}}>{qs.length} question{qs.length>1?"s":""} generated</div>
+                <button onClick={run} style={{background:"none",border:`1.5px solid ${DS.border}`,borderRadius:DS.radius.sm,padding:"6px 12px",fontSize:11,fontWeight:700,color:DS.text.secondary,cursor:"pointer",transition:DS.tr}}>↺ Regenerate</button>
               </div>
               {qs.map((q,i)=><QCardGen key={`${total}-${i}`} q={q} idx={i} board={cfg.board}/>)}
             </>}
             {!qs.length&&!loading&&<div style={{textAlign:"center",padding:"60px 20px"}}>
-              <div style={{fontSize:56,marginBottom:14}}>📐</div>
-              <div style={{fontSize:16,fontWeight:800,color:"#1B2A4A",marginBottom:8}}>Ready to generate</div>
-              <p style={{color:"#888",fontSize:13,maxWidth:300,margin:"0 auto",lineHeight:1.6}}>Choose your board, tier, topic and difficulty, then hit Generate.</p>
+              <div style={{fontSize:52,marginBottom:14}}>📐</div>
+              <div style={{fontSize:16,fontWeight:800,color:DS.text.primary,marginBottom:8}}>Ready to generate</div>
+              <p style={{color:DS.text.secondary,fontSize:13,maxWidth:300,margin:"0 auto",lineHeight:1.6}}>Choose your board, tier, topic and difficulty, then hit Generate.</p>
             </div>}
           </div>
         </div>
       </div>
-      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
     </div>
   );
 }

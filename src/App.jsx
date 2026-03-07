@@ -1,8 +1,34 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 
-// ═══ STORAGE & SM-2 ══════════════════════════════════════════════════════════
-function lsGet(k,d){try{const v=localStorage.getItem(k);return v!=null?JSON.parse(v):d;}catch{return d;}}
-function lsSet(k,v){localStorage.setItem(k,JSON.stringify(v));}
+// ═══ STORAGE & AUTH ══════════════════════════════════════════════════════════
+let _currentUser=null;// set on login/init — email string
+const GLOBAL_KEYS=new Set(['lumora_users','lumora_currentUser','lumora_sound']);
+function lsKey(k){return(!GLOBAL_KEYS.has(k)&&_currentUser)?`lumora_${_currentUser}_${k}`:k;}
+function lsGet(k,d){try{const v=localStorage.getItem(lsKey(k));return v!=null?JSON.parse(v):d;}catch{return d;}}
+function lsSet(k,v){localStorage.setItem(lsKey(k),JSON.stringify(v));}
+
+// Auth helpers
+async function sha256(str){
+  const buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+function getUsers(){try{return JSON.parse(localStorage.getItem('lumora_users')||'{}');}catch{return {};}}
+function saveUsers(u){localStorage.setItem('lumora_users',JSON.stringify(u));}
+function getCurrentUserEmail(){return localStorage.getItem('lumora_currentUser');}
+function clearCurrentUser(){localStorage.removeItem('lumora_currentUser');_currentUser=null;}
+function initCurrentUser(email){
+  _currentUser=email;
+  localStorage.setItem('lumora_currentUser',email);
+  migrateUnscopedData(email);
+}
+function migrateUnscopedData(email){
+  ['gcse_sr','gcse_perf','lumora_profile','lumora_xp','lumora_streak',
+   'lumora_daily','lumora_weekly','lumora_weekly_stats'].forEach(k=>{
+    const raw=localStorage.getItem(k);
+    const scoped=`lumora_${email}_${k}`;
+    if(raw&&!localStorage.getItem(scoped)){localStorage.setItem(scoped,raw);}
+  });
+}
 
 // ═══ GAMIFICATION ════════════════════════════════════════════════════════════
 const LEVELS=[
@@ -37,6 +63,41 @@ function touchStreak(){
   return{streak:d.current,milestone};
 }
 
+// ═══ DAILY CHALLENGE & WEEKLY GOAL ════════════════════════════════════════════
+function todayStr(){return new Date().toISOString().slice(0,10);}
+function isDailyDone(){const d=lsGet('lumora_daily',{date:null,completed:false});return d.date===todayStr()&&d.completed;}
+function setDailyDone(xp){lsSet('lumora_daily',{date:todayStr(),completed:true,xp});}
+function getWeeklyData(){
+  const today=new Date();const dow=(today.getDay()+6)%7;
+  const mon=new Date(today);mon.setDate(today.getDate()-dow);
+  const ws=mon.toISOString().slice(0,10);
+  const d=lsGet('lumora_weekly',{weekStart:null,count:0});
+  if(d.weekStart!==ws){const f={weekStart:ws,count:0};lsSet('lumora_weekly',f);return f;}
+  return d;
+}
+function incrementWeekly(){const d=getWeeklyData();d.count=Math.min(7,d.count+1);lsSet('lumora_weekly',d);return d;}
+function getWeakTopics(){
+  const perf=lsGet('gcse_perf',{});
+  const all=MODULES.flatMap(m=>m.topics);
+  const scored=all.map(t=>{const p=perf[t.id];return{...t,score:p&&p.total>0?p.correct/p.total:null};});
+  const weak=scored.filter(t=>t.score===null||t.score<0.7);
+  return shuffle(weak.length>=3?weak:scored).slice(0,3);
+}
+function getFallbackDailyQs(){
+  const starters=ALL_QUESTIONS.filter(q=>q.diff==='Starter');
+  const mids=ALL_QUESTIONS.filter(q=>q.diff==='Mid');
+  return[...shuffle(starters).slice(0,2),...shuffle(mids).slice(0,1)];
+}
+function getWeeklyStats(){
+  const today=new Date();const dow=(today.getDay()+6)%7;
+  const mon=new Date(today);mon.setDate(today.getDate()-dow);
+  const ws=mon.toISOString().slice(0,10);
+  const d=lsGet('lumora_weekly_stats',{weekStart:null,qCount:0,xpStart:0});
+  if(d.weekStart!==ws){const f={weekStart:ws,qCount:0,xpStart:getXP()};lsSet('lumora_weekly_stats',f);return f;}
+  return d;
+}
+function bumpWeeklyQs(){const d=getWeeklyStats();d.qCount++;lsSet('lumora_weekly_stats',d);}
+
 function sm2Update(qid,quality){
   const data=lsGet('gcse_sr',{});
   const it=data[qid]||{ef:2.5,rep:0,interval:0};
@@ -57,6 +118,7 @@ function recordPerf(topicId,correct){
   const p=lsGet('gcse_perf',{});
   if(!p[topicId])p[topicId]={correct:0,total:0};
   p[topicId].total++;if(correct)p[topicId].correct++;lsSet('gcse_perf',p);
+  bumpWeeklyQs();
 }
 // ═══ DESIGN SYSTEM ════════════════════════════════════════════════════════════
 const DS={
@@ -100,7 +162,7 @@ async function aiMark(question,marks,ms,working){
 async function aiSocratic(question,ms,aiResult,chatHistory){
   const key=import.meta.env.VITE_ANTHROPIC_API_KEY;
   if(!key)throw new Error('Add VITE_ANTHROPIC_API_KEY to .env.local');
-  const gotFull=aiResult.marksEarned>=(aiResult.maxMarks??aiResult.totalMarks??999);
+  const gotFull=maxMarks>0?aiResult.marksEarned>=maxMarks:aiResult.marksEarned>=(aiResult.maxMarks??aiResult.totalMarks??999);
   const sys=`You are a Socratic maths tutor helping a GCSE student understand a question.
 
 CONTEXT:
@@ -132,8 +194,211 @@ YOUR RULES:
   return d.content.map(b=>b.text||'').join('').trim();
 }
 
+async function generateDailyQs(topics){
+  const key=import.meta.env.VITE_ANTHROPIC_API_KEY;
+  if(!key)return null;
+  const names=topics.map(t=>t.title).join(', ');
+  const res=await fetch('https://api.anthropic.com/v1/messages',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+    body:JSON.stringify({model:'claude-haiku-4-5',max_tokens:1600,messages:[{role:'user',content:
+      `You are a GCSE Maths examiner. Generate exactly 3 questions covering: ${names}.\nMake 2 Starter (1-2 marks, direct single-step) and 1 Mid (3-4 marks, multi-step).\nReply ONLY with valid JSON (no markdown fences):\n{"questions":[{"q":"Full question text","marks":2,"diff":"Starter","ms":["M1: ...","A1: ..."],"insight":"key examiner tip"}]}`
+    }]})
+  });
+  if(!res.ok)return null;
+  const d=await res.json();
+  return JSON.parse(d.content.map(b=>b.text||'').join('').replace(/```json|```/g,'').trim());
+}
+
+async function generateTopicQs(topicTitle,moduleLabel,board,diffMix){
+  const key=import.meta.env.VITE_ANTHROPIC_API_KEY;
+  if(!key)throw new Error('Add VITE_ANTHROPIC_API_KEY to .env.local');
+  const boardStyle={
+    AQA:'Multi-step worded problems. Reward method marks at each step. Show all working.',
+    Edexcel:'Real-world applied context. "Evaluate and justify" questions. Formulae may not be given.',
+    OCR:'Give a reason for each step. "Show that" and proof components. Justify all decisions.'
+  };
+  const res=await fetch('https://api.anthropic.com/v1/messages',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+    body:JSON.stringify({model:'claude-haiku-4-5',max_tokens:1800,messages:[{role:'user',content:
+      `You are a GCSE Maths examiner. Generate exactly 3 ${board} exam questions.\nTopic: ${topicTitle} (${moduleLabel})\nDifficulty mix: ${diffMix}\n${boardStyle[board]||boardStyle.AQA}\nReply ONLY with valid JSON (no markdown fences):\n{"questions":[{"q":"Full question text","marks":3,"diff":"Mid","ms":["M1: ...","A1: ..."],"insight":"examiner tip for this question"}]}`
+    }]})
+  });
+  if(!res.ok){const d=await res.json();throw new Error(d.error?.message||`HTTP ${res.status}`);}
+  const d=await res.json();
+  return JSON.parse(d.content.map(b=>b.text||'').join('').replace(/```json|```/g,'').trim());
+}
+
+// ═══ PROGRESS REPORT ═════════════════════════════════════════════════════════
+async function aiProgressReport({name,grade,avgPct,strongestTopic,strongestPct,weakestTopic,weakestPct,totalQs,board}){
+  const key=import.meta.env.VITE_ANTHROPIC_API_KEY;
+  const fallback={
+    summary:`${name||'Your child'} has been actively revising GCSE Maths on Lumora, currently achieving a predicted ${grade||'grade to be determined'} with ${avgPct}% average accuracy across ${totalQs} questions answered. Their strongest performance is in ${strongestTopic} (${strongestPct}%), showing solid understanding of this area. The main opportunity for grade improvement lies in ${weakestTopic} (${weakestPct}%), where targeted practice could make a meaningful difference.`,
+    actions:[
+      `Focus revision sessions on ${weakestTopic} — work through mark schemes step by step to understand where marks are lost`,
+      `Set a target of 5 practice questions per day on Lumora to build consistent exam stamina`,
+      `After each question, read the examiner feedback carefully and re-attempt any question scored below 60%`
+    ]
+  };
+  if(!key)return fallback;
+  try{
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({model:'claude-haiku-4-5',max_tokens:600,messages:[{role:'user',content:
+        `Write a 3-sentence progress summary for a parent about their child's GCSE Maths revision. Student name: ${name||'the student'}. Predicted grade: ${grade||'not yet determined'}. Strongest topic: ${strongestTopic} at ${strongestPct}%. Weakest topic: ${weakestTopic} at ${weakestPct}%. Questions answered: ${totalQs}. Be encouraging but honest. One paragraph only, no bullet points.\n\nAlso write 3 specific action points to improve their grade on the ${board||'GCSE'} course. Reference specific topic names and techniques.\n\nReply ONLY with valid JSON (no markdown fences):\n{"summary":"paragraph here","actions":["specific action 1","specific action 2","specific action 3"]}`
+      }]})
+    });
+    if(!res.ok)return fallback;
+    const d=await res.json();
+    return JSON.parse(d.content.map(b=>b.text||'').join('').replace(/```json|```/g,'').trim());
+  }catch{return fallback;}
+}
+
+function buildReportHTML({profile,grade,avgPct,totalQs,totalCorrect,streakCount,timeMinutes,strengths,weaknesses,aiSummary,aiActions,days}){
+  const esc=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const date=new Date().toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  const name=esc(profile?.name||'Student');
+  const board=esc(profile?.board||'GCSE');
+  const tier=esc(profile?.tier||'');
+  const accuracy=totalQs>0?Math.round((totalCorrect/totalQs)*100):0;
+  const gradeNum=parseInt(String(grade||'').replace(/\D/g,''))||0;
+  const gradeHex=gradeNum>=7?'#0d9488':gradeNum>=5?'#b87d0e':'#dc2626';
+  const hrsStudied=Math.round(timeMinutes/60);
+
+  const topicRow=(t,color)=>`
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:9px">
+      <div style="font-family:'Segoe UI',sans-serif;font-size:12px;color:#2d3748;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(t.title)}</div>
+      <div style="width:70px;height:5px;background:#e2e8f0;border-radius:3px;overflow:hidden;flex-shrink:0"><div style="height:100%;border-radius:3px;background:${color};width:${Math.round(t.score*100)}%"></div></div>
+      <div style="font-family:'Segoe UI',sans-serif;font-size:12px;font-weight:800;color:${color};width:34px;text-align:right;flex-shrink:0">${Math.round(t.score*100)}%</div>
+    </div>`;
+
+  const strengthRows=strengths.length?strengths.map(t=>topicRow(t,'#0d9488')).join(''):'<div style="color:#718096;font-size:13px;font-family:\'Segoe UI\',sans-serif">Answer more questions to reveal strengths</div>';
+  const weakRows=weaknesses.length?weaknesses.map(t=>topicRow(t,'#d97706')).join(''):'<div style="color:#718096;font-size:13px;font-family:\'Segoe UI\',sans-serif">Complete more topics to identify areas</div>';
+  const actionItems=aiActions.map(a=>`<li>${esc(a)}</li>`).join('');
+
+  return`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Lumora Progress Report — ${name}</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Georgia,'Times New Roman',serif;background:#f0ede8;color:#1a2744;font-size:14px;line-height:1.6}
+.page{max-width:820px;margin:0 auto;background:#fff;box-shadow:0 0 60px rgba(0,0,0,0.15)}
+.header{background:#1a2744;color:#fff;padding:28px 36px 24px}
+.hdr-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px}
+.logo{font-family:'Segoe UI',sans-serif;font-size:20px;font-weight:900;color:#C9941A}
+.logo span{color:rgba(255,255,255,0.6);font-weight:400}
+.hdr-date{font-size:11px;color:rgba(255,255,255,0.45);text-align:right;font-family:'Segoe UI',sans-serif}
+.report-name{font-size:30px;font-weight:900;color:#fff;font-family:'Segoe UI',sans-serif;margin-bottom:3px}
+.report-sub{font-size:14px;color:rgba(255,255,255,0.65);font-family:'Segoe UI',sans-serif}
+.exam-badge{display:inline-block;background:rgba(201,148,26,0.2);border:1px solid rgba(201,148,26,0.45);color:#C9941A;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700;font-family:'Segoe UI',sans-serif;margin-top:10px}
+.grade-band{background:#13203a;padding:0 36px 28px;display:flex;align-items:flex-end;gap:24px}
+.grade-box{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:20px 30px;text-align:center;flex-shrink:0}
+.grade-num{font-family:'Segoe UI',sans-serif;font-size:76px;font-weight:900;line-height:1;color:${gradeHex}}
+.grade-lbl{font-family:'Segoe UI',sans-serif;font-size:10px;font-weight:800;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:1.5px;margin-top:4px}
+.grade-ctx{color:rgba(255,255,255,0.8);font-size:14px;font-family:'Segoe UI',sans-serif;padding-bottom:4px}
+.grade-ctx p{margin-bottom:6px}
+.big-acc{font-size:24px;font-weight:900;color:#C9941A;font-family:'Segoe UI',sans-serif}
+.body{padding:32px 36px}
+section{margin-bottom:28px}
+.sec-title{font-family:'Segoe UI',sans-serif;font-size:12px;font-weight:900;text-transform:uppercase;letter-spacing:1.8px;color:#1a2744;margin-bottom:14px;padding-bottom:7px;border-bottom:2.5px solid #C9941A;display:inline-block}
+.ai-para{background:#fdfbf4;border-left:4px solid #C9941A;padding:18px 20px;border-radius:0 8px 8px 0;font-size:15px;line-height:1.85;color:#2d3748;font-style:italic}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:28px}
+.stat{background:#f7f8fc;border:1px solid #e2e8f0;border-radius:10px;padding:14px 12px;text-align:center}
+.stat-v{font-family:'Segoe UI',sans-serif;font-size:28px;font-weight:900;color:#1a2744;line-height:1}
+.stat-l{font-family:'Segoe UI',sans-serif;font-size:10px;color:#718096;text-transform:uppercase;letter-spacing:0.5px;margin-top:4px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:28px}
+.panel{background:#f7f8fc;border:1px solid #e2e8f0;border-radius:10px;padding:16px}
+.panel-title{font-family:'Segoe UI',sans-serif;font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px}
+.acts{list-style:none;counter-reset:li;display:flex;flex-direction:column;gap:10px}
+.acts li{counter-increment:li;display:flex;gap:12px;align-items:flex-start;background:#f7f8fc;border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px;font-family:'Segoe UI',sans-serif;font-size:14px;color:#2d3748}
+.acts li::before{content:counter(li);display:flex;align-items:center;justify-content:center;width:22px;height:22px;min-width:22px;background:#1a2744;color:#C9941A;border-radius:50%;font-size:11px;font-weight:900;font-family:'Segoe UI',sans-serif;flex-shrink:0;margin-top:1px}
+.footer{background:#1a2744;color:rgba(255,255,255,0.45);padding:16px 36px;font-family:'Segoe UI',sans-serif;font-size:11px;display:flex;justify-content:space-between;align-items:center}
+.footer-logo{color:#C9941A;font-weight:800}
+.print-btn{display:flex;gap:10px;margin-bottom:24px}
+@media print{
+  body{background:#fff}
+  .page{box-shadow:none;max-width:none}
+  .print-btn{display:none!important}
+  @page{margin:15mm;size:A4}
+  .grade-band,.header,.footer{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  section,.two,.stats{page-break-inside:avoid}
+}
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="header">
+    <div class="hdr-top">
+      <div class="logo">📐 Lumora <span>· Progress Report</span></div>
+      <div class="hdr-date">Generated ${date}</div>
+    </div>
+    <div class="report-name">${name}</div>
+    <div class="report-sub">${board} Maths${tier?' · '+tier:''}</div>
+    ${days!==null?`<div class="exam-badge">📅 ${days} days until exam</div>`:''}
+  </header>
+
+  <div class="grade-band">
+    <div class="grade-box">
+      <div class="grade-num">${grade||'—'}</div>
+      <div class="grade-lbl">Predicted Grade</div>
+    </div>
+    <div class="grade-ctx">
+      <p><span class="big-acc">${avgPct!==null?avgPct+'%':'—'}</span> overall accuracy</p>
+      <p>${totalQs} questions answered &nbsp;·&nbsp; ~${hrsStudied}h estimated revision</p>
+      ${accuracy>=60?`<p style="color:#C9941A;font-weight:700">On track for Grade ${grade} ✓</p>`:'<p style="color:rgba(255,255,255,0.5)">Keep practising to strengthen grade prediction</p>'}
+    </div>
+  </div>
+
+  <div class="body">
+    <div class="print-btn">
+      <button onclick="window.print()" style="padding:10px 20px;background:#1a2744;color:#C9941A;border:none;border-radius:8px;font-weight:800;font-size:13px;cursor:pointer;font-family:'Segoe UI',sans-serif">🖨 Print / Save as PDF</button>
+    </div>
+
+    <section>
+      <div class="sec-title">Progress Summary</div>
+      <div class="ai-para">${esc(aiSummary)}</div>
+    </section>
+
+    <div class="stats">
+      <div class="stat"><div class="stat-v">${totalQs}</div><div class="stat-l">Questions Answered</div></div>
+      <div class="stat"><div class="stat-v">${accuracy}%</div><div class="stat-l">Overall Accuracy</div></div>
+      <div class="stat"><div class="stat-v">${streakCount}</div><div class="stat-l">Day Streak</div></div>
+      <div class="stat"><div class="stat-v">${hrsStudied>0?hrsStudied+'h':'<1h'}</div><div class="stat-l">Est. Study Time</div></div>
+    </div>
+
+    <div class="two">
+      <div class="panel">
+        <div class="panel-title" style="color:#0d9488">✓ Top Strengths</div>
+        ${strengthRows}
+      </div>
+      <div class="panel">
+        <div class="panel-title" style="color:#d97706">⚠ Areas to Improve</div>
+        ${weakRows}
+      </div>
+    </div>
+
+    <section>
+      <div class="sec-title">What to do next</div>
+      <ol class="acts">${actionItems}</ol>
+    </section>
+  </div>
+
+  <footer class="footer">
+    <div><span class="footer-logo">📐 Lumora</span> · GCSE Maths Revision Platform</div>
+    <div>🔒 Data stored on this device only</div>
+  </footer>
+</div>
+</body>
+</html>`;
+}
+
 // ═══ SOCRATIC CHAT ═══════════════════════════════════════════════════════════
-function SocraticChat({question,ms,aiResult}){
+function SocraticChat({question,ms,aiResult,maxMarks=0}){
   const [messages,setMessages]=useState([]);
   const [input,setInput]=useState('');
   const [loading,setLoading]=useState(false);
@@ -274,6 +539,50 @@ const MODULES=[
         {q:"Geometric sequence: 3rd term=20, 6th term=160. Find a and r.",marks:5,diff:"Killer",ms:["M1: ar²=20 and ar⁵=160","M1: Divide: r³=8","A1: r=2","M1: a(4)=20","A1: a=5"],insight:"Dividing equations eliminates a cleanly. Students who substitute instead of divide make far more errors."}
       ],
       mistakes:["Linear nth term: writing 4n instead of 4n–1","Quadratic: using 2nd difference directly (must halve it)","'Is X in sequence?': listing terms instead of solving","Geometric: confusing ratio (divide) with difference (subtract)"]
+    },
+    {id:"2.4",title:"Graphs & Functions",
+      boards:{AQA:"Identify graph type from equation. Sketch quadratic with roots + y-intercept labelled. Gradient of tangent by drawing. Velocity-time: area under graph = displacement.",Edexcel:"Sketch y=x³–3x labelling all intersections. Distance-time: average speed = total distance ÷ total time. 'Estimate area under curve' using trapezium rule.",OCR:"Graph transformations f(x+a), f(x)+a, –f(x), af(x). 'Describe fully'. Match equation to graph type from a list."},
+      analogy:{icon:"📈",title:"The Graph Gallery — 6 Shapes to Memorise",lines:["LINEAR y=mx+c: straight line, m=gradient, c=y-intercept","QUADRATIC y=ax²+bx+c: U-shape (a>0) or n-shape (a<0)","CUBIC y=ax³+...: S-shape crossing x-axis up to 3 times","RECIPROCAL y=k/x: two curves in opposite quadrants, NEVER touches axes","EXPONENTIAL y=aˣ: always passes through (0,1), always above x-axis","DISTANCE-TIME: gradient = speed   VELOCITY-TIME: gradient = acceleration, area = displacement"]},
+      markScheme:["Sketch: B marks for correct shape + intercepts labelled — shape without labels gets B0","Gradient of tangent: M1 tangent drawn at correct point, M1 rise/run, A1 value","Velocity-time area: M1 splitting into triangles/rectangles, A1 each area, A1 total","Graph transformations: B1 shape correct, B1 translation direction/scale correct","Reciprocal/exponential: must show asymptotic behaviour or mark (0,1)"],
+      questions:[
+        {q:"Sketch the graph of y = x² – 5x + 4, labelling the x-intercepts and the y-intercept.",marks:3,diff:"Starter",ms:["B1: correct U-shape parabola","B1: x-intercepts at (1,0) and (4,0)","B1: y-intercept at (0,4)"],insight:"Factorise first: (x–1)(x–4)=0 → roots at x=1, x=4. y-intercept: substitute x=0. Sketch shape first, then add labels — without labels, shape marks are at risk."},
+        {q:"A velocity-time graph shows a car accelerating from 0 to 20 m/s in 8 seconds, then travelling at constant 20 m/s for 12 seconds, then decelerating to rest in 5 seconds. Calculate the total distance travelled.",marks:4,diff:"Mid",ms:["M1: Triangle 1: ½×8×20=80m","M1: Rectangle: 12×20=240m","M1: Triangle 2: ½×5×20=50m","A1: Total=370m"],insight:"Every region under a velocity-time graph is a distance. Triangle for acceleration/deceleration, rectangle for constant speed. Add ALL areas — never multiply only the final velocity by total time."},
+        {q:"The graph of y = x² passes through the point (3, 9). By drawing the tangent at x=3, estimate the gradient of the curve at that point.",marks:3,diff:"Killer",ms:["M1: tangent drawn at x=3 — a straight line just touching the curve","M1: two points on the tangent chosen, rise/run calculated","A1: gradient ≈ 6 (accept 5 to 7)"],insight:"Choose points on the TANGENT line, not on the curve. The tangent at x=3 on y=x² has exact gradient 6. Draw it carefully and read off two clear coordinates from the straight line."}
+      ],
+      mistakes:["Reciprocal graph: drawing a V-shape instead of two separate curves in opposite quadrants","Distance-time gradient: dividing time by distance instead of distance ÷ time","Velocity-time: reading off final velocity as the total distance","Graph transformation y=f(x+2): shifts LEFT not right (opposite to intuition)"]
+    },
+    {id:"2.5",title:"Inequalities",
+      boards:{AQA:"Linear: solve and mark on number line (open/closed circles). Quadratic: sketch and identify region. 'List integer values of n'. Integer solutions must all be listed.",Edexcel:"Graphical regions: shade unwanted region. 'Label the region R'. 'Write down the three inequalities that define region R'.",OCR:"'Write the inequality shown on the number line'. Combined inequalities as a single expression. Integer solutions with working shown."},
+      analogy:{icon:"⚖️",title:"Three Inequality Types — One Key Rule",lines:["GOLDEN RULE: flip the inequality sign when multiplying/dividing by a NEGATIVE number","LINEAR: 3x>–9 → x>–3 (÷3, positive: no flip)","–2x>6 → x<–3 (÷–2: FLIP)","NUMBER LINE: open circle=strict < or >   closed circle=≤ or ≥","QUADRATIC: factorise → find roots → sketch parabola","  x²–5x+4<0 → roots 1 and 4 → answer: 1<x<4 (below x-axis = between roots)","GRAPHICAL: solid line for ≤ or ≥   dashed line for < or >"]},
+      markScheme:["Linear: M1 correct method, A1 correct inequality (with correct direction)","Number line: B1 open/closed circle, B1 correct arrow direction","Quadratic: M1 roots found, M1 correct region (above or below), A1 inequality","Graphical: B1 each line drawn correctly, B1 correct region shaded/identified","Integer list: every integer required — missing one loses A mark"],
+      questions:[
+        {q:"Solve  4x – 3 > 2x + 9  and show your answer on a number line.",marks:3,diff:"Starter",ms:["M1: 2x>12","A1: x>6","B1: open circle at 6, arrow pointing right"],insight:"Open circle because > (strict inequality). A closed circle would mean x≥6 which is wrong. The number line B mark is independent of the algebra — draw it even if unsure of the answer."},
+        {q:"Solve  x² – 2x – 15 < 0  and write the solution as a single inequality.",marks:4,diff:"Mid",ms:["M1: (x–5)(x+3)=0, roots x=5 and x=–3","M1: sketch U-shape parabola, below x-axis between the roots","A1: –3 < x < 5"],insight:"'<0' means BELOW the x-axis. The U-shaped parabola is below the axis between its roots. Answer must be a combined inequality — writing x>–3 and x<5 separately loses the final A mark."},
+        {q:"On a coordinate grid, shade the region R that satisfies all three inequalities: y ≥ x+1,  y < 4,  x+y ≤ 6.",marks:5,diff:"Killer",ms:["B1: y=x+1 drawn as solid line, region above it","B1: y=4 drawn as dashed line, region below it","B1: x+y=6 drawn as solid line, region below it","M1: three regions overlapped","A1: correct bounded region R clearly labelled"],insight:"Solid line for ≥ and ≤, dashed line for < and >. Shade the unwanted regions or clearly label the required region R. The bounded triangle where all three conditions hold simultaneously is the answer."}
+      ],
+      mistakes:["Dividing/multiplying by negative without flipping the inequality sign","Number line: closed circle for strict inequality (or open for ≤)","Quadratic: x²>9 → only writing x>3, forgetting x<–3","Graphical: shading the required region instead of the unwanted regions (varies by board — check instructions)"]
+    },
+    {id:"2.6",title:"Iteration",
+      boards:{AQA:"'Show the equation has a root between x=1 and x=2 using change of sign'. Rearrange to iterative form. Show every xₙ value.",Edexcel:"Rearrange equation to xₙ₊₁=g(xₙ) form. 'Find root to 3 d.p.' — show two consecutive values agreeing. Staircase diagram on Higher.",OCR:"'Starting from x₀=2, find x₁, x₂, x₃'. Explain why iteration converges. 'Verify root to 2 d.p. using change of sign'."},
+      analogy:{icon:"🌀",title:"Iteration — Zooming Into the Root",lines:["Think of a camera zooming in on the exact root step by step.","START: substitute x₀ into formula xₙ₊₁ = g(xₙ)","x₁ = g(x₀), then x₂ = g(x₁), then x₃ = g(x₂)...","CONVERGED when consecutive values round to the same d.p.","CHANGE OF SIGN: f(a) negative, f(b) positive → root is between a and b","VERIFY: f(2.345) and f(2.355) — opposite signs confirms root = 2.35 to 2 d.p."]},
+      markScheme:["M1 for correct first iteration x₁ (must show substitution)","A marks for correct subsequent values","Change of sign: M1 both f(a) and f(b) calculated, A1 sign change + conclusion in words","Root to n d.p.: show two consecutive iterations agreeing to that accuracy","Rearrangement: M1 algebraic steps visible — cannot jump to formula"],
+      questions:[
+        {q:"Show that  x³ + 2x – 5 = 0  has a root between x=1 and x=2.",marks:2,diff:"Starter",ms:["M1: f(1)=1+2–5=–2 and f(2)=8+4–5=7","A1: sign change from –2 to +7 → root between x=1 and x=2"],insight:"Substitute BOTH values and state the sign change explicitly: 'f(1)=–2 (negative) and f(2)=7 (positive), therefore there is a change of sign so a root lies between x=1 and x=2'."},
+        {q:"The equation x³+2x–5=0 can be rearranged to  xₙ₊₁ = ∛(5–2xₙ).  Starting with x₀=1, find the root to 2 decimal places.",marks:4,diff:"Mid",ms:["M1: x₁=∛(5–2)=∛3=1.4422...","M1: x₂=∛(5–2.8845)=1.2765...","M1: iterations continue, values converging","A1: root≈1.33 (two consecutive values agree to 2 d.p.)"],insight:"Show EVERY intermediate value — x₁=..., x₂=..., x₃=... Each line is a method mark opportunity. Writing only the final answer loses all the M marks."},
+        {q:"Show that  x³–3x+1=0  can be rearranged to  xₙ₊₁=∛(3xₙ–1). Starting at x₀=2, find x₃ to 4 decimal places.",marks:5,diff:"Killer",ms:["M1: x³=3x–1 so x=∛(3x–1) — show rearrangement","M1: x₁=∛(3×2–1)=∛5=1.7100","M1: x₂=∛(3×1.7100–1)=∛4.13=1.6035","M1: x₃=∛(3×1.6035–1)=∛3.811=1.5604","A1: 1.5604"],insight:"The rearrangement is a separate mark — show x³=3x–1 explicitly. Then write every iteration on its own line. 'x₃=1.5604' alone without the working earns 1 mark at best."}
+      ],
+      mistakes:["Showing only the final answer without each intermediate xₙ step","Change of sign: only evaluating f at one endpoint","Confusing the iterative formula with the original equation","Root to 2 d.p.: not checking that two consecutive iterations agree at that precision"]
+    },
+    {id:"2.7",title:"Algebraic Proof",
+      boards:{AQA:"'Prove that (2n+1)²–1 is always a multiple of 4'. Conclusion required in words. Counter-example questions for disproof.",Edexcel:"'Show that the sum of three consecutive integers is always a multiple of 3'. Must use algebra throughout — no substitution.",OCR:"'Prove or disprove'. Counter-example acceptable for disproving. Written conclusion must include the property being proved."},
+      analogy:{icon:"🔐",title:"The Proof Framework — 5 Steps Every Time",lines:["STEP 1: Define variables — even=2n, odd=2n+1, consecutive=n,n+1,n+2","STEP 2: Write the expression algebraically using definitions","STEP 3: Expand and simplify fully — show every step","STEP 4: Factorise to reveal the required structure","STEP 5: Write conclusion in WORDS — 'therefore always a multiple of 4'","DISPROVING: one counter-example is sufficient — state it clearly","Different odd numbers: use 2m+1 and 2n+1 (different letters!)"]},
+      markScheme:["M1 correct algebraic expressions for even/odd/consecutive numbers","M1 correct expansion and simplification","A1 factorised form revealing multiple/even/odd structure","B1 written conclusion required — symbolic result without words loses this mark","Counter-example: B2 valid example + clear explanation — no algebra needed"],
+      questions:[
+        {q:"Prove that the product of two odd numbers is always odd.",marks:3,diff:"Starter",ms:["M1: Let the odd numbers be (2m+1) and (2n+1)","M1: Product=(2m+1)(2n+1)=4mn+2m+2n+1","A1: =2(2mn+m+n)+1 which is of the form 2k+1, so always odd"],insight:"Use different letters for two different odd numbers — both 2n+1 only gives the product of a number with itself. The final step must show the form 2k+1 and state 'always odd'."},
+        {q:"Prove that (n+3)²+(n–1)² is always even for any integer n.",marks:4,diff:"Mid",ms:["M1: (n+3)²=n²+6n+9","M1: (n–1)²=n²–2n+1","M1: Sum=2n²+4n+10","A1: =2(n²+2n+5) which is a multiple of 2, therefore always even"],insight:"Even means divisible by 2 — factorise out 2. The bracket n²+2n+5 is an integer whenever n is an integer, confirming the product is always even. Write the conclusion."},
+        {q:"Prove algebraically that the sum of the squares of two consecutive even numbers is never a multiple of 8.",marks:5,diff:"Killer",ms:["M1: consecutive even: 2n and 2n+2","M1: (2n)²+(2n+2)²=4n²+4n²+8n+4","M1: =8n²+8n+4","M1: =8(n²+n)+4","A1: remainder 4 when divided by 8, therefore never a multiple of 8"],insight:"=8(n²+n)+4 shows that dividing by 8 always leaves remainder 4. The conclusion 'therefore never a multiple of 8' is the final A mark. Without those words, the algebra alone is worth 4/5."}
+      ],
+      mistakes:["Using specific numbers (n=3) — this is verification, not proof","Missing written conclusion — symbolic result without words loses B marks","Two odd numbers: using 2n+1 for both (must use 2m+1 and 2n+1)","Not fully factorising — 4n²+8n+4 must become 4(n²+2n+1) to show divisibility"]
     }
   ]},
   {id:3,code:"M3",label:"Ratio & Rates",color:"#E07B54",icon:"∶",topics:[
@@ -322,6 +631,61 @@ const MODULES=[
         {q:"Pyramid: square base 10cm, slant edge 13cm, apex above centre.\na) Find height\nb) Angle between slant edge and base",marks:5,diff:"Killer",ms:["M1: half-diagonal=5√2","M1: h²=169–50=119","A1: h=10.9cm","M1: tanθ=√119/5√2","A1: 57.2°"],insight:"3D trig: find the 2D right-triangle. Centre to corner of square = half the diagonal. Two-stage Pythagoras."}
       ],
       mistakes:["Wrong side labelled 'opposite'","Cosine rule with obtuse: taking |cos| instead of negative value","Exact values: 0.707 not acceptable on non-calc paper (write √2/2)","3D: working in 3D directly instead of cross-sections"]
+    },
+    {id:"4.3",title:"Constructions & Loci",
+      boards:{AQA:"Leave ALL construction arcs visible — erasing = zero marks. 'Shade region within 3cm of A and closer to B than C'. Scale drawings: show scale used.",Edexcel:"Combine perpendicular bisector with locus from a point. 'Locus equidistant from two lines' = angle bisector. Scale drawing + bearing combined.",OCR:"Construct triangle given three sides (ruler and compass only). 'Show by construction that angle=60°'. Describe the locus fully in words."},
+      analogy:{icon:"🧭",title:"The 4 Key Constructions + Locus Rules",lines:["PERPENDICULAR BISECTOR of AB: compass >½AB. Arcs from A and B crossing above and below. Join intersections.","ANGLE BISECTOR at A: equal arcs on both arms of angle. Arcs inside. Join vertex to intersection.","60° ANGLE: use AB as radius. Arc from B. Where it crosses circle centred at A = equilateral triangle.","LOCUS RULES:","  Fixed distance from point → CIRCLE","  Equidistant from 2 points → PERPENDICULAR BISECTOR","  Equidistant from 2 lines → ANGLE BISECTOR","  Fixed distance from line → parallel line (+ semicircles at ends)"]},
+      markScheme:["B1 correct construction with both pairs of arcs visible","Perpendicular bisector: both pairs of intersecting arcs required for M mark","Locus: B1 correct shape (circle/bisector), B1 correct position/radius","Scale drawing: M1 applying scale, A1 correct measurement to tolerance","Do NOT erase arcs — they are the examiner's evidence of method"],
+      questions:[
+        {q:"Using only a ruler and compass, construct the perpendicular bisector of line segment AB. Leave all construction marks visible.",marks:2,diff:"Starter",ms:["B1: arcs of equal radius from A and B, intersecting above and below AB","B1: line drawn through both intersection points"],insight:"Compass must be opened MORE than half the length of AB. Two arc intersections give the line. A ruler-drawn estimate — with no arcs — scores zero."},
+        {q:"Points A and B are 8cm apart on a scale drawing where 1cm = 5m. Draw the locus of all points equidistant from A and B. Shade the region that is within 30m of A.",marks:4,diff:"Mid",ms:["M1: perpendicular bisector of AB constructed with arcs","B1: correct perpendicular bisector","M1: circle of radius 6cm (30÷5=6) centred on A","A1: correct region — left of bisector within circle (or right depending on setup)"],insight:"30m → 6cm on the drawing. Equidistant from A and B → perpendicular bisector. Within 30m of A → circle of radius 6cm. The required region satisfies BOTH conditions simultaneously."},
+        {q:"A goat is tethered by a 6m rope to the corner P of a rectangular shed (8m×3m). Draw the full locus of points the goat can reach.",marks:4,diff:"Killer",ms:["M1: major arc, radius 6m, 270° centred on P","M1: minor arc radius 3m (6–3) around far short corner","M1: minor arc radius 2m (6–4) around far long corner — if rope reaches","A1: complete locus with correct arcs and no overlap into shed"],insight:"The shed blocks the rope. When rope wraps around the next corner, subtract the distance used: remaining rope = new radius. A single full circle ignores the obstacle and earns 1/4 at best."}
+      ],
+      mistakes:["Erasing construction arcs — immediate loss of all marks for that construction","Perpendicular bisector: compass not opened beyond half of AB — arcs don't cross","Angle bisector: drawing from midpoints of arms instead of from vertex via arc intersections","Rope around obstacle: using the original radius for all arcs instead of subtracting used length"]
+    },
+    {id:"4.4",title:"Bearings",
+      boards:{AQA:"Always 3 figures, measured clockwise from North. Bearings + scale drawings. Back bearing = bearing ± 180°. State 'North at B' when finding return bearing.",Edexcel:"Bearings combined with sine/cosine rule. 'Find the bearing of Y from X'. Multi-leg journeys with Pythagoras.",OCR:"'Show that the return bearing is 247°'. Vector components from bearings. Explain method with diagrams."},
+      analogy:{icon:"🧭",title:"3 Bearing Rules — Never Break Them",lines:["1. ALWAYS measure from NORTH","2. ALWAYS measure CLOCKWISE","3. ALWAYS give 3 digits: 005° not 5°, 090° not 90°","BACK BEARING (A from B, given B from A):","  If bearing < 180°: ADD 180°","  If bearing ≥ 180°: SUBTRACT 180°","COMBINED WITH TRIG: draw diagram with North lines at EACH point","North component = distance × cos(bearing angle from North)","East component  = distance × sin(bearing angle from North)"]},
+      markScheme:["B1 for three-figure bearing notation — '73°' instead of '073°' loses the mark","M1 correct North line drawn at the second point for back bearing","A1 correct back bearing value","Trig combined: M1 triangle drawn, M1 correct trig rule, A1 answer","Scale: M1 scale applied to measurement, A1 answer within tolerance"],
+      questions:[
+        {q:"The bearing of B from A is 073°. Find the bearing of A from B.",marks:2,diff:"Starter",ms:["M1: 073+180=253","A1: 253°"],insight:"Back bearing: <180° so add 180°. Always check: if result >360° subtract 360°. Answer must have 3 digits — 253° not 253."},
+        {q:"A ship sails 15km on bearing 040° from port P to harbour H. Find how far north and east of P the harbour is.",marks:3,diff:"Mid",ms:["M1: North component=15cos(40°)=11.5km","M1: East component=15sin(40°)=9.6km","A1: 11.5km north, 9.6km east"],insight:"Bearing 040° = 40° clockwise from North. Draw the right triangle. The North component is adjacent to the bearing angle → use cos. East is opposite → use sin."},
+        {q:"Lighthouse L, ship A at bearing 065° and 15km from L, ship B at bearing 130° and 20km from L. Find the distance AB.",marks:5,diff:"Killer",ms:["M1: angle ALB=130°–65°=65°","M1: cosine rule: AB²=15²+20²–2(15)(20)cos65°","M1: AB²=225+400–253.6=371.4","A1: AB=√371.4","A1: AB≈19.3km"],insight:"Both bearings measured from the same North line at L — the angle between them is the included angle in triangle ALB. Cosine rule with included angle. cos(65°) is positive here."}
+      ],
+      mistakes:["Measuring anticlockwise instead of clockwise from North","2-figure bearings: 73° instead of 073°","Back bearing: measuring from the original North line at A instead of a new North line at B","Trig with bearings: confusing which component uses sine and which uses cosine"]
+    },
+    {id:"4.5",title:"Congruence & Similarity",
+      boards:{AQA:"'Prove triangles ABC and DEF are congruent, stating the condition'. All 4 conditions assessed. Similar: find area and volume scale factors from given linear scale factor.",Edexcel:"'Show that triangles are similar'. Fractional scale factors. Area=k² × original area — must show k found first.",OCR:"'Prove congruence using SSS — state which sides are equal and why'. Volume scale factor from ratio of lengths: k³."},
+      analogy:{icon:"🔍",title:"Congruent = Same Size. Similar = Same Shape.",lines:["CONGRUENCE — 4 sufficient conditions:","  SSS: all 3 sides equal","  SAS: 2 sides + included angle equal","  AAS (or ASA): 2 angles + corresponding side","  RHS: right angle + hypotenuse + 1 side","SIMILARITY: equal angles (AA is enough)","SCALE FACTORS — LENGTH k:","  Area scale factor = k²","  Volume scale factor = k³","  Always find k first, then apply k² or k³"]},
+      markScheme:["Congruence: M1 each pair stated with reason, A1 condition named in full (SSS/SAS/AAS/RHS)","Similarity: M1 two pairs of equal angles with reasons, A1 'similar by AA' stated","Area: M1 finds k, M1 squares it, A1 correct area","Volume: M1 finds k, M1 cubes it, A1 correct volume","'State the condition' = must write condition name, not just values"],
+      questions:[
+        {q:"Two similar triangles. Smaller has sides 3, 4, 5 cm and area 6cm². The larger has longest side 15cm. Find the area of the larger triangle.",marks:3,diff:"Starter",ms:["M1: linear SF=15÷5=3","M1: area SF=3²=9","A1: 6×9=54cm²"],insight:"Always find the LINEAR scale factor first. Area scale factor = (linear SF)². The most common error is multiplying area by 3 (linear SF) instead of by 9 (area SF)."},
+        {q:"Triangles ABC and DEF: angle A=angle D=90°, AB=6cm, DE=9cm, BC=10cm, EF=15cm. Prove the triangles are similar and find AC.",marks:5,diff:"Mid",ms:["M1: angle A=angle D=90° (given)","M1: AB/DE=6/9=2/3, BC/EF=10/15=2/3 — ratios equal","A1: similar by SSS similarity (all ratios equal)","M1: AC/DF=2/3, Pythagoras AC=8","A1: DF=12, AC=8cm confirmed"],insight:"Ratios equal but sides not equal → similar, not congruent. State the scale factor and all three ratio comparisons. For congruence all sides must be equal (not in ratio)."},
+        {q:"A cone has radius 5cm and volume 300cm³. A mathematically similar cone has radius 8cm. Find its volume to 1 d.p.",marks:3,diff:"Killer",ms:["M1: linear SF=8÷5=1.6","M1: volume SF=1.6³=4.096","A1: 300×4.096=1228.8cm³"],insight:"Volume scale factor = (linear SF) CUBED. This is where marks are lost. Never use 1.6 directly for volume — cube it first. The calculation 300×4.096 is the A mark."}
+      ],
+      mistakes:["Area using linear SF directly instead of k²","Volume using k² instead of k³","Congruence proof: stating condition without giving reasons for equal sides/angles","Confusing similar (same shape) with congruent (same shape AND size)"]
+    },
+    {id:"4.6",title:"Transformations",
+      boards:{AQA:"'Describe fully' — type + all required details. Enlargement: centre AND scale factor. Rotation: centre, angle, direction. Single mark lost per missing detail.",Edexcel:"Combined transformations: apply first, then second. Negative SF enlargement. 'Single transformation equivalent to'.",OCR:"Invariant points. 'Show that combined transformation is equivalent to a single transformation'. Describe fully with all details."},
+      analogy:{icon:"🔄",title:"Describe Fully = State ALL Details",lines:["REFLECTION: equation of mirror line (e.g. y=x, x=2, y=–1)","ROTATION: centre (x,y) + angle + direction (clockwise or anticlockwise)","TRANSLATION: column vector only (not coordinates)","ENLARGEMENT: centre of enlargement + scale factor (SF)","  SF>1: larger.  0<SF<1: smaller.  SF negative: image on opposite side of centre","COMBINED: apply FIRST transformation to get image, THEN second to that image","Check: 'fully describe' = no detail omitted. 1 mark per missing detail."]},
+      markScheme:["Translation: B1 correct column vector — must be column form, not (x,y)","Rotation: B1 each for centre, angle, direction — three separate details","Reflection: B1 for equation of line of symmetry","Enlargement: B1 centre correct, B1 SF correct (sign and magnitude)","'Describe fully': each missing detail costs a mark"],
+      questions:[
+        {q:"Triangle A has vertices (1,1), (3,1), (3,4). Translate triangle A by the vector  (-3 / 2).  State the new coordinates.",marks:2,diff:"Starter",ms:["M1: subtract 3 from all x-coordinates, add 2 to all y-coordinates","A1: (–2,3), (0,3), (0,6)"],insight:"Column vector: top = x change, bottom = y change. Negative top = move left. Positive bottom = move up. Apply to every vertex individually."},
+        {q:"Describe fully the single transformation that maps triangle P with vertices (2,1),(4,1),(4,3) to triangle Q with vertices (–2,–1),(–4,–1),(–4,–3).",marks:3,diff:"Mid",ms:["M1: identify as rotation (each point maps to –1 × original)","B1: centre (0,0)","B1: rotation of 180° (direction not needed for 180°)"],insight:"Check: (2,1)→(–2,–1) = multiplied by –1. This is 180° rotation. Identify all details: type + centre + angle. For 180°, clockwise and anticlockwise give the same result."},
+        {q:"Enlarge triangle T with vertices (1,1), (3,1), (1,4) by scale factor –2, centre (0,0). State the coordinates of the image.",marks:3,diff:"Killer",ms:["M1: multiply each coordinate by –2 (through the origin)","A1: (1,1)→(–2,–2), (3,1)→(–6,–2)","A1: (1,4)→(–2,–8)"],insight:"Negative SF through origin: multiply each coordinate by –2. The image appears on the OPPOSITE side of the centre and is larger (|SF|=2). Don't confuse this with a reflection."}
+      ],
+      mistakes:["Translation: using a coordinate pair (3,2) instead of a column vector","Rotation: omitting direction — clockwise or anticlockwise loses a mark (except 180°)","Enlargement: negative SF — not placing image on opposite side of centre","Describe fully: writing 'enlargement with scale factor 2' without the centre of enlargement"]
+    },
+    {id:"4.7",title:"Vectors",
+      boards:{AQA:"AB⃗=b–a notation. 'Express in terms of p and q'. Prove parallel or collinear — must show scalar multiple relationship.",Edexcel:"Midpoints in proofs. OM⃗ where M midpoint of AB = ½(a+b). Position vectors vs displacement vectors distinction.",OCR:"'Show that A, B, C are collinear' — parallel vectors + common point. Division of line in given ratio. 'Find vector OX where X divides AB in ratio 2:1'."},
+      analogy:{icon:"↗",title:"Vector Routes — Always Find a Path",lines:["GOLDEN RULE: AB⃗ = OB⃗ – OA⃗ = b – a","ROUTE: AC⃗ = AB⃗ + BC⃗ (head to tail)","REVERSE: BA⃗ = –AB⃗","PARALLEL VECTORS: one is a scalar multiple of the other","COLLINEAR: vectors between the points are parallel AND share a common point","MIDPOINT M of AB: OM⃗ = ½(a+b) where a=OA⃗, b=OB⃗","RATIO 1:2 along AB: OX⃗ = OA⃗ + ⅓AB⃗"]},
+      markScheme:["Route: M1 valid path via known point, A1 simplified expression","Parallel: M1 vector expression, A1 identifies scalar multiple k, B1 conclusion stated","Collinear: M1 parallel vectors, A1 common point identified, A1 written conclusion","Midpoint: M1 ½(a+b), A1 correct simplified expression","Division: M1 fraction of AB vector, A1 correct position vector"],
+      questions:[
+        {q:"OA⃗ = a and OB⃗ = b. M is the midpoint of AB. Find OM⃗ in terms of a and b.",marks:2,diff:"Starter",ms:["M1: OM⃗=OA⃗+AM⃗=a+½(b–a)","A1: ½a+½b or ½(a+b)"],insight:"Route via A: OA then half of AB. AM⃗=½AB⃗=½(b–a). Expanding: a+½b–½a=½a+½b. Both equivalent forms accepted."},
+        {q:"OA⃗=3p+q, OB⃗=p+5q. X divides AB in the ratio 1:3 from A. Find OX⃗ in terms of p and q.",marks:4,diff:"Mid",ms:["M1: AB⃗=OB⃗–OA⃗=(p+5q)–(3p+q)=–2p+4q","M1: AX⃗=¼AB⃗=¼(–2p+4q)=–½p+q","M1: OX⃗=OA⃗+AX⃗=(3p+q)+(–½p+q)","A1: 2½p+2q"],insight:"Ratio 1:3 from A means AX = ¼ of AB (since total parts = 4, AX = 1 part). ROUTE: OX = OA + AX. Express AX as ¼ of AB vector."},
+        {q:"OA⃗=2a, OB⃗=6b, OC⃗=2a+4b. Prove that A, B and C are collinear.",marks:4,diff:"Killer",ms:["M1: AB⃗=6b–2a","M1: AC⃗=4b","M1: Show AB⃗ and BC⃗ are parallel — BC⃗=OC⃗–OB⃗=2a–2b... check against AB","A1: state 'AC and CB are parallel and share point C, therefore A, B, C collinear'"],insight:"To prove collinear: find two vectors between the three points and show they are scalar multiples. Then name the common point. Without explicitly naming the shared point and stating the conclusion, the proof is incomplete."}
+      ],
+      mistakes:["AB⃗=a–b instead of b–a (reversed direction)","Parallel proof: not writing the conclusion — 'therefore parallel' required","Collinear: showing parallel vectors without naming a common point","Midpoint: forgetting to halve — writing a+b instead of ½(a+b)"]
     }
   ]},
   {id:5,code:"M5",label:"Probability",color:"#E74C3C",icon:"◈",topics:[
@@ -348,6 +712,39 @@ const MODULES=[
         {q:"Group A: median 62, IQR 26. Group B: median 58, IQR 40. Write a full statistical comparison.",marks:4,diff:"Killer",ms:["B1+B1: 'Group A higher median (62>58) — generally higher scores'","B1+B1: 'Group A smaller IQR (26<40) — more consistent scores'"],insight:"Each comparison: statistic named + values quoted + contextual interpretation. 'A is better' alone = 0."}
       ],
       mistakes:["Estimated mean: using boundaries instead of midpoints","Comparing: average only, no spread = half marks","Cumulative frequency: plotting at midpoint not upper boundary","Histograms: frequency = height (wrong!) should be area = height × width"]
+    },
+    {id:"6.2",title:"Histograms",
+      boards:{AQA:"'Complete the histogram given frequency density column'. Calculate fd=f÷class width. Estimate frequency in subrange: fd × partial width.",Edexcel:"'Estimate the number of people with time between 25 and 40'. Mixed class widths. Find frequency from histogram by calculating area.",OCR:"'Complete the table using the histogram'. Proportion questions using areas. Comparing distributions using histograms."},
+      analogy:{icon:"📊",title:"Histograms — AREA = Frequency, Never Height",lines:["KEY FORMULA: Frequency Density = Frequency ÷ Class Width","Reverse: Frequency = Frequency Density × Class Width","HEIGHT of bar = frequency density (NOT frequency)","AREA of bar = frequency (the actual count)","EQUAL CLASS WIDTHS: looks like a bar chart, but axis label is still 'fd'","UNEQUAL WIDTHS: MUST calculate fd — heights alone are meaningless","ESTIMATING IN RANGE: assume uniform distribution, use fd × partial width"]},
+      markScheme:["M1 for fd=frequency÷class width seen or implied","B1 for each correct bar drawn to correct height","Reading histogram: M1 fd×class width, A1 correct frequency","Proportion: M1 partial area divided by total area, A1 correct value","All bars must originate from zero — no gaps between bars"],
+      questions:[
+        {q:"A frequency table shows: 10≤t<20, frequency 24. The class width is 10. Calculate the frequency density.",marks:1,diff:"Starter",ms:["B1: fd=24÷10=2.4"],insight:"Frequency density = frequency ÷ class width. The height of the bar on a histogram is 2.4, NOT 24. The area (2.4 × 10 = 24) gives back the frequency."},
+        {q:"A histogram has bars: 0<t≤10 (fd=2), 10<t≤20 (fd=5), 20<t≤30 (fd=4), 30<t≤50 (fd=1.5). Find the total number of values.",marks:3,diff:"Mid",ms:["M1: frequency=fd×class width for each bar","M1: 20+50+40+30 (last bar: 1.5×20=30)","A1: total=140"],insight:"Each class width matters. The last bar has width 20, so its area = 1.5×20 = 30, not 1.5×10 = 15. Different widths = different multipliers."},
+        {q:"The same histogram is used to estimate the frequency of values between t=22 and t=30. The bar 20<t≤30 has fd=4 and the bar 20<t≤30 spans 10 units. Estimate the frequency from t=22 to t=30.",marks:3,diff:"Killer",ms:["M1: identify bar 20<t≤30, total area=4×10=40","M1: proportion of bar from 22 to 30: width=8, area=4×8=32","A1: estimated frequency=32"],insight:"Assume uniform distribution within the class. The region 22<t≤30 is 8 units wide within a 10-unit bar. Frequency estimate = fd × partial width = 4×8 = 32."}
+      ],
+      mistakes:["Height = frequency (wrong — height = frequency DENSITY)","Not dividing by class width when building the histogram from a frequency table","Last bar has doubled width: forgetting to use 20 not 10 as the class width","Proportion: dividing frequency densities instead of areas"]
+    },
+    {id:"6.3",title:"Cumulative Frequency",
+      boards:{AQA:"Plot at upper class boundary — NOT midpoint. Read at n/2, n/4, 3n/4. Compare distributions using both median and IQR. Construct box plots.",Edexcel:"'Estimate how many earn more than £35,000'. Box plot from cf graph. 'Draw and interpret' combined questions.",OCR:"'Draw a box plot from the cf graph'. Compare two distributions: must reference average AND spread with specific values."},
+      analogy:{icon:"📈",title:"Cumulative Frequency — The Running Total",lines:["BUILD: add frequencies cumulatively from left to right","PLOT: each point at UPPER CLASS BOUNDARY (not midpoint!)","For n=80 students:","  Median: read at y=40 → x-value gives median","  Lower Quartile (LQ): read at y=20","  Upper Quartile (UQ): read at y=60","  IQR = UQ – LQ","ESTIMATING IN RANGE: cf(upper) – cf(lower) = frequency in that range","BOX PLOT: minimum, LQ, median, UQ, maximum"]},
+      markScheme:["B1 each point correctly plotted at upper class boundary","Median: M1 reading at n/2, A1 correct value","IQR: M1 UQ–LQ, A1 correct","Box plot: B1 median and quartiles correct positions, B1 whiskers to min/max","Comparison: B1 each comparison — must quote specific values AND interpret in context"],
+      questions:[
+        {q:"60 students sat a test. Cumulative frequencies at boundaries: ≤20:4, ≤30:14, ≤40:32, ≤50:50, ≤60:60. Find the median and IQR.",marks:4,diff:"Starter",ms:["M1: Median at cf=30, read from graph","A1: Median≈40","M1: LQ at cf=15≈31, UQ at cf=45≈48","A1: IQR≈17"],insight:"n=60, so median at cf=30, LQ at cf=15, UQ at cf=45. Read from the smooth S-curve: across from y-axis to curve, then DOWN to x-axis. All three readings from the same graph."},
+        {q:"Group A: median=52, IQR=24. Group B: median=48, IQR=16. Write a full statistical comparison.",marks:4,diff:"Mid",ms:["B1+B1: 'Group A has a higher median (52>48), suggesting generally higher test scores'","B1+B1: 'Group B has a smaller IQR (16<24), indicating more consistent results'"],insight:"Two full comparisons needed. Each requires: the statistical measure named + both values quoted + a contextual interpretation. 'Group A is better' earns 0. Quote the numbers."},
+        {q:"A cumulative frequency graph shows 100 workers' salaries. At £28k the cf=20, at £42k the cf=68. Estimate the number earning between £28k and £42k.",marks:2,diff:"Killer",ms:["M1: cf(£42k)–cf(£28k)=68–20","A1: 48 workers"],insight:"Frequency in a range = upper cf – lower cf. Read the two y-values from the graph at those x-values and subtract. This is the single most tested skill on cumulative frequency graphs."}
+      ],
+      mistakes:["Plotting at midpoint instead of upper class boundary — shifts entire graph left","Median: reading at n, not n/2 (using total frequency instead of half)","IQR: giving UQ or LQ as the answer instead of the difference","Comparison: one statement only, or no values quoted — loses half the marks"]
+    },
+    {id:"6.4",title:"Scatter Graphs & Correlation",
+      boards:{AQA:"'Describe the correlation'. Draw line of best fit through mean point. 'Explain why this prediction may not be reliable'.",Edexcel:"Calculate mean point (x̄,ȳ). Interpolation (reliable) vs extrapolation (unreliable). 'Comment on the validity of the prediction'.",OCR:"'State whether the relationship implies causation — explain'. Identify outliers and describe in context. 'Describe the correlation in context'."},
+      analogy:{icon:"🎯",title:"Scatter Graphs — Correlation ≠ Causation",lines:["CORRELATION TYPES: strength + direction","  Strong positive: close to upward diagonal line","  Weak positive: loose scatter with upward trend","  No correlation: random scatter","  Negative: as one variable increases, the other decreases","LINE OF BEST FIT: equal points on each side, MUST pass through the mean point (x̄,ȳ)","INTERPOLATION: predicting within data range → reliable","EXTRAPOLATION: predicting outside data range → unreliable","CAUSATION: a third variable can cause both — correlation alone proves nothing"]},
+      markScheme:["Describe: B1 for strength + direction — 'positive correlation' alone is only 1 mark","Line of best fit: B1 balanced about data points, B1 passes through mean point","Interpolation/reliability: 'within the range of the data' required for the mark","Causation: must use the word 'cause' or 'causation' — 'link' or 'correlation' alone is insufficient","Outlier: describe in context — not just 'it's far from the line'"],
+      questions:[
+        {q:"A scatter graph shows as hours of revision increase, test scores increase. Most points are close to the line of best fit. Describe the correlation.",marks:1,diff:"Starter",ms:["B1: strong positive correlation"],insight:"Two words are required: STRENGTH (strong/weak) and DIRECTION (positive/negative). 'Positive correlation' without 'strong' is only half an answer on most mark schemes."},
+        {q:"The mean point of a scatter graph is (4.5, 62). Using the line of best fit, predict y when x=7. State whether this prediction is reliable.",marks:3,diff:"Mid",ms:["B1: line of best fit drawn through mean point (4.5, 62)","M1: read y at x=7 from the line","A1: stated prediction + 'x=7 is within the data range so this is interpolation — reliable'"],insight:"The mean point is the anchor for the line of best fit. Draw the line through it. Check x=7 is within the range of x-values in the data before claiming reliability."},
+        {q:"A study finds a strong positive correlation between the number of fire engines at a fire and the damage caused. A journalist writes: 'More fire engines cause more damage'. Explain why this is incorrect.",marks:2,diff:"Killer",ms:["B1: correlation does not imply causation","B1: a third factor (size of fire) causes both — larger fires require more engines and also cause more damage"],insight:"The confounding variable is the key: fire size drives both variables. This is the 'causation vs correlation' distinction. Always look for the hidden third variable when correlation seems implausible."}
+      ],
+      mistakes:["'There is a correlation' without strength or direction — loses the mark","Line of best fit not passing through the mean point (x̄,ȳ)","Extrapolation described as reliable without acknowledging the data range limitation","Causation: saying 'it shows that X causes Y' — correlation alone never proves causation"]
     }
   ]}
 ];
@@ -395,6 +792,8 @@ function AnimStyles(){
       @keyframes pulseAmber{0%,100%{box-shadow:0 0 0 0 rgba(245,183,0,0.0)}50%{box-shadow:0 0 0 6px rgba(245,183,0,0.18)}}
       @keyframes dotPulse{0%,80%,100%{opacity:0.2}40%{opacity:1}}
       @keyframes spin{to{transform:rotate(360deg)}}
+      @keyframes slideUp{0%{transform:translateY(30px);opacity:0}100%{transform:translateY(0);opacity:1}}
+      @keyframes popIn{0%{transform:scale(0.8);opacity:0}60%{transform:scale(1.05)}100%{transform:scale(1);opacity:1}}
     `}</style>
   );
 }
@@ -490,6 +889,215 @@ function GamificationBar({xp}){
           <div style={{fontSize:9,color:DS.text.muted}}>streak</div>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ═══ PERSONALISED HERO ════════════════════════════════════════════════════════
+function PersonalisedHero({onNavigate}){
+  const profile=lsGet('lumora_profile',null);
+  const perf=lsGet('gcse_perf',{});
+  const streak=getStreakData();
+  const xp=getXP();
+  const lvl=getLevel(xp);
+  const weeklyStats=getWeeklyStats();
+  const [shareLoading,setShareLoading]=useState(false);
+
+  // Exam countdown
+  const days=profile?.examDate
+    ?Math.max(0,Math.round((new Date(profile.examDate)-Date.now())/86400000))
+    :null;
+
+  // Grade calculation (spec thresholds)
+  const gradeThresholds=[[95,9],[90,8],[80,7],[70,6],[60,5],[50,4],[35,3],[20,2],[0,1]];
+  const pctToGrade=p=>(gradeThresholds.find(([t])=>p>=t)||[0,1])[1];
+  const perfEntries=Object.values(perf).filter(p=>p.total>0);
+  const totalQsDone=perfEntries.reduce((s,p)=>s+p.total,0);
+  const avg=perfEntries.length>0
+    ?perfEntries.reduce((s,p)=>s+p.correct/p.total,0)/perfEntries.length
+    :null;
+  const avgPct=avg!==null?Math.round(avg*100):null;
+  const currentGrade=avgPct!==null?pctToGrade(avgPct):null;
+  const nextGradeMinPcts=[0,20,35,50,60,70,80,90,95]; // [grade-1] = pct needed
+  const gapToNext=currentGrade&&currentGrade<9?nextGradeMinPcts[currentGrade]-avgPct:0;
+  const gradeColor=currentGrade>=7?DS.accent.teal:currentGrade>=5?DS.accent.amber:DS.accent.red;
+
+  // Today's focus: due topics first, then weakest
+  const allTopics=MODULES.flatMap(m=>m.topics.map(t=>({...t,moduleColor:m.color})));
+  const dueTopicIds=[...new Set(getDueIds().map(id=>QUESTION_MAP[id]?.topicId).filter(Boolean))];
+  const weakTopics=allTopics
+    .map(t=>({...t,score:perf[t.id]?.total>0?perf[t.id].correct/perf[t.id].total:null}))
+    .filter(t=>t.score!==null)
+    .sort((a,b)=>a.score-b.score);
+  const focusIds=[...new Set([...dueTopicIds,...weakTopics.map(t=>t.id)])].slice(0,2);
+  const focusTopics=focusIds.map(id=>allTopics.find(t=>t.id===id)).filter(Boolean);
+  const displayTopics=focusTopics.length>0?focusTopics:allTopics.slice(0,2);
+  const weakestForGrade=weakTopics[0];
+  const xpThisWeek=Math.max(0,xp-weeklyStats.xpStart);
+
+  return(
+    <div style={{background:DS.bg.surface,borderRadius:DS.radius.xl,border:`1px solid ${DS.border}`,overflow:'hidden',boxShadow:DS.shadow,marginBottom:16}}>
+      {/* Gold-teal gradient top line */}
+      <div style={{height:3,background:`linear-gradient(90deg,${DS.accent.amber},${DS.accent.teal})`}}/>
+      <div style={{padding:'16px 18px'}}>
+
+        {/* Row 1: greeting + exam countdown */}
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:16,gap:10}}>
+          <div>
+            <div style={{fontSize:19,fontWeight:900,color:DS.text.primary,lineHeight:1.1}}>
+              {profile?.name?`Hi, ${profile.name} 👋`:'Welcome back 👋'}
+            </div>
+            <div style={{fontSize:11,color:DS.text.muted,marginTop:3}}>{lvl.icon} {lvl.name} · {xp} XP</div>
+          </div>
+          {days!==null?(
+            <div style={{background:DS.bg.elevated,borderRadius:DS.radius.md,padding:'8px 14px',border:`1px solid ${DS.border}`,textAlign:'center',flexShrink:0}}>
+              <div style={{fontSize:24,fontWeight:900,color:DS.accent.amber,lineHeight:1}}>{days}</div>
+              <div style={{fontSize:9,color:DS.text.muted,fontWeight:700,textTransform:'uppercase',letterSpacing:0.5}}>days to exam</div>
+              {profile?.board&&<div style={{fontSize:9,color:DS.text.secondary,marginTop:1}}>{profile.board}</div>}
+            </div>
+          ):(
+            <div style={{background:DS.accent.amberDim,borderRadius:DS.radius.md,padding:'8px 12px',border:`1px solid ${DS.accent.amber}33`,fontSize:11,color:DS.accent.amber,fontWeight:700,flexShrink:0}}>
+              📅 Set exam date
+            </div>
+          )}
+        </div>
+
+        {/* Row 2: Predicted Grade + Weekly Snapshot */}
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:12}}>
+          {/* Predicted Grade */}
+          <div style={{background:DS.bg.elevated,borderRadius:DS.radius.md,padding:'12px 14px',border:`1px solid ${DS.border}`}}>
+            <div style={{fontSize:9,fontWeight:700,color:DS.text.muted,textTransform:'uppercase',letterSpacing:1,marginBottom:6}}>Predicted Grade</div>
+            {currentGrade?(
+              <>
+                <div style={{fontSize:36,fontWeight:900,color:gradeColor,lineHeight:1}}>Grade {currentGrade}</div>
+                <div style={{fontSize:10,color:DS.text.muted,marginTop:4}}>{avgPct}% avg · {perfEntries.length} topics</div>
+                {gapToNext>0&&weakestForGrade&&(
+                  <div style={{fontSize:9,color:DS.text.secondary,marginTop:5,lineHeight:1.4,borderTop:`1px solid ${DS.border}`,paddingTop:5}}>
+                    +{gapToNext}% in <span style={{color:DS.accent.amber,fontWeight:700}}>{weakestForGrade.title.split(' ').slice(0,2).join(' ')}</span> → Grade {currentGrade+1}
+                  </div>
+                )}
+                {currentGrade===9&&<div style={{fontSize:9,color:DS.accent.teal,marginTop:5,fontWeight:700}}>🏆 Maximum grade!</div>}
+              </>
+            ):(
+              <>
+                <div style={{fontSize:36,fontWeight:900,color:DS.text.muted,lineHeight:1}}>—</div>
+                <div style={{fontSize:10,color:DS.text.muted,marginTop:4,lineHeight:1.5}}>
+                  {totalQsDone<5?`Answer ${5-totalQsDone} more questions to unlock`:'Complete topics to see your grade'}
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Weekly Snapshot */}
+          <div style={{background:DS.bg.elevated,borderRadius:DS.radius.md,padding:'12px 14px',border:`1px solid ${DS.border}`,display:'flex',flexDirection:'column'}}>
+            <div style={{fontSize:9,fontWeight:700,color:DS.text.muted,textTransform:'uppercase',letterSpacing:1,marginBottom:10}}>This Week</div>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:4,flex:1}}>
+              {[{icon:'📝',val:weeklyStats.qCount,label:'Qs'},{icon:'🔥',val:streak.current,label:'Streak'},{icon:'⚡',val:xpThisWeek,label:'XP'}].map(s=>(
+                <div key={s.label} style={{textAlign:'center'}}>
+                  <div style={{fontSize:12,marginBottom:2}}>{s.icon}</div>
+                  <div style={{fontSize:20,fontWeight:900,color:DS.accent.amber,lineHeight:1}}>{s.val}</div>
+                  <div style={{fontSize:9,color:DS.text.muted,fontWeight:600,marginTop:1}}>{s.label}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Row 3: Today's Focus CTA */}
+        <div style={{background:DS.bg.elevated,borderRadius:DS.radius.md,padding:'12px 14px',border:`1px solid ${DS.border}`,marginBottom:10}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8,gap:8,flexWrap:'wrap'}}>
+            <div>
+              <div style={{fontSize:9,fontWeight:700,color:DS.accent.amber,textTransform:'uppercase',letterSpacing:1.5,marginBottom:3}}>Today's Focus</div>
+              <div style={{fontSize:13,fontWeight:700,color:DS.text.primary}}>{displayTopics.map(t=>t.title).join(' · ')}</div>
+            </div>
+            {dueTopicIds.length>0&&(
+              <div style={{fontSize:9,background:DS.accent.amberDim,color:DS.accent.amber,padding:'3px 8px',borderRadius:4,fontWeight:700,border:`1px solid ${DS.accent.amber}33`,flexShrink:0}}>
+                {dueTopicIds.length} due for review
+              </div>
+            )}
+          </div>
+          <button onClick={()=>displayTopics[0]&&onNavigate(displayTopics[0].id)}
+            style={{width:'100%',padding:'11px 0',borderRadius:DS.radius.sm,border:'none',background:`linear-gradient(135deg,${DS.accent.amber},#D4A000)`,color:DS.bg.base,fontWeight:900,fontSize:13,cursor:'pointer',transition:DS.tr,boxShadow:`0 2px 14px ${DS.accent.amber}33`}}>
+            Start Today's Session →
+          </button>
+        </div>
+
+        {/* Share Progress Report button */}
+        <button onClick={async()=>{
+          setShareLoading(true);
+          const tab=window.open('','_blank');
+          if(!tab){setShareLoading(false);alert('Pop-ups are blocked. Please allow pop-ups for this site, then try again.');return;}
+          tab.document.write('<html><body style="font-family:\'Segoe UI\',sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;background:#f0ede8;color:#1a2744"><div style="text-align:center"><div style="font-size:40px;margin-bottom:14px">📐</div><h2 style="font-weight:800;margin-bottom:6px">Generating Progress Report…</h2><p style="color:#718096">This takes a few seconds</p></div></body></html>');
+          try{
+            const allTopics=MODULES.flatMap(m=>m.topics);
+            const scored=allTopics
+              .map(t=>({...t,score:perf[t.id]?.total>=2?perf[t.id].correct/perf[t.id].total:null}))
+              .filter(t=>t.score!==null)
+              .sort((a,b)=>b.score-a.score);
+            const strengths=scored.slice(0,3);
+            const weaknesses=[...scored].sort((a,b)=>a.score-b.score).slice(0,3);
+            const totalCorrect=perfEntries.reduce((s,p)=>s+p.correct,0);
+            const aiResult=await aiProgressReport({
+              name:profile?.name||'Student',
+              grade:currentGrade?`Grade ${currentGrade}`:'not yet determined',
+              avgPct:avgPct||0,
+              strongestTopic:strengths[0]?.title||'not yet assessed',
+              strongestPct:strengths[0]?Math.round(strengths[0].score*100):0,
+              weakestTopic:weaknesses[0]?.title||'not yet assessed',
+              weakestPct:weaknesses[0]?Math.round(weaknesses[0].score*100):0,
+              totalQs:totalQsDone,
+              board:profile?.board||'GCSE'
+            });
+            const html=buildReportHTML({
+              profile,
+              grade:currentGrade?`Grade ${currentGrade}`:'—',
+              avgPct,
+              totalQs:totalQsDone,
+              totalCorrect,
+              streakCount:streak.current,
+              timeMinutes:totalQsDone*2,
+              strengths,
+              weaknesses,
+              aiSummary:aiResult.summary,
+              aiActions:aiResult.actions,
+              days
+            });
+            if(tab){tab.document.open();tab.document.write(html);tab.document.close();}
+          }catch(e){
+            if(tab)tab.document.write(`<html><body style="font-family:sans-serif;padding:40px;color:#1a2744"><h2>Error generating report</h2><p>${e.message}</p></body></html>`);
+          }finally{setShareLoading(false);}
+        }}
+          style={{width:'100%',padding:'10px 0',borderRadius:DS.radius.sm,border:`1px solid ${DS.border}`,background:'transparent',color:DS.text.secondary,fontWeight:700,fontSize:12,cursor:shareLoading?'wait':'pointer',transition:DS.tr,display:'flex',alignItems:'center',justifyContent:'center',gap:6,opacity:shareLoading?0.6:1}}>
+          {shareLoading?'⏳ Generating report…':'📊 Share Progress Report'}
+        </button>
+
+      </div>
+    </div>
+  );
+}
+
+// ═══ WEEKLY GOAL BAR ══════════════════════════════════════════════════════════
+function WeeklyGoalBar(){
+  const d=getWeeklyData();
+  const goal=5;
+  const today=new Date().getDay(); // 0=Sun,6=Sat
+  const isWeekend=today===0||today===6;
+  const nudge=isWeekend&&d.count===goal-1;
+  return(
+    <div style={{background:DS.bg.surface,borderRadius:DS.radius.md,padding:'12px 14px',border:`1px solid ${DS.border}`,marginBottom:14}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
+        <div style={{fontSize:11,fontWeight:800,color:DS.accent.amber}}>⚡ Weekly Goal</div>
+        <div style={{fontSize:12,fontWeight:900,color:d.count>=goal?DS.accent.teal:DS.text.primary}}>
+          {d.count}<span style={{color:DS.text.muted,fontWeight:400}}>/{goal} days</span>
+        </div>
+      </div>
+      <div style={{display:'flex',gap:4,marginBottom:nudge||d.count>=goal?8:0}}>
+        {Array.from({length:goal},(_,i)=>(
+          <div key={i} style={{flex:1,height:5,borderRadius:3,background:i<d.count?DS.accent.amber:DS.bg.elevated,transition:'background 0.3s ease'}}/>
+        ))}
+      </div>
+      {nudge&&<div style={{fontSize:11,color:DS.accent.amber,fontWeight:700}}>One more to hit your weekly goal! 🎯</div>}
+      {d.count>=goal&&<div style={{fontSize:11,color:DS.accent.teal,fontWeight:700}}>✓ Weekly goal smashed! 🏆</div>}
     </div>
   );
 }
@@ -680,13 +1288,449 @@ function LandingPage({onStart}){
   );
 }
 
+// ═══ DAILY CHALLENGE MODAL ════════════════════════════════════════════════════
+function DailyChallengeModal({onComplete,onSkip,onAwardXP}){
+  const [phase,setPhase]=useState('loading'); // loading|q|done
+  const [questions,setQuestions]=useState([]);
+  const [qIdx,setQIdx]=useState(0);
+  const [working,setWorking]=useState('');
+  const [msOpen,setMsOpen]=useState(false);
+  const [selfMark,setSelfMark]=useState(null);
+  const [aiResult,setAiResult]=useState(null);
+  const [aiLoading,setAiLoading]=useState(false);
+  const [qAnswers,setQAnswers]=useState({}); // {idx:{xp,mark,total,correct}}
+  const [showSkip,setShowSkip]=useState(false);
+  const [streakInfo,setStreakInfo]=useState(null);
+  const [finalXP,setFinalXP]=useState(0);
+  const hasKey=!!import.meta.env.VITE_ANTHROPIC_API_KEY;
+  const streak=getStreakData();
+  const profile=lsGet('lumora_profile',null);
+
+  useEffect(()=>{
+    generateDailyQs(getWeakTopics())
+      .then(data=>{
+        setQuestions(data?.questions?.length>=3?data.questions.slice(0,3):getFallbackDailyQs());
+        setPhase('q');
+      })
+      .catch(()=>{setQuestions(getFallbackDailyQs());setPhase('q');});
+  },[]);
+
+  const q=questions[qIdx];
+  const qAnswered=qAnswers[qIdx]!==undefined;
+
+  const recordAnswer=(idx,mark,total)=>{
+    const correct=mark>=Math.ceil(total/2);
+    const xp=correct?35:10;
+    setQAnswers(prev=>({...prev,[idx]:{xp,mark,total,correct}}));
+  };
+
+  const handleAIMark=async()=>{
+    if(!working.trim()||aiLoading||qAnswered)return;
+    setAiLoading(true);
+    try{
+      const r=await aiMark(q.q,q.marks,q.ms,working);
+      setAiResult(r);
+      recordAnswer(qIdx,r.marksEarned,q.marks);
+    }catch(e){setAiResult({error:e.message});}
+    setAiLoading(false);
+  };
+
+  const handleSelfMark=(mark)=>{
+    if(qAnswered)return;
+    setSelfMark(mark);
+    recordAnswer(qIdx,mark,q.marks);
+  };
+
+  const handleNext=()=>{
+    const next=qIdx+1;
+    if(next<questions.length){
+      setQIdx(next);setWorking('');setMsOpen(false);setSelfMark(null);setAiResult(null);
+    }else{
+      const allXP=Object.values({...qAnswers}).reduce((s,a)=>s+a.xp,0)+50;
+      const sr=touchStreak();
+      incrementWeekly();
+      setDailyDone(allXP);
+      setStreakInfo(sr);
+      setFinalXP(allXP);
+      onAwardXP(allXP,sr);
+      setPhase('done');
+    }
+  };
+
+  if(phase==='loading')return(
+    <div style={{position:'fixed',inset:0,zIndex:1000,background:DS.bg.deep,display:'flex',alignItems:'center',justifyContent:'center',fontFamily:"'Segoe UI',sans-serif"}}>
+      <div style={{textAlign:'center'}}>
+        <div style={{fontSize:52,marginBottom:16}}>📅</div>
+        <div style={{fontSize:20,fontWeight:900,color:DS.text.primary,marginBottom:6}}>Daily Challenge</div>
+        <div style={{fontSize:13,color:DS.text.muted,marginBottom:24}}>Preparing today's questions…</div>
+        <div style={{width:36,height:36,border:`3px solid ${DS.border}`,borderTopColor:DS.accent.amber,borderRadius:'50%',animation:'spin 0.8s linear infinite',margin:'0 auto'}}/>
+      </div>
+    </div>
+  );
+
+  if(phase==='done'){
+    const correct=Object.values(qAnswers).filter(a=>a.correct).length;
+    const msgs=['"Every session builds the habit. See you tomorrow!"','"Great work — keep this momentum going!"','"Perfect score! You\'re exam-ready. 🔥"'];
+    return(
+      <div style={{position:'fixed',inset:0,zIndex:1000,background:DS.bg.deep,display:'flex',alignItems:'center',justifyContent:'center',fontFamily:"'Segoe UI',sans-serif",padding:20}}>
+        <div style={{width:'100%',maxWidth:420,background:DS.bg.surface,borderRadius:DS.radius.xl,padding:32,textAlign:'center',border:`1px solid ${DS.borderHi}`,boxShadow:DS.shadow,animation:'popIn 0.5s ease-out'}}>
+          <div style={{fontSize:56,marginBottom:12}}>🎉</div>
+          <div style={{fontSize:22,fontWeight:900,color:DS.text.primary,marginBottom:4}}>Challenge Complete!</div>
+          <div style={{fontSize:13,color:DS.text.secondary,marginBottom:24}}>{correct}/{questions.length} correct today</div>
+          <div style={{display:'flex',gap:12,justifyContent:'center',marginBottom:24}}>
+            <div style={{background:DS.accent.amberDim,border:`1px solid ${DS.accent.amber}33`,borderRadius:DS.radius.md,padding:'12px 20px'}}>
+              <div style={{fontSize:26,fontWeight:900,color:DS.accent.amber}}>+{finalXP}</div>
+              <div style={{fontSize:10,color:DS.text.muted,fontWeight:700,textTransform:'uppercase',letterSpacing:1}}>XP Earned</div>
+            </div>
+            <div style={{background:DS.accent.redDim,border:`1px solid rgba(255,76,76,0.2)`,borderRadius:DS.radius.md,padding:'12px 20px'}}>
+              <div style={{fontSize:26,fontWeight:900,color:DS.accent.red}}>🔥 {streakInfo?.streak||streak.current}</div>
+              <div style={{fontSize:10,color:DS.text.muted,fontWeight:700,textTransform:'uppercase',letterSpacing:1}}>Day Streak</div>
+            </div>
+          </div>
+          {streakInfo?.milestone&&<div style={{background:DS.accent.tealDim,border:`1px solid ${DS.accent.teal}33`,borderRadius:DS.radius.md,padding:'10px 14px',marginBottom:16,fontSize:13,color:DS.accent.teal,fontWeight:700}}>🏅 Streak freeze earned! ❄️</div>}
+          <div style={{fontSize:13,color:DS.text.secondary,marginBottom:24,lineHeight:1.6,fontStyle:'italic'}}>{msgs[Math.min(correct,2)]}</div>
+          <button onClick={onComplete} style={{width:'100%',padding:'14px 0',borderRadius:DS.radius.md,border:'none',background:DS.accent.amber,color:DS.bg.base,fontWeight:900,fontSize:15,cursor:'pointer',transition:DS.tr}}>
+            Continue to Lumora →
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if(showSkip)return(
+    <div style={{position:'fixed',inset:0,zIndex:1000,background:'rgba(0,0,0,0.88)',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:"'Segoe UI',sans-serif",padding:20}}>
+      <div style={{width:'100%',maxWidth:360,background:DS.bg.surface,borderRadius:DS.radius.xl,padding:28,textAlign:'center',border:`1px solid ${DS.border}`,boxShadow:DS.shadow}}>
+        <div style={{fontSize:40,marginBottom:12}}>⚠️</div>
+        <div style={{fontSize:18,fontWeight:900,color:DS.text.primary,marginBottom:8}}>Skip today?</div>
+        <div style={{fontSize:13,color:DS.accent.red,fontWeight:700,marginBottom:20,background:DS.accent.redDim,borderRadius:DS.radius.sm,padding:'8px 12px',border:`1px solid ${DS.accent.red}33`}}>
+          {streak.current>0?`Skipping resets your ${streak.current}-day streak!`:'Skipping breaks your streak habit.'}
+        </div>
+        <div style={{display:'flex',gap:10}}>
+          <button onClick={()=>setShowSkip(false)} style={{flex:1,padding:'12px 0',borderRadius:DS.radius.md,border:`1.5px solid ${DS.border}`,background:'transparent',color:DS.text.secondary,fontWeight:700,fontSize:13,cursor:'pointer'}}>Keep Going</button>
+          <button onClick={onSkip} style={{flex:1,padding:'12px 0',borderRadius:DS.radius.md,border:'none',background:DS.accent.red,color:'#fff',fontWeight:800,fontSize:13,cursor:'pointer'}}>Skip Anyway</button>
+        </div>
+      </div>
+    </div>
+  );
+
+  if(!q)return null;
+  const d=DIFF[q.diff]||DIFF.Starter;
+  return(
+    <div style={{position:'fixed',inset:0,zIndex:1000,background:DS.bg.deep,overflowY:'auto',fontFamily:"'Segoe UI',sans-serif"}}>
+      {/* Header */}
+      <div style={{background:DS.bg.surface,padding:'12px 20px',display:'flex',alignItems:'center',justifyContent:'space-between',borderBottom:`1px solid ${DS.border}`,position:'sticky',top:0,zIndex:10}}>
+        <div>
+          <div style={{fontSize:11,fontWeight:800,color:DS.accent.amber,letterSpacing:1.5,textTransform:'uppercase'}}>Daily Challenge</div>
+          <div style={{fontSize:10,color:DS.text.muted,marginTop:1}}>🔥 {streak.current} day streak{profile?` · ${profile.name}`:''}</div>
+        </div>
+        <div style={{display:'flex',gap:6,alignItems:'center'}}>
+          {questions.map((_,i)=>(
+            <div key={i} style={{width:i===qIdx?20:8,height:8,borderRadius:4,background:qAnswers[i]!==undefined?DS.accent.teal:i===qIdx?DS.accent.amber:DS.bg.overlay,transition:'all 0.3s ease'}}/>
+          ))}
+        </div>
+        <button onClick={()=>setShowSkip(true)} style={{background:'none',border:`1px solid ${DS.border}`,color:DS.text.muted,fontSize:11,cursor:'pointer',fontWeight:600,padding:'4px 10px',borderRadius:DS.radius.sm}}>Skip</button>
+      </div>
+
+      {/* Question */}
+      <div style={{maxWidth:600,margin:'0 auto',padding:'20px 16px'}}>
+        <div style={{background:DS.bg.surface,borderRadius:DS.radius.lg,border:`1.5px solid ${DS.border}`,overflow:'hidden',animation:'slideUp 0.3s ease'}}>
+          <div style={{padding:'16px 20px',borderBottom:`1px solid ${DS.border}`}}>
+            <div style={{display:'flex',gap:8,alignItems:'center',marginBottom:10}}>
+              <span style={{background:d.bg,color:d.c,fontSize:11,fontWeight:800,padding:'2px 8px',borderRadius:6}}>{q.diff}</span>
+              <span style={{fontSize:11,color:DS.text.muted}}>[{q.marks} mark{q.marks>1?'s':''}]</span>
+              <span style={{marginLeft:'auto',fontSize:11,fontWeight:700,color:DS.text.secondary}}>Q{qIdx+1} of {questions.length}</span>
+            </div>
+            <p style={{margin:0,fontSize:15,lineHeight:1.7,color:DS.text.primary}}>{q.q}</p>
+          </div>
+
+          <div style={{padding:'14px 20px',borderBottom:`1px solid ${DS.border}`}}>
+            <div style={{fontSize:11,fontWeight:700,color:DS.text.secondary,marginBottom:6}}>Your working:</div>
+            <textarea value={working} onChange={e=>setWorking(e.target.value)} placeholder="Write your working here…" disabled={qAnswered}
+              style={{width:'100%',minHeight:80,padding:10,borderRadius:DS.radius.sm,border:`1.5px solid ${DS.border}`,fontSize:13,fontFamily:'inherit',resize:'vertical',boxSizing:'border-box',outline:'none',background:qAnswered?DS.bg.overlay:DS.bg.elevated,color:DS.text.primary,opacity:qAnswered?0.7:1}}
+              onFocus={e=>e.target.style.borderColor=DS.accent.amber} onBlur={e=>e.target.style.borderColor=DS.border}/>
+          </div>
+
+          <div style={{padding:'12px 20px',display:'flex',flexDirection:'column',gap:8}}>
+            {/* Mark scheme toggle */}
+            <button onClick={()=>setMsOpen(!msOpen)} style={{width:'100%',padding:'9px 0',borderRadius:DS.radius.sm,border:`1.5px solid ${msOpen?DS.accent.teal:DS.border}`,background:msOpen?DS.accent.tealDim:'transparent',color:msOpen?DS.accent.teal:DS.text.secondary,fontSize:11,fontWeight:700,cursor:'pointer',transition:DS.tr}}>
+              {msOpen?'Hide Mark Scheme':'Show Mark Scheme'}
+            </button>
+            {msOpen&&(
+              <div style={{background:DS.bg.elevated,borderRadius:DS.radius.sm,padding:'12px 14px'}}>
+                <div style={{fontSize:9,fontWeight:800,color:DS.accent.teal,textTransform:'uppercase',letterSpacing:1,marginBottom:6}}>Mark Scheme</div>
+                {q.ms.map((m,i)=><div key={i} style={{fontSize:13,color:DS.text.primary,padding:'3px 0',display:'flex',gap:8}}><span style={{color:DS.accent.teal,fontWeight:700}}>›</span>{m}</div>)}
+                {q.insight&&<div style={{background:DS.bg.surface,borderLeft:`3px solid ${DS.accent.teal}`,borderRadius:`0 6px 6px 0`,padding:'8px 12px',marginTop:8}}><p style={{margin:0,fontSize:12,color:DS.text.secondary,lineHeight:1.5}}>💡 {q.insight}</p></div>}
+                <div style={{marginTop:12}}>
+                  <div style={{fontSize:11,fontWeight:700,color:DS.text.secondary,marginBottom:6}}>Self-mark:</div>
+                  <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+                    {Array.from({length:q.marks+1},(_,i)=>i).map(m=>(
+                      <button key={m} onClick={()=>handleSelfMark(m)} disabled={qAnswered&&selfMark!==m}
+                        style={{padding:'7px 12px',borderRadius:DS.radius.sm,border:`1.5px solid ${selfMark===m&&qAnswers[qIdx]?.mark===m?DS.accent.amber:DS.border}`,background:selfMark===m&&qAnswers[qIdx]?.mark===m?DS.accent.amberDim:DS.bg.surface,color:selfMark===m&&qAnswers[qIdx]?.mark===m?DS.accent.amber:DS.text.secondary,fontWeight:800,fontSize:13,cursor:qAnswered&&selfMark!==m?'not-allowed':'pointer',transition:DS.tr}}>
+                        {m}/{q.marks}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* AI marking */}
+            {hasKey&&working.trim()&&(
+              <button onClick={handleAIMark} disabled={aiLoading||qAnswered}
+                style={{width:'100%',padding:'9px 0',borderRadius:DS.radius.sm,border:`1.5px solid ${DS.borderHi}`,background:aiLoading||qAnswered?DS.bg.overlay:DS.bg.surface,color:aiLoading||qAnswered?DS.text.muted:DS.accent.amber,fontWeight:800,fontSize:12,cursor:aiLoading||qAnswered?'not-allowed':'pointer',transition:DS.tr}}>
+                {aiLoading?'🤖 Marking…':'🤖 Get AI Feedback'}
+              </button>
+            )}
+            {aiResult&&!aiResult.error&&(
+              <div style={{background:DS.bg.elevated,border:`1.5px solid ${DS.borderHi}`,borderRadius:DS.radius.md,padding:12,animation:'slideUp 0.25s ease'}}>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
+                  <div style={{fontSize:12,fontWeight:800,color:DS.text.primary}}>AI Feedback</div>
+                  <div style={{width:38,height:38,borderRadius:'50%',background:aiResult.marksEarned===q.marks?DS.accent.tealDim:aiResult.marksEarned>0?DS.accent.amberDim:DS.accent.redDim,border:`2px solid ${aiResult.marksEarned===q.marks?DS.accent.teal:aiResult.marksEarned>0?DS.accent.amber:DS.accent.red}`,display:'flex',alignItems:'center',justifyContent:'center'}}>
+                    <span style={{fontSize:11,fontWeight:900,color:aiResult.marksEarned===q.marks?DS.accent.teal:aiResult.marksEarned>0?DS.accent.amber:DS.accent.red}}>{aiResult.marksEarned}/{q.marks}</span>
+                  </div>
+                </div>
+                {aiResult.feedback&&<div style={{borderLeft:`3px solid ${DS.accent.teal}`,paddingLeft:10,marginBottom:6}}><p style={{margin:0,fontSize:12,color:DS.text.secondary,lineHeight:1.5}}>{aiResult.feedback}</p></div>}
+                {aiResult.improvements&&<div style={{borderLeft:`3px solid ${DS.accent.amber}`,paddingLeft:10}}><p style={{margin:0,fontSize:12,color:DS.text.secondary,lineHeight:1.5}}>{aiResult.improvements}</p></div>}
+              </div>
+            )}
+            {aiResult?.error&&<div style={{background:DS.accent.redDim,borderRadius:DS.radius.sm,padding:'8px 12px',color:DS.accent.red,fontSize:12}}>{aiResult.error}</div>}
+
+            {/* Next / Finish */}
+            <button onClick={handleNext} disabled={!qAnswered}
+              style={{width:'100%',padding:'13px 0',borderRadius:DS.radius.md,border:'none',background:qAnswered?DS.accent.amber:DS.bg.overlay,color:qAnswered?DS.bg.base:DS.text.muted,fontWeight:900,fontSize:14,cursor:qAnswered?'pointer':'not-allowed',transition:DS.tr,marginTop:4}}>
+              {qIdx<questions.length-1?'Next Question →':'Finish Challenge 🎉'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═══ AUTH SCREENS ════════════════════════════════════════════════════════════
+function LoginScreen({onLogin,onRegister}){
+  const [email,setEmail]=useState('');
+  const [pw,setPw]=useState('');
+  const [err,setErr]=useState('');
+  const [loading,setLoading]=useState(false);
+
+  const handleLogin=async(e)=>{
+    e.preventDefault();setErr('');setLoading(true);
+    try{
+      const users=getUsers();
+      const u=users[email.trim().toLowerCase()];
+      if(!u){setErr('No account found for that email.');return;}
+      const hash=await sha256(pw);
+      if(hash!==u.passwordHash){setErr('Incorrect password.');return;}
+      initCurrentUser(email.trim().toLowerCase());
+      onLogin();
+    }catch{setErr('Something went wrong. Try again.');}
+    finally{setLoading(false);}
+  };
+
+  return(
+    <div style={{minHeight:'100vh',background:DS.bg.base,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:24,fontFamily:"'Segoe UI',sans-serif"}}>
+      <AnimStyles/>
+      <div style={{width:'100%',maxWidth:400}}>
+        <div style={{marginBottom:32,textAlign:'center'}}>
+          <div style={{fontSize:28,fontWeight:900,color:DS.accent.amber,letterSpacing:0.5,marginBottom:6}}>📐 Lumora</div>
+          <div style={{color:DS.text.secondary,fontSize:15}}>Welcome back — sign in to continue</div>
+        </div>
+        <form onSubmit={handleLogin} style={{background:DS.bg.surface,borderRadius:DS.radius.xl,padding:28,border:`1px solid ${DS.border}`,boxShadow:DS.shadow,display:'flex',flexDirection:'column',gap:14}}>
+          <div>
+            <label style={{fontSize:12,color:DS.text.secondary,display:'block',marginBottom:4}}>Email</label>
+            <input type="email" value={email} onChange={e=>setEmail(e.target.value)} required
+              placeholder="you@email.com"
+              style={{width:'100%',boxSizing:'border-box',background:DS.bg.elevated,border:`1px solid ${DS.border}`,borderRadius:DS.radius.md,padding:'10px 12px',color:DS.text.primary,fontSize:14,outline:'none'}}
+            />
+          </div>
+          <div>
+            <label style={{fontSize:12,color:DS.text.secondary,display:'block',marginBottom:4}}>Password</label>
+            <input type="password" value={pw} onChange={e=>setPw(e.target.value)} required
+              placeholder="••••••••"
+              style={{width:'100%',boxSizing:'border-box',background:DS.bg.elevated,border:`1px solid ${DS.border}`,borderRadius:DS.radius.md,padding:'10px 12px',color:DS.text.primary,fontSize:14,outline:'none'}}
+            />
+          </div>
+          {err&&<div style={{color:DS.accent.red,fontSize:13,background:DS.accent.redDim,borderRadius:DS.radius.sm,padding:'8px 12px'}}>{err}</div>}
+          <button type="submit" disabled={loading} style={{background:DS.accent.amber,color:'#000',border:'none',borderRadius:DS.radius.md,padding:'11px',fontWeight:800,fontSize:14,cursor:loading?'not-allowed':'pointer',opacity:loading?0.7:1,marginTop:4}}>
+            {loading?'Signing in…':'Sign In'}
+          </button>
+          <div style={{textAlign:'center',fontSize:13,color:DS.text.muted,marginTop:4}}>
+            New student?{' '}
+            <button type="button" onClick={onRegister} style={{background:'none',border:'none',color:DS.accent.teal,fontWeight:700,cursor:'pointer',fontSize:13}}>Create account</button>
+          </div>
+        </form>
+        <div style={{textAlign:'center',marginTop:20,fontSize:11,color:DS.text.muted}}>🔒 Data stored on this device only</div>
+      </div>
+    </div>
+  );
+}
+
+function AccountCreateScreen({onCreated}){
+  const [email,setEmail]=useState('');
+  const [pw,setPw]=useState('');
+  const [pw2,setPw2]=useState('');
+  const [err,setErr]=useState('');
+  const [loading,setLoading]=useState(false);
+
+  const handleCreate=async(e)=>{
+    e.preventDefault();setErr('');
+    if(pw.length<6){setErr('Password must be at least 6 characters.');return;}
+    if(pw!==pw2){setErr('Passwords do not match.');return;}
+    setLoading(true);
+    try{
+      const users=getUsers();
+      const key=email.trim().toLowerCase();
+      if(users[key]){setErr('An account with this email already exists.');return;}
+      const hash=await sha256(pw);
+      const profile=lsGet('lumora_profile',{});
+      users[key]={name:profile.name||'Student',passwordHash:hash,createdAt:new Date().toISOString()};
+      saveUsers(users);
+      initCurrentUser(key);
+      onCreated();
+    }catch{setErr('Something went wrong. Try again.');}
+    finally{setLoading(false);}
+  };
+
+  return(
+    <div style={{minHeight:'100vh',background:DS.bg.base,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:24,fontFamily:"'Segoe UI',sans-serif"}}>
+      <AnimStyles/>
+      <div style={{width:'100%',maxWidth:400}}>
+        <div style={{marginBottom:32,textAlign:'center'}}>
+          <div style={{fontSize:28,fontWeight:900,color:DS.accent.amber,letterSpacing:0.5,marginBottom:6}}>📐 Lumora</div>
+          <div style={{color:DS.text.secondary,fontSize:15}}>Create your account to save progress</div>
+        </div>
+        <form onSubmit={handleCreate} style={{background:DS.bg.surface,borderRadius:DS.radius.xl,padding:28,border:`1px solid ${DS.border}`,boxShadow:DS.shadow,display:'flex',flexDirection:'column',gap:14}}>
+          <div>
+            <label style={{fontSize:12,color:DS.text.secondary,display:'block',marginBottom:4}}>Email</label>
+            <input type="email" value={email} onChange={e=>setEmail(e.target.value)} required
+              placeholder="you@email.com"
+              style={{width:'100%',boxSizing:'border-box',background:DS.bg.elevated,border:`1px solid ${DS.border}`,borderRadius:DS.radius.md,padding:'10px 12px',color:DS.text.primary,fontSize:14,outline:'none'}}
+            />
+          </div>
+          <div>
+            <label style={{fontSize:12,color:DS.text.secondary,display:'block',marginBottom:4}}>Password</label>
+            <input type="password" value={pw} onChange={e=>setPw(e.target.value)} required
+              placeholder="Min. 6 characters"
+              style={{width:'100%',boxSizing:'border-box',background:DS.bg.elevated,border:`1px solid ${DS.border}`,borderRadius:DS.radius.md,padding:'10px 12px',color:DS.text.primary,fontSize:14,outline:'none'}}
+            />
+          </div>
+          <div>
+            <label style={{fontSize:12,color:DS.text.secondary,display:'block',marginBottom:4}}>Confirm Password</label>
+            <input type="password" value={pw2} onChange={e=>setPw2(e.target.value)} required
+              placeholder="••••••••"
+              style={{width:'100%',boxSizing:'border-box',background:DS.bg.elevated,border:`1px solid ${DS.border}`,borderRadius:DS.radius.md,padding:'10px 12px',color:DS.text.primary,fontSize:14,outline:'none'}}
+            />
+          </div>
+          {err&&<div style={{color:DS.accent.red,fontSize:13,background:DS.accent.redDim,borderRadius:DS.radius.sm,padding:'8px 12px'}}>{err}</div>}
+          <button type="submit" disabled={loading} style={{background:DS.accent.amber,color:'#000',border:'none',borderRadius:DS.radius.md,padding:'11px',fontWeight:800,fontSize:14,cursor:loading?'not-allowed':'pointer',opacity:loading?0.7:1,marginTop:4}}>
+            {loading?'Creating…':'Create Account'}
+          </button>
+        </form>
+        <div style={{textAlign:'center',marginTop:20,fontSize:11,color:DS.text.muted}}>🔒 Data stored on this device only</div>
+      </div>
+    </div>
+  );
+}
+
+function SettingsPanel({onClose,onLogout}){
+  const profile=lsGet('lumora_profile',{});
+  const users=getUsers();
+  const email=getCurrentUserEmail()||'';
+  const u=users[email]||{};
+  const [showLogoutConfirm,setShowLogoutConfirm]=useState(false);
+
+  return(
+    <div style={{position:'fixed',inset:0,zIndex:200,display:'flex',alignItems:'flex-start',justifyContent:'flex-end'}}>
+      <div onClick={onClose} style={{position:'absolute',inset:0,background:'rgba(0,0,0,0.55)'}}/>
+      <div style={{position:'relative',width:320,height:'100%',background:DS.bg.surface,borderLeft:`1px solid ${DS.border}`,padding:'24px 20px',display:'flex',flexDirection:'column',gap:20,overflowY:'auto',boxShadow:DS.shadow}}>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+          <div style={{fontSize:16,fontWeight:800,color:DS.text.primary}}>Account</div>
+          <button onClick={onClose} style={{background:'none',border:'none',color:DS.text.muted,fontSize:20,cursor:'pointer',lineHeight:1}}>×</button>
+        </div>
+
+        <div style={{background:DS.bg.elevated,borderRadius:DS.radius.lg,padding:16,border:`1px solid ${DS.border}`}}>
+          <div style={{fontSize:18,fontWeight:800,color:DS.text.primary,marginBottom:2}}>{profile.name||u.name||'Student'}</div>
+          <div style={{fontSize:13,color:DS.text.secondary,marginBottom:8}}>{email}</div>
+          <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+            {profile.board&&<span style={{fontSize:11,background:DS.accent.amberDim,color:DS.accent.amber,borderRadius:DS.radius.sm,padding:'2px 8px',fontWeight:700}}>{profile.board}</span>}
+            {profile.grade&&<span style={{fontSize:11,background:DS.accent.tealDim,color:DS.accent.teal,borderRadius:DS.radius.sm,padding:'2px 8px',fontWeight:700}}>Target: Grade {profile.grade}</span>}
+          </div>
+        </div>
+
+        <div>
+          <div style={{fontSize:11,color:DS.text.muted,marginBottom:8,textTransform:'uppercase',letterSpacing:0.5}}>Study Stats</div>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+            {[
+              {label:'Total XP',value:`${getXP()} XP`},
+              {label:'Current Streak',value:`${getStreakData().current} days`},
+              {label:'Best Streak',value:`${getStreakData().best} days`},
+              {label:'Account Created',value:u.createdAt?new Date(u.createdAt).toLocaleDateString('en-GB',{day:'numeric',month:'short'}):'—'},
+            ].map(s=>(
+              <div key={s.label} style={{background:DS.bg.elevated,borderRadius:DS.radius.md,padding:'10px 12px',border:`1px solid ${DS.border}`}}>
+                <div style={{fontSize:11,color:DS.text.muted,marginBottom:2}}>{s.label}</div>
+                <div style={{fontSize:14,fontWeight:800,color:DS.text.primary}}>{s.value}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div style={{marginTop:'auto'}}>
+          {showLogoutConfirm?(
+            <div style={{background:DS.accent.redDim,border:`1px solid rgba(255,76,76,0.3)`,borderRadius:DS.radius.lg,padding:14}}>
+              <div style={{fontSize:13,color:DS.text.primary,marginBottom:10}}>Sign out of <strong>{email}</strong>? Your data stays on this device.</div>
+              <div style={{display:'flex',gap:8}}>
+                <button onClick={onLogout} style={{flex:1,background:DS.accent.red,color:'#fff',border:'none',borderRadius:DS.radius.md,padding:'8px',fontWeight:700,fontSize:13,cursor:'pointer'}}>Sign Out</button>
+                <button onClick={()=>setShowLogoutConfirm(false)} style={{flex:1,background:DS.bg.elevated,color:DS.text.secondary,border:`1px solid ${DS.border}`,borderRadius:DS.radius.md,padding:'8px',fontWeight:700,fontSize:13,cursor:'pointer'}}>Cancel</button>
+              </div>
+            </div>
+          ):(
+            <button onClick={()=>setShowLogoutConfirm(true)} style={{width:'100%',background:'transparent',border:`1px solid rgba(255,76,76,0.3)`,borderRadius:DS.radius.md,padding:'10px',color:DS.accent.red,fontWeight:700,fontSize:13,cursor:'pointer'}}>Sign Out</button>
+          )}
+          <div style={{textAlign:'center',marginTop:14,fontSize:11,color:DS.text.muted}}>🔒 Data stored on this device only</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ═══ APP SHELL ═══════════════════════════════════════════════════════════════
 export default function App(){
-  const [screen,setScreen]=useState(()=>lsGet('lumora_profile',null)?'landing':'onboarding');
+  const [screen,setScreen]=useState(()=>{
+    const cu=getCurrentUserEmail();
+    if(cu){initCurrentUser(cu);return'landing';}
+    const hasUsers=Object.keys(getUsers()).length>0;
+    if(hasUsers)return'auth';
+    const existingProfile=localStorage.getItem('lumora_profile');
+    return existingProfile?'account_create':'onboarding';
+  });
   const [page,setPage]=useState("platform");
   const [xpV,setXpV]=useState(0);
   const [celebration,setCelebration]=useState(null);
   const [mode,setMode]=useState('sprint');
+  const [showDaily,setShowDaily]=useState(()=>!isDailyDone());
+  const [soundOn,setSoundOn]=useState(()=>lsGet('lumora_sound',true));
+  const [showSettings,setShowSettings]=useState(false);
+
+  const toggleSound=()=>{const v=!soundOn;setSoundOn(v);lsSet('lumora_sound',v);};
+
+  // Called by DailyChallengeModal after completion; touchStreak already called inside modal
+  const handleDailyAwardXP=useCallback((amount,sr)=>{
+    const result=addXP(amount);
+    setXpV(v=>v+1);
+    if(result.levelUp){
+      setCelebration({icon:result.newLevel.icon,title:`${result.newLevel.name} Level!`,body:`+${amount} XP · You reached ${result.newLevel.name}!`});
+    }else if(sr?.streak===7){
+      setCelebration({icon:'🔥',title:'7-Day Streak!',body:`You've studied 7 days straight! +${amount} XP 🔥`});
+    }else if(sr?.streak===3){
+      setCelebration({icon:'⚡',title:'3-Day Streak!',body:`Building the habit! +${amount} XP earned.`});
+    }else if(sr?.milestone){
+      setCelebration({icon:'🔥',title:`${sr.streak}-Day Streak!`,body:`Streak freeze earned ❄️ +${amount} XP`});
+    }
+  },[]);
+
+  const handleDailyComplete=useCallback(()=>{setShowDaily(false);},[]);
+  const handleDailySkip=useCallback(()=>{setShowDaily(false);},[]);
 
   const awardXP=useCallback((amount)=>{
     const result=addXP(amount);
@@ -701,10 +1745,25 @@ export default function App(){
     }
   },[]);
 
-  const handleOnboardingComplete=()=>{touchStreak();setScreen('landing');};
+  const handleOnboardingComplete=()=>{touchStreak();setScreen('account_create');};
+  const handleLogout=()=>{clearCurrentUser();setScreen('auth');setShowSettings(false);};
 
   if(screen==='onboarding')return<><AnimStyles/><Onboarding onComplete={handleOnboardingComplete}/></>;
+  if(screen==='account_create')return<AccountCreateScreen onCreated={()=>{touchStreak();setScreen('landing');}}/>;
+  if(screen==='auth')return<LoginScreen onLogin={()=>setScreen('landing')} onRegister={()=>setScreen('onboarding')}/>;
   if(screen==='landing')return<><AnimStyles/><LandingPage onStart={()=>setScreen('app')}/></>;
+
+  // Show daily challenge before anything else when app opens
+  if(showDaily)return(
+    <>
+      <AnimStyles/>
+      <DailyChallengeModal
+        onComplete={handleDailyComplete}
+        onSkip={handleDailySkip}
+        onAwardXP={handleDailyAwardXP}
+      />
+    </>
+  );
 
   const xp=getXP();
   const streak=getStreakData();
@@ -713,13 +1772,18 @@ export default function App(){
       <AnimStyles/>
       {celebration&&<Celebration data={celebration} onDone={()=>setCelebration(null)}/>}
       <div style={{background:DS.bg.surface,padding:"0 16px",display:"flex",alignItems:"center",position:"sticky",top:0,zIndex:100,borderBottom:`1px solid ${DS.border}`,gap:4,boxShadow:DS.shadow}}>
-        <button onClick={()=>setScreen('landing')} style={{fontSize:14,fontWeight:900,color:DS.accent.amber,letterSpacing:0.5,marginRight:12,padding:"14px 0",whiteSpace:"nowrap",background:'none',border:'none',cursor:'pointer'}}>📐 Lumora</button>
+        <button onClick={()=>setScreen('landing')} style={{fontSize:14,fontWeight:900,color:DS.accent.amber,letterSpacing:0.5,padding:"14px 0",whiteSpace:"nowrap",background:'none',border:'none',cursor:'pointer'}}>📐 Lumora</button>
+        {/* Streak pill — prominent, next to logo */}
+        <div style={{display:'flex',alignItems:'center',gap:3,marginLeft:6,marginRight:8,background:streak.current>0?DS.accent.redDim:'transparent',borderRadius:DS.radius.sm,padding:'3px 8px',border:streak.current>0?`1px solid rgba(255,76,76,0.25)`:'none',flexShrink:0}}>
+          <span style={{fontSize:14}}>🔥</span>
+          <span style={{fontSize:13,fontWeight:900,color:streak.current>0?DS.accent.red:DS.text.muted,lineHeight:1}}>{streak.current}</span>
+        </div>
         {[{id:"platform",label:"📚 Revision"},{id:"generator",label:"⚡ Generator"},{id:"mock",label:"📝 Mock"}].map(tab=>(
           <button key={tab.id} onClick={()=>setPage(tab.id)} style={{padding:"6px 12px",margin:"6px 0",borderRadius:DS.radius.sm,border:"none",background:page===tab.id?DS.accent.amberDim:"transparent",cursor:"pointer",color:page===tab.id?DS.accent.amber:DS.text.muted,fontWeight:page===tab.id?800:500,fontSize:12,transition:DS.tr,whiteSpace:"nowrap"}}>
             {tab.label}
           </button>
         ))}
-        <div style={{marginLeft:'auto',display:'flex',alignItems:'center',gap:10,padding:'0 4px'}}>
+        <div style={{marginLeft:'auto',display:'flex',alignItems:'center',gap:8,padding:'0 4px'}}>
           {mode==='sprint'&&(
             <div style={{display:'flex',alignItems:'center',gap:6}}>
               <div style={{width:80,height:5,background:DS.bg.elevated,borderRadius:3,overflow:'hidden'}}>
@@ -728,9 +1792,14 @@ export default function App(){
               <div style={{fontSize:11,color:DS.accent.amber,fontWeight:800}}>{xp} XP</div>
             </div>
           )}
-          <div style={{fontSize:12,color:DS.text.secondary,fontWeight:700}}>🔥 {streak.current}</div>
+          {(()=>{const p=lsGet('lumora_profile',{});return p.name?(
+            <div style={{fontSize:12,color:DS.text.secondary,fontWeight:600,whiteSpace:'nowrap',maxWidth:90,overflow:'hidden',textOverflow:'ellipsis'}}>Hi {p.name.split(' ')[0]}</div>
+          ):null;})()}
+          <button onClick={toggleSound} title={soundOn?'Mute sounds':'Enable sounds'} style={{background:'none',border:`1px solid ${DS.border}`,borderRadius:DS.radius.sm,padding:'4px 7px',fontSize:13,cursor:'pointer',color:DS.text.muted,lineHeight:1}}>{soundOn?'🔊':'🔇'}</button>
           <StudyModeToggle mode={mode} setMode={setMode}/>
+          <button onClick={()=>setShowSettings(true)} title="Account settings" style={{background:'none',border:`1px solid ${DS.border}`,borderRadius:DS.radius.sm,padding:'4px 7px',fontSize:14,cursor:'pointer',color:DS.text.muted,lineHeight:1}}>⚙️</button>
         </div>
+        {showSettings&&<SettingsPanel onClose={()=>setShowSettings(false)} onLogout={handleLogout}/>}
       </div>
       {page==="platform"&&<Platform onXP={awardXP} xpV={xpV} mode={mode}/>}
       {page==="generator"&&<Generator/>}
@@ -740,7 +1809,7 @@ export default function App(){
 }
 
 // ═══ QCARD (Platform static questions — with SM-2 + AI marking) ═══════════
-function QCard({q,idx,topicId,onAnswered,onXP}){
+function QCard({q,idx,topicId,onAnswered,onXP,isAI=false}){
   const [open,setOpen]=useState(false);
   const [answered,setAnswered]=useState(null);
   const [working,setWorking]=useState('');
@@ -751,7 +1820,7 @@ function QCard({q,idx,topicId,onAnswered,onXP}){
 
   const handleAnswer=(correct)=>{
     setAnswered(correct?'right':'wrong');
-    sm2Update(qid,correct?4:1);
+    if(!isAI)sm2Update(qid,correct?4:1);
     recordPerf(topicId,correct);
     if(onXP)onXP(correct?35:10);
     if(onAnswered)onAnswered();
@@ -771,7 +1840,10 @@ function QCard({q,idx,topicId,onAnswered,onXP}){
       <div style={{position:'absolute',left:0,top:0,bottom:0,width:3,background:d.c,borderRadius:'3px 0 0 3px'}}/>
       <div style={{padding:'14px 18px 14px 22px'}}>
         <div style={{display:'flex',gap:8,marginBottom:8,flexWrap:'wrap',alignItems:'center'}}>
-          <span style={{width:24,height:24,borderRadius:'50%',background:DS.bg.elevated,color:DS.accent.amber,display:'flex',alignItems:'center',justifyContent:'center',fontWeight:900,fontSize:11,flexShrink:0}}>{idx+1}</span>
+          {isAI
+            ?<span style={{background:'rgba(155,89,182,0.15)',color:'#9B59B6',fontSize:10,fontWeight:800,padding:'2px 8px',borderRadius:5,border:'1px solid rgba(155,89,182,0.3)',flexShrink:0}}>✨ AI</span>
+            :<span style={{width:24,height:24,borderRadius:'50%',background:DS.bg.elevated,color:DS.accent.amber,display:'flex',alignItems:'center',justifyContent:'center',fontWeight:900,fontSize:11,flexShrink:0}}>{idx+1}</span>
+          }
           <span style={{background:d.bg,color:d.c,fontSize:11,fontWeight:800,padding:'2px 8px',borderRadius:6}}>{q.diff}</span>
           <span style={{fontSize:11,color:DS.text.muted,fontWeight:600}}>[{q.marks} mark{q.marks>1?'s':''}]</span>
           {answered&&<span style={{fontSize:11,fontWeight:800,color:answered==='right'?DS.accent.teal:DS.accent.red}}>{answered==='right'?'✓ Got it':'✗ Wrong'}</span>}
@@ -779,7 +1851,7 @@ function QCard({q,idx,topicId,onAnswered,onXP}){
         <p style={{margin:'0 0 12px',fontSize:15,lineHeight:1.65,color:DS.text.primary,whiteSpace:'pre-line'}}>{q.q}</p>
         <div>
           <div style={{fontSize:11,fontWeight:700,color:DS.text.secondary,marginBottom:4}}>Your working:</div>
-          <textarea value={working} onChange={e=>setWorking(e.target.value)} placeholder="Write your working here..." style={{width:'100%',minHeight:68,padding:10,borderRadius:DS.radius.sm,border:`1.5px solid ${DS.border}`,fontSize:13,fontFamily:'inherit',resize:'vertical',boxSizing:'border-box',outline:'none',background:DS.bg.elevated,color:DS.text.primary}} onFocus={e=>e.target.style.borderColor=DS.accent.amber} onBlur={e=>e.target.style.borderColor=DS.border}/>
+          <textarea value={working} onChange={e=>!answered&&setWorking(e.target.value)} disabled={!!answered} placeholder="Write your working here..." style={{width:'100%',minHeight:68,padding:10,borderRadius:DS.radius.sm,border:`1.5px solid ${DS.border}`,fontSize:13,fontFamily:'inherit',resize:'vertical',boxSizing:'border-box',outline:'none',background:answered?DS.bg.overlay:DS.bg.elevated,color:DS.text.primary,opacity:answered?0.7:1}} onFocus={e=>{if(!answered)e.target.style.borderColor=DS.accent.amber;}} onBlur={e=>e.target.style.borderColor=DS.border}/>
         </div>
       </div>
 
@@ -818,7 +1890,7 @@ function QCard({q,idx,topicId,onAnswered,onXP}){
                   {aiResult.feedback&&<div style={{borderLeft:`3px solid ${DS.accent.teal}`,paddingLeft:10,marginBottom:8}}><div style={{fontSize:9,fontWeight:800,color:DS.accent.teal,marginBottom:2}}>WHAT YOU GOT RIGHT</div><p style={{margin:0,fontSize:13,color:DS.text.secondary,lineHeight:1.5}}>{aiResult.feedback}</p></div>}
                   {aiResult.improvements&&<div style={{borderLeft:`3px solid ${DS.accent.amber}`,paddingLeft:10,marginBottom:8}}><div style={{fontSize:9,fontWeight:800,color:DS.accent.amber,marginBottom:2}}>WHAT TO IMPROVE</div><p style={{margin:0,fontSize:13,color:DS.text.secondary,lineHeight:1.5}}>{aiResult.improvements}</p></div>}
                   {aiResult.breakdown?.length>0&&<div style={{background:DS.bg.elevated,borderRadius:DS.radius.sm,padding:'8px 12px',marginTop:4}}><div style={{fontSize:9,fontWeight:800,color:DS.text.muted,marginBottom:4}}>MARK BREAKDOWN</div>{aiResult.breakdown.map((m,i)=><div key={i} style={{fontSize:12,color:DS.text.secondary,padding:'2px 0',fontFamily:'monospace'}}>{m}</div>)}</div>}
-                  <SocraticChat question={q.q} ms={q.ms} aiResult={aiResult}/>
+                  <SocraticChat question={q.q} ms={q.ms} aiResult={aiResult} maxMarks={q.marks}/>
                 </div>
               )}
               {aiResult?.error&&<div style={{marginTop:8,background:DS.accent.redDim,borderRadius:DS.radius.sm,padding:'8px 12px',color:DS.accent.red,fontSize:12,border:`1px solid ${DS.accent.red}33`}}>{aiResult.error}</div>}
@@ -837,16 +1909,73 @@ function QCard({q,idx,topicId,onAnswered,onXP}){
 }
 
 // ═══ TOPIC PAGE ═══════════════════════════════════════════════════════════════
-function TopicPage({topic,moduleColor,onAnswered,onXP}){
+function TopicPage({topic,moduleColor,moduleLabel,onAnswered,onXP}){
   const [tab,setTab]=useState("questions");
+  const [aiQs,setAiQs]=useState([]);
+  const [aiLoading,setAiLoading]=useState(false);
+  const [aiError,setAiError]=useState(null);
   const tabs=[{id:"questions",l:"Questions"},{id:"boards",l:"Board Diff"},{id:"concept",l:"Core Concept"},{id:"markscheme",l:"Mark Scheme"},{id:"mistakes",l:"Mistakes"}];
   const boardColors={AQA:{bd:'#1B2A4A',c:'#7B9FC4'},Edexcel:{bd:'#C0392B',c:'#E07B6A'},OCR:{bd:'#0D6E72',c:'#00C9B1'}};
+  const hasKey=!!import.meta.env.VITE_ANTHROPIC_API_KEY;
+
+  const handleGenerate=async()=>{
+    setAiLoading(true);setAiError(null);
+    const board=lsGet('lumora_profile',null)?.board||'AQA';
+    const tp=lsGet('gcse_perf',{})[topic.id];
+    const ratio=tp?.total>0?tp.correct/tp.total:0;
+    const diffMix=ratio>=0.7
+      ?'Mid and Killer — challenging multi-step and proof questions'
+      :'Starter and Mid — accessible questions building to multi-step';
+    try{
+      const data=await generateTopicQs(topic.title,moduleLabel||'',board,diffMix);
+      if(data?.questions?.length>0){setAiQs(prev=>[...prev,...data.questions.slice(0,3)]);}
+      else{setAiError('No questions returned — please try again.');}
+    }catch(e){setAiError(e.message);}
+    setAiLoading(false);
+  };
+
+  const Divider=({label,color})=>(
+    <div style={{display:'flex',alignItems:'center',gap:8,margin:'4px 0 12px'}}>
+      <div style={{fontSize:9,fontWeight:800,color:color||DS.text.muted,textTransform:'uppercase',letterSpacing:1.5,whiteSpace:'nowrap'}}>{label}</div>
+      <div style={{flex:1,height:1,background:DS.border}}/>
+    </div>
+  );
+
   return(
     <div>
       <div style={{display:'flex',gap:4,marginBottom:18,overflowX:'auto',paddingBottom:2}}>
         {tabs.map(t=><button key={t.id} onClick={()=>setTab(t.id)} style={{padding:'7px 14px',borderRadius:DS.radius.sm,border:`1.5px solid ${tab===t.id?DS.accent.amber:DS.border}`,background:tab===t.id?DS.accent.amberDim:DS.bg.surface,color:tab===t.id?DS.accent.amber:DS.text.secondary,fontWeight:700,fontSize:12,cursor:'pointer',flexShrink:0,transition:DS.tr}}>{t.l}</button>)}
       </div>
-      {tab==="questions"&&topic.questions.map((q,i)=><QCard key={i} q={q} idx={i} topicId={topic.id} onAnswered={onAnswered} onXP={onXP}/>)}
+
+      {tab==="questions"&&(
+        <div>
+          <Divider label="Foundation Questions"/>
+          {topic.questions.map((q,i)=><QCard key={i} q={q} idx={i} topicId={topic.id} onAnswered={onAnswered} onXP={onXP}/>)}
+
+          {aiQs.length>0&&(
+            <>
+              <Divider label="AI Generated" color="#9B59B6"/>
+              {aiQs.map((q,i)=>(
+                <QCard key={`ai-${i}`} q={q} idx={topic.questions.length+i} topicId={topic.id} onAnswered={onAnswered} onXP={onXP} isAI={true}/>
+              ))}
+            </>
+          )}
+
+          {aiError&&(
+            <div style={{background:DS.accent.redDim,border:`1px solid ${DS.accent.red}33`,borderRadius:DS.radius.sm,padding:'8px 12px',marginBottom:10,fontSize:12,color:DS.accent.red}}>{aiError}</div>
+          )}
+
+          <button onClick={handleGenerate} disabled={aiLoading||!hasKey}
+            style={{width:'100%',padding:'13px',borderRadius:DS.radius.md,border:`1.5px dashed ${aiLoading?DS.border:'rgba(155,89,182,0.45)'}`,background:'rgba(155,89,182,0.06)',color:aiLoading||!hasKey?DS.text.muted:'#9B59B6',fontWeight:700,fontSize:13,cursor:aiLoading||!hasKey?'not-allowed':'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:8,transition:DS.tr,marginTop:4}}>
+            {aiLoading
+              ?<><div style={{width:14,height:14,border:'2px solid rgba(155,89,182,0.25)',borderTopColor:'#9B59B6',borderRadius:'50%',animation:'spin 0.8s linear infinite'}}/>Generating questions…</>
+              :<>✨ Generate 3 More Questions{aiQs.length>0?` (${aiQs.length} generated so far)`:''}</>
+            }
+          </button>
+          {!hasKey&&<div style={{textAlign:'center',fontSize:11,color:DS.text.muted,marginTop:6}}>Add VITE_ANTHROPIC_API_KEY to .env.local to enable AI generation</div>}
+        </div>
+      )}
+
       {tab==="boards"&&Object.entries(topic.boards).map(([b,txt])=>{
         const bc=boardColors[b]||{bd:DS.border,c:DS.text.secondary};
         return<div key={b} style={{background:DS.bg.elevated,borderLeft:`3px solid ${bc.bd}`,borderRadius:DS.radius.md,padding:'14px 18px',marginBottom:10,border:`1px solid ${DS.border}`}}>
@@ -937,11 +2066,10 @@ function WeaknessHeatmap({onNavigate,version}){
 }
 
 // ═══ PLATFORM ════════════════════════════════════════════════════════════════
-export function Platform({onXP=()=>{},xpV=0}){
+export function Platform({onXP=()=>{},xpV=0,mode='sprint'}){
   const [modId,setModId]=useState(null);
   const [topicId,setTopicId]=useState(null);
   const [search,setSearch]=useState("");
-  const [board,setBoard]=useState("All");
   const [version,setVersion]=useState(0);
   const bump=useCallback(()=>setVersion(v=>v+1),[]);
   const xp=getXP();
@@ -984,7 +2112,7 @@ export function Platform({onXP=()=>{},xpV=0}){
           <div><div style={{fontSize:17,fontWeight:800,color:DS.text.primary}}>{topic.title}</div><div style={{fontSize:11,color:DS.text.muted,marginTop:2}}>{topic.questions.length} questions · 3 difficulty levels</div></div>
         </div>
       </div>
-      <TopicPage topic={topic} moduleColor={mod.color} onAnswered={handleAnswered} onXP={onXP}/>
+      <TopicPage topic={topic} moduleColor={mod.color} moduleLabel={mod.label} onAnswered={handleAnswered} onXP={onXP}/>
     </div>
   );
 
@@ -1015,19 +2143,13 @@ export function Platform({onXP=()=>{},xpV=0}){
 
   const perf=lsGet('gcse_perf',{});
   return(
-    <div style={{fontFamily:"'Segoe UI',sans-serif",maxWidth:680,margin:"0 auto",padding:16,background:DS.bg.base,minHeight:"100vh"}}>
-      {/* Hero Row: Predicted Grade + GamificationBar */}
-      <div style={{display:"grid",gridTemplateColumns:"auto 1fr",gap:12,marginBottom:16}}>
-        <div style={{background:DS.bg.surface,borderRadius:DS.radius.lg,border:`1px solid ${DS.border}`,minWidth:120}}>
-          <PredictedGrade perf={perf}/>
-        </div>
-        <div style={{display:"flex",flexDirection:"column",gap:10}}>
-          <GamificationBar key={`gam-${xpV}`} xp={xp}/>
-          <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-            {["AQA","Edexcel","OCR"].map(b=><button key={b} onClick={()=>setBoard(board===b?"All":b)} style={{padding:"4px 10px",borderRadius:DS.radius.sm,border:`1px solid ${board===b?DS.accent.amber:DS.border}`,background:board===b?DS.accent.amberDim:"transparent",color:board===b?DS.accent.amber:DS.text.muted,fontSize:11,fontWeight:700,cursor:"pointer",transition:DS.tr}}>{b}</button>)}
-          </div>
-        </div>
-      </div>
+    <div style={{fontFamily:"'Segoe UI',sans-serif",maxWidth:680,margin:"0 auto",padding:16,background:mode==='deep'?DS.bg.deep:DS.bg.base,minHeight:"100vh"}}>
+
+      {/* Personalised Hero */}
+      <PersonalisedHero onNavigate={navigateToTopic}/>
+
+      {/* Gamification bar (sprint mode only) */}
+      {mode==='sprint'&&<GamificationBar key={`gam-${xpV}`} xp={xp}/>}
 
       {/* Search */}
       <div style={{position:"relative",marginBottom:14}}>
@@ -1046,6 +2168,9 @@ export function Platform({onXP=()=>{},xpV=0}){
 
       {/* Focus Today */}
       <DueForReview key={`due-${version}`} onNavigate={navigateToTopic} version={version}/>
+
+      {/* Weekly Goal */}
+      <WeeklyGoalBar/>
 
       {/* Module Mastery Grid */}
       <div style={{fontSize:10,fontWeight:800,color:DS.text.muted,textTransform:"uppercase",letterSpacing:1.5,marginBottom:10}}>Module Mastery</div>
@@ -1166,7 +2291,7 @@ function MockQCard({q,idx,working,selfMark,onSelfMark}){
                   {aiResult.feedback&&<div style={{borderLeft:`3px solid ${DS.accent.teal}`,paddingLeft:8,marginBottom:6}}><p style={{margin:0,fontSize:13,color:DS.text.secondary,lineHeight:1.5}}>{aiResult.feedback}</p></div>}
                   {aiResult.improvements&&<div style={{borderLeft:`3px solid ${DS.accent.amber}`,paddingLeft:8,marginBottom:6}}><p style={{margin:0,fontSize:13,color:DS.text.secondary,lineHeight:1.5}}>{aiResult.improvements}</p></div>}
                   {aiResult.breakdown?.map((m,i)=><div key={i} style={{fontSize:12,color:DS.text.muted,padding:'2px 0',fontFamily:'monospace'}}>{m}</div>)}
-                  <SocraticChat question={q.q} ms={q.ms} aiResult={aiResult}/>
+                  <SocraticChat question={q.q} ms={q.ms} aiResult={aiResult} maxMarks={q.marks}/>
                 </div>
               )}
               {aiResult?.error&&<div style={{marginTop:8,background:DS.accent.redDim,borderRadius:DS.radius.sm,padding:'8px 12px',color:DS.accent.red,fontSize:12}}>{aiResult.error}</div>}
@@ -1202,7 +2327,7 @@ export function MockExam({onXP=()=>{},mode='sprint'}){
     if(timeLeft<=0){handleSubmit();return;}
     const t=setInterval(()=>setTimeLeft(s=>s-1),1000);
     return()=>clearInterval(t);
-  },[started,submitted,timeLeft]);
+  },[started,submitted,timeLeft,handleSubmit]);
 
   const fmt=s=>`${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
   const totalMarks=questions.reduce((s,q)=>s+q.marks,0);
@@ -1376,14 +2501,15 @@ function QCardGen({q,idx,board}){
 }
 
 export function Generator(){
-  const [cfg,setCfg]=useState({board:"AQA",tier:"Higher",topic:"percentages",topicLabel:"Percentages",diff:"Mid",count:3});
+  const allGenTopics=useMemo(()=>MODULES.flatMap(m=>m.topics.map(t=>({id:t.id,label:t.title,module:m.label}))),[]);
+  const [cfg,setCfg]=useState({board:"AQA",tier:"Higher",topic:"1.3",topicLabel:"Percentages",diff:"Mid",count:3});
   const [qs,setQs]=useState([]);
   const [loading,setLoading]=useState(false);
   const [err,setErr]=useState(null);
   const [total,setTotal]=useState(0);
   const [filterMod,setFilterMod]=useState("All");
-  const modules=["All",...new Set(TOPICS.map(t=>t.module))];
-  const visibleTopics=filterMod==="All"?TOPICS:TOPICS.filter(t=>t.module===filterMod);
+  const modules=["All",...MODULES.map(m=>m.label)];
+  const visibleTopics=filterMod==="All"?allGenTopics:allGenTopics.filter(t=>t.module===filterMod);
 
   const run=async()=>{
     setLoading(true);setErr(null);setQs([]);

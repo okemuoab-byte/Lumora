@@ -281,13 +281,15 @@ async function aiVisualDiagram(topicTitle,moduleLabel){
   const res=await fetch('https://api.anthropic.com/v1/messages',{
     method:'POST',
     headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-    body:JSON.stringify({model:'claude-haiku-4-5',max_tokens:1000,messages:[{role:'user',content:
-      `Create a visual text diagram to explain the GCSE Maths concept: ${topicTitle} (${moduleLabel}).\nUse Unicode box-drawing characters (─ │ ┌ ┐ └ ┘ ├ ┤ ┬ ┴ ┼), arrows (→ ← ↑ ↓ ⟶), and spacing to build a clear ASCII-style diagram.\nThe diagram should visually represent HOW the calculation or concept works — like a number line, flowchart, formula breakdown, comparison table, or step grid.\nMake it genuinely visual and instructive, not just bullet points. Use alignment to create structure.\nReply ONLY with valid JSON (no markdown fences):\n{"title":"diagram title","diagram":"multi-line unicode diagram string (use \\n for newlines)","callouts":["annotation 1: what to notice","annotation 2"],"insight":"one sentence on what the visual reveals about the concept"}`
+    body:JSON.stringify({model:'claude-haiku-4-5',max_tokens:1500,messages:[{role:'user',content:
+      `Create a visual text diagram to explain the GCSE Maths concept: ${topicTitle} (${moduleLabel}).\nUse Unicode box-drawing characters (─ │ ┌ ┐ └ ┘ ├ ┤ ┬ ┴ ┼), arrows (→ ← ↑ ↓ ⟶), and spacing to build a clear ASCII-style diagram.\nThe diagram should visually represent HOW the calculation or concept works — like a number line, flowchart, formula breakdown, comparison table, or step grid.\nKEEP THE DIAGRAM CONCISE — max 20 lines, max 60 characters wide. Quality over quantity.\nReply ONLY with valid JSON (no markdown fences). Escape all special characters in strings properly:\n{"title":"diagram title","diagram":"line1\\nline2\\nline3","callouts":["annotation 1","annotation 2"],"insight":"one sentence on what the visual reveals about the concept"}`
     }]})
   });
   if(!res.ok){const d=await res.json();throw new Error(d.error?.message||`HTTP ${res.status}`);}
   const d=await res.json();
-  return JSON.parse(d.content.map(b=>b.text||'').join('').replace(/```json|```/g,'').trim());
+  const raw=d.content.map(b=>b.text||'').join('').replace(/```json|```/g,'').trim();
+  try{return JSON.parse(raw);}
+  catch{throw new Error('Diagram response was cut off — please try again');}
 }
 
 async function aiErrorHunt(topicTitle,sampleQ){
@@ -1798,7 +1800,7 @@ export default function App(){
   const [xpV,setXpV]=useState(0);
   const [celebration,setCelebration]=useState(null);
   const [mode,setMode]=useState('sprint');
-  const [showDaily,setShowDaily]=useState(()=>!isDailyDone());
+  const [showDailyModal,setShowDailyModal]=useState(false);
   const [soundOn,setSoundOn]=useState(()=>lsGet('lumora_sound',true));
   const [showSettings,setShowSettings]=useState(false);
 
@@ -1819,8 +1821,8 @@ export default function App(){
     }
   },[]);
 
-  const handleDailyComplete=useCallback(()=>{setShowDaily(false);},[]);
-  const handleDailySkip=useCallback(()=>{setShowDaily(false);},[]);
+  const handleDailyComplete=useCallback(()=>{setShowDailyModal(false);},[]);
+  const handleDailySkip=useCallback(()=>{setShowDailyModal(false);},[]);
 
   const awardXP=useCallback((amount)=>{
     const result=addXP(amount);
@@ -1843,26 +1845,23 @@ export default function App(){
   if(screen==='auth')return<LoginScreen onLogin={()=>setScreen('landing')} onRegister={()=>setScreen('onboarding')}/>;
   if(screen==='landing')return<><AnimStyles/><LandingPage onStart={()=>setScreen('app')}/></>;
 
-  // Show daily challenge before anything else when app opens
-  if(showDaily)return(
-    <>
-      <AnimStyles/>
-      <DailyChallengeModal
-        onComplete={handleDailyComplete}
-        onSkip={handleDailySkip}
-        onAwardXP={handleDailyAwardXP}
-      />
-    </>
-  );
-
   const xp=getXP();
   const streak=getStreakData();
   return(
     <div style={{fontFamily:"'Segoe UI',sans-serif",background:DS.bg.base,minHeight:"100vh"}}>
       <AnimStyles/>
       {celebration&&<Celebration data={celebration} onDone={()=>setCelebration(null)}/>}
+      {showDailyModal&&(
+        <div style={{position:'fixed',inset:0,zIndex:200}}>
+          <DailyChallengeModal
+            onComplete={handleDailyComplete}
+            onSkip={handleDailySkip}
+            onAwardXP={handleDailyAwardXP}
+          />
+        </div>
+      )}
       <div style={{background:DS.bg.surface,padding:"0 16px",display:"flex",alignItems:"center",position:"sticky",top:0,zIndex:100,borderBottom:`1px solid ${DS.border}`,gap:4,boxShadow:DS.shadow}}>
-        <button onClick={()=>setScreen('landing')} style={{fontSize:14,fontWeight:900,color:DS.accent.amber,letterSpacing:0.5,padding:"14px 0",whiteSpace:"nowrap",background:'none',border:'none',cursor:'pointer'}}>📐 Lumora</button>
+        <button onClick={()=>setPage('platform')} style={{fontSize:14,fontWeight:900,color:DS.accent.amber,letterSpacing:0.5,padding:"14px 0",whiteSpace:"nowrap",background:'none',border:'none',cursor:'pointer'}}>📐 Lumora</button>
         {/* Streak pill — prominent, next to logo */}
         <div style={{display:'flex',alignItems:'center',gap:3,marginLeft:6,marginRight:8,background:streak.current>0?DS.accent.redDim:'transparent',borderRadius:DS.radius.sm,padding:'3px 8px',border:streak.current>0?`1px solid rgba(255,76,76,0.25)`:'none',flexShrink:0}}>
           <span style={{fontSize:14}}>🔥</span>
@@ -1891,7 +1890,7 @@ export default function App(){
         </div>
         {showSettings&&<SettingsPanel onClose={()=>setShowSettings(false)} onLogout={handleLogout}/>}
       </div>
-      {page==="platform"&&<Platform onXP={awardXP} xpV={xpV} mode={mode}/>}
+      {page==="platform"&&<Platform onXP={awardXP} xpV={xpV} mode={mode} onOpenDaily={()=>setShowDailyModal(true)}/>}
       {page==="generator"&&<Generator/>}
       {page==="mock"&&<MockExam onXP={awardXP} mode={mode}/>}
     </div>
@@ -2524,7 +2523,7 @@ function WeaknessHeatmap({onNavigate,version}){
 }
 
 // ═══ PLATFORM ════════════════════════════════════════════════════════════════
-export function Platform({onXP=()=>{},xpV=0,mode='sprint'}){
+export function Platform({onXP=()=>{},xpV=0,mode='sprint',onOpenDaily=()=>{}}){
   const [modId,setModId]=useState(null);
   const [topicId,setTopicId]=useState(null);
   const [search,setSearch]=useState("");
@@ -2605,6 +2604,30 @@ export function Platform({onXP=()=>{},xpV=0,mode='sprint'}){
 
       {/* Personalised Hero */}
       <PersonalisedHero onNavigate={navigateToTopic}/>
+
+      {/* Daily Challenge widget */}
+      {(()=>{
+        const daily=lsGet('lumora_daily',{date:null,completed:false,xp:0});
+        const done=daily.date===todayStr()&&daily.completed;
+        return done?(
+          <div style={{background:DS.bg.surface,border:`1px solid ${DS.accent.teal}33`,borderLeft:`3px solid ${DS.accent.teal}`,borderRadius:DS.radius.md,padding:'12px 16px',marginBottom:14,display:'flex',alignItems:'center',gap:12}}>
+            <span style={{fontSize:20}}>✅</span>
+            <div style={{flex:1}}>
+              <div style={{fontSize:12,fontWeight:800,color:DS.accent.teal}}>Daily Challenge Complete</div>
+              <div style={{fontSize:11,color:DS.text.muted,marginTop:2}}>+{daily.xp||0} XP earned today · Come back tomorrow for a new set</div>
+            </div>
+          </div>
+        ):(
+          <button onClick={onOpenDaily} style={{width:'100%',background:DS.accent.amberDim,border:`1.5px solid ${DS.accent.amber}44`,borderRadius:DS.radius.md,padding:'13px 16px',marginBottom:14,display:'flex',alignItems:'center',gap:12,cursor:'pointer',textAlign:'left',transition:DS.tr}}>
+            <span style={{fontSize:22}}>📅</span>
+            <div style={{flex:1}}>
+              <div style={{fontSize:13,fontWeight:800,color:DS.accent.amber}}>Daily Challenge — not done yet</div>
+              <div style={{fontSize:11,color:DS.text.secondary,marginTop:2}}>3 personalised questions · Builds your streak · +XP</div>
+            </div>
+            <span style={{fontSize:16,color:DS.accent.amber}}>→</span>
+          </button>
+        );
+      })()}
 
       {/* Gamification bar (sprint mode only) */}
       {mode==='sprint'&&<GamificationBar key={`gam-${xpV}`} xp={xp}/>}

@@ -159,7 +159,7 @@ async function aiMark(question,marks,ms,working){
   return JSON.parse(d.content.map(b=>b.text||'').join('').replace(/```json|```/g,'').trim());
 }
 
-async function aiSocratic(question,ms,aiResult,chatHistory){
+async function aiSocratic(question,ms,aiResult,chatHistory,maxMarks=0){
   const key=import.meta.env.VITE_ANTHROPIC_API_KEY;
   if(!key)throw new Error('Add VITE_ANTHROPIC_API_KEY to .env.local');
   const gotFull=maxMarks>0?aiResult.marksEarned>=maxMarks:aiResult.marksEarned>=(aiResult.maxMarks??aiResult.totalMarks??999);
@@ -223,6 +223,96 @@ async function generateTopicQs(topicTitle,moduleLabel,board,diffMix){
     headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
     body:JSON.stringify({model:'claude-haiku-4-5',max_tokens:1800,messages:[{role:'user',content:
       `You are a GCSE Maths examiner. Generate exactly 3 ${board} exam questions.\nTopic: ${topicTitle} (${moduleLabel})\nDifficulty mix: ${diffMix}\n${boardStyle[board]||boardStyle.AQA}\nReply ONLY with valid JSON (no markdown fences):\n{"questions":[{"q":"Full question text","marks":3,"diff":"Mid","ms":["M1: ...","A1: ..."],"insight":"examiner tip for this question"}]}`
+    }]})
+  });
+  if(!res.ok){const d=await res.json();throw new Error(d.error?.message||`HTTP ${res.status}`);}
+  const d=await res.json();
+  return JSON.parse(d.content.map(b=>b.text||'').join('').replace(/```json|```/g,'').trim());
+}
+
+async function aiMCQ(topicTitle,moduleLabel){
+  const key=import.meta.env.VITE_ANTHROPIC_API_KEY;
+  if(!key)throw new Error('Add VITE_ANTHROPIC_API_KEY to .env.local');
+  const res=await fetch('https://api.anthropic.com/v1/messages',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+    body:JSON.stringify({model:'claude-haiku-4-5',max_tokens:1400,messages:[{role:'user',content:
+      `Create 4 multiple-choice questions testing GCSE Maths understanding of: ${topicTitle} (${moduleLabel}).\nEach question must have 4 options (A–D), one correct answer, and three plausible distractors that reflect common misconceptions.\nReply ONLY with valid JSON (no markdown fences):\n{"questions":[{"q":"question text","options":["A) ...","B) ...","C) ...","D) ..."],"answer":"A","explanation":"brief explanation of why A is correct and why others are wrong"}]}`
+    }]})
+  });
+  if(!res.ok){const d=await res.json();throw new Error(d.error?.message||`HTTP ${res.status}`);}
+  const d=await res.json();
+  return JSON.parse(d.content.map(b=>b.text||'').join('').replace(/```json|```/g,'').trim());
+}
+
+async function aiWorkedSteps(topicTitle,sampleQ){
+  const key=import.meta.env.VITE_ANTHROPIC_API_KEY;
+  if(!key)throw new Error('Add VITE_ANTHROPIC_API_KEY to .env.local');
+  const res=await fetch('https://api.anthropic.com/v1/messages',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+    body:JSON.stringify({model:'claude-haiku-4-5',max_tokens:1000,messages:[{role:'user',content:
+      `Create a step-by-step worked example for GCSE Maths topic: ${topicTitle}.\nBase it on: ${sampleQ}\nBreak the solution into 4-6 clear numbered steps. Each step should explain WHAT to do and WHY it matters.\nReply ONLY with valid JSON (no markdown fences):\n{"problem":"full question text","steps":[{"number":1,"what":"what to do in this step","why":"why this step matters","result":"what you get at the end of this step"}]}`
+    }]})
+  });
+  if(!res.ok){const d=await res.json();throw new Error(d.error?.message||`HTTP ${res.status}`);}
+  const d=await res.json();
+  return JSON.parse(d.content.map(b=>b.text||'').join('').replace(/```json|```/g,'').trim());
+}
+
+async function aiExplainMark(topicTitle,explanation){
+  const key=import.meta.env.VITE_ANTHROPIC_API_KEY;
+  if(!key)throw new Error('Add VITE_ANTHROPIC_API_KEY to .env.local');
+  const res=await fetch('https://api.anthropic.com/v1/messages',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+    body:JSON.stringify({model:'claude-haiku-4-5',max_tokens:500,messages:[{role:'user',content:
+      `A GCSE student is explaining the maths topic "${topicTitle}" in their own words:\n"${explanation}"\nAssess their conceptual understanding. Be warm and encouraging.\nReply ONLY with valid JSON (no markdown fences):\n{"score":4,"correct":"what they understood well","missing":"key concepts not mentioned","tip":"one specific concept or phrase to add next time","encouragement":"one warm motivating sentence"}`
+    }]})
+  });
+  if(!res.ok){const d=await res.json();throw new Error(d.error?.message||`HTTP ${res.status}`);}
+  const d=await res.json();
+  return JSON.parse(d.content.map(b=>b.text||'').join('').replace(/```json|```/g,'').trim());
+}
+
+async function aiVisualDiagram(topicTitle,moduleLabel){
+  const key=import.meta.env.VITE_ANTHROPIC_API_KEY;
+  if(!key)throw new Error('Add VITE_ANTHROPIC_API_KEY to .env.local');
+  const res=await fetch('https://api.anthropic.com/v1/messages',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+    body:JSON.stringify({model:'claude-haiku-4-5',max_tokens:1000,messages:[{role:'user',content:
+      `Create a visual text diagram to explain the GCSE Maths concept: ${topicTitle} (${moduleLabel}).\nUse Unicode box-drawing characters (─ │ ┌ ┐ └ ┘ ├ ┤ ┬ ┴ ┼), arrows (→ ← ↑ ↓ ⟶), and spacing to build a clear ASCII-style diagram.\nThe diagram should visually represent HOW the calculation or concept works — like a number line, flowchart, formula breakdown, comparison table, or step grid.\nMake it genuinely visual and instructive, not just bullet points. Use alignment to create structure.\nReply ONLY with valid JSON (no markdown fences):\n{"title":"diagram title","diagram":"multi-line unicode diagram string (use \\n for newlines)","callouts":["annotation 1: what to notice","annotation 2"],"insight":"one sentence on what the visual reveals about the concept"}`
+    }]})
+  });
+  if(!res.ok){const d=await res.json();throw new Error(d.error?.message||`HTTP ${res.status}`);}
+  const d=await res.json();
+  return JSON.parse(d.content.map(b=>b.text||'').join('').replace(/```json|```/g,'').trim());
+}
+
+async function aiErrorHunt(topicTitle,sampleQ){
+  const key=import.meta.env.VITE_ANTHROPIC_API_KEY;
+  if(!key)throw new Error('Add VITE_ANTHROPIC_API_KEY to .env.local');
+  const res=await fetch('https://api.anthropic.com/v1/messages',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+    body:JSON.stringify({model:'claude-haiku-4-5',max_tokens:1200,messages:[{role:'user',content:
+      `Create an "Error Hunt" exercise for GCSE Maths topic: ${topicTitle}.\nWrite a 5–7 step worked solution to this question: ${sampleQ}\nEmbed exactly 2 deliberate mistakes into the steps — the kind of errors students commonly make (wrong formula, arithmetic slip, wrong direction of inequality, etc.).\nDo NOT indicate which steps are wrong in the step text itself.\nReply ONLY with valid JSON (no markdown fences):\n{"question":"the problem","steps":[{"n":1,"text":"the working shown for this step"}],"errors":[{"stepNum":3,"error":"what the mistake is","correction":"what it should say"}],"tip":"general examiner advice for this type of question"}`
+    }]})
+  });
+  if(!res.ok){const d=await res.json();throw new Error(d.error?.message||`HTTP ${res.status}`);}
+  const d=await res.json();
+  return JSON.parse(d.content.map(b=>b.text||'').join('').replace(/```json|```/g,'').trim());
+}
+
+async function aiRealWorld(topicTitle,moduleLabel){
+  const key=import.meta.env.VITE_ANTHROPIC_API_KEY;
+  if(!key)throw new Error('Add VITE_ANTHROPIC_API_KEY to .env.local');
+  const res=await fetch('https://api.anthropic.com/v1/messages',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+    body:JSON.stringify({model:'claude-haiku-4-5',max_tokens:900,messages:[{role:'user',content:
+      `Create a compelling real-world story problem for GCSE Maths topic: ${topicTitle} (${moduleLabel}).\nPick an engaging context a teenager would find interesting: gaming, music production, sports analytics, social media, architecture, food, space, film — something unexpected and cool.\nMake the maths feel genuinely necessary, not forced.\nReply ONLY with valid JSON (no markdown fences):\n{"hook":"one punchy opening sentence with an emoji that grabs attention","context":"2-3 sentence real-world scenario narrative","question":"the maths question arising from this scenario","solution":"step-by-step solution written in the language of the scenario (reference the real-world context in each step)","connection":"one sentence explicitly linking back to the GCSE topic"}`
     }]})
   });
   if(!res.ok){const d=await res.json();throw new Error(d.error?.message||`HTTP ${res.status}`);}
@@ -406,7 +496,7 @@ function SocraticChat({question,ms,aiResult,maxMarks=0}){
 
   useEffect(()=>{
     setLoading(true);
-    aiSocratic(question,ms,aiResult,[])
+    aiSocratic(question,ms,aiResult,[],maxMarks)
       .then(text=>setMessages([{from:'tutor',text}]))
       .catch(e=>setMessages([{from:'tutor',text:'Could not start: '+e.message}]))
       .finally(()=>setLoading(false));
@@ -419,7 +509,7 @@ function SocraticChat({question,ms,aiResult,maxMarks=0}){
     const newMsg={from:'student',text:input.trim()};
     const updated=[...messages,newMsg];
     setMessages(updated);setInput('');setLoading(true);
-    try{const text=await aiSocratic(question,ms,aiResult,updated);setMessages(m=>[...m,{from:'tutor',text}]);}
+    try{const text=await aiSocratic(question,ms,aiResult,updated,maxMarks);setMessages(m=>[...m,{from:'tutor',text}]);}
     catch(e){setMessages(m=>[...m,{from:'tutor',text:'Error: '+e.message}]);}
     setLoading(false);
   };
@@ -1914,7 +2004,78 @@ function TopicPage({topic,moduleColor,moduleLabel,onAnswered,onXP}){
   const [aiQs,setAiQs]=useState([]);
   const [aiLoading,setAiLoading]=useState(false);
   const [aiError,setAiError]=useState(null);
-  const tabs=[{id:"questions",l:"Questions"},{id:"boards",l:"Board Diff"},{id:"concept",l:"Core Concept"},{id:"markscheme",l:"Mark Scheme"},{id:"mistakes",l:"Mistakes"}];
+  // Learn tab state
+  const [learnMode,setLearnMode]=useState('flashcards');
+  const [cardIdx,setCardIdx]=useState(0);
+  const [cardFlipped,setCardFlipped]=useState(false);
+  const [mcqData,setMcqData]=useState(null);
+  const [mcqLoading,setMcqLoading]=useState(false);
+  const [mcqError,setMcqError]=useState(null);
+  const [mcqAnswers,setMcqAnswers]=useState({});
+  const [stepsData,setStepsData]=useState(null);
+  const [stepsLoading,setStepsLoading]=useState(false);
+  const [stepsRevealed,setStepsRevealed]=useState(0);
+  const [explainText,setExplainText]=useState('');
+  const [explainResult,setExplainResult]=useState(null);
+  const [explainLoading,setExplainLoading]=useState(false);
+  // Creative modalities state
+  const [vizData,setVizData]=useState(null);
+  const [vizLoading,setVizLoading]=useState(false);
+  const [errorHuntData,setErrorHuntData]=useState(null);
+  const [errorHuntLoading,setErrorHuntLoading]=useState(false);
+  const [errorHuntSelected,setErrorHuntSelected]=useState(new Set());
+  const [errorHuntRevealed,setErrorHuntRevealed]=useState(false);
+  const [realWorldData,setRealWorldData]=useState(null);
+  const [realWorldLoading,setRealWorldLoading]=useState(false);
+  const [realWorldSolutionShown,setRealWorldSolutionShown]=useState(false);
+  const flashCards=[
+    ...topic.markScheme.map((m,i)=>({front:`Mark Scheme Rule ${i+1}`,back:m})),
+    {front:`Memory Aid: ${topic.analogy.title}`,back:topic.analogy.lines.filter(l=>l.trim()).join('\n')},
+    ...topic.mistakes.map(m=>({front:`Common Mistake — what's wrong here?`,back:m})),
+  ];
+  const handleLoadMCQ=async()=>{
+    if(mcqData)return;
+    setMcqLoading(true);setMcqError(null);
+    try{const d=await aiMCQ(topic.title,moduleLabel||'');setMcqData(d.questions||[]);}
+    catch(e){setMcqError(e.message);}
+    setMcqLoading(false);
+  };
+  const handleLoadSteps=async()=>{
+    if(stepsData)return;
+    setStepsLoading(true);
+    try{const d=await aiWorkedSteps(topic.title,topic.questions[1]?.q||topic.questions[0]?.q||topic.title);setStepsData(d);}
+    catch(e){setStepsData({error:e.message});}
+    setStepsLoading(false);
+  };
+  const handleExplainSubmit=async()=>{
+    if(!explainText.trim())return;
+    setExplainLoading(true);setExplainResult(null);
+    try{const d=await aiExplainMark(topic.title,explainText);setExplainResult(d);}
+    catch(e){setExplainResult({error:e.message});}
+    setExplainLoading(false);
+  };
+  const handleLoadViz=async()=>{
+    if(vizData)return;
+    setVizLoading(true);
+    try{const d=await aiVisualDiagram(topic.title,moduleLabel||'');setVizData(d);}
+    catch(e){setVizData({error:e.message});}
+    setVizLoading(false);
+  };
+  const handleLoadErrorHunt=async()=>{
+    if(errorHuntData)return;
+    setErrorHuntLoading(true);
+    try{const d=await aiErrorHunt(topic.title,topic.questions[1]?.q||topic.questions[0]?.q||topic.title);setErrorHuntData(d);}
+    catch(e){setErrorHuntData({error:e.message});}
+    setErrorHuntLoading(false);
+  };
+  const handleLoadRealWorld=async()=>{
+    if(realWorldData)return;
+    setRealWorldLoading(true);
+    try{const d=await aiRealWorld(topic.title,moduleLabel||'');setRealWorldData(d);}
+    catch(e){setRealWorldData({error:e.message});}
+    setRealWorldLoading(false);
+  };
+  const tabs=[{id:"questions",l:"Questions"},{id:"learn",l:"🎓 Learn"},{id:"boards",l:"Board Diff"},{id:"concept",l:"Core Concept"},{id:"markscheme",l:"Mark Scheme"},{id:"mistakes",l:"Mistakes"}];
   const boardColors={AQA:{bd:'#1B2A4A',c:'#7B9FC4'},Edexcel:{bd:'#C0392B',c:'#E07B6A'},OCR:{bd:'#0D6E72',c:'#00C9B1'}};
   const hasKey=!!import.meta.env.VITE_ANTHROPIC_API_KEY;
 
@@ -1996,6 +2157,303 @@ function TopicPage({topic,moduleColor,moduleLabel,onAnswered,onXP}){
         <div style={{fontSize:10,fontWeight:800,color:DS.accent.red,textTransform:'uppercase',letterSpacing:1.5,marginBottom:12}}>Common Mistakes</div>
         {topic.mistakes.map((m,i)=><div key={i} style={{display:'flex',gap:10,marginBottom:12}}><div style={{minWidth:20,height:20,borderRadius:'50%',background:DS.accent.redDim,color:DS.accent.red,border:`1px solid ${DS.accent.red}44`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,fontWeight:800,flexShrink:0}}>{i+1}</div><p style={{margin:0,fontSize:13,lineHeight:1.6,color:DS.text.secondary}}>{m}</p></div>)}
       </div>}
+
+      {tab==="learn"&&(
+        <div>
+          {/* Modality selector */}
+          <div style={{marginBottom:6}}>
+            <div style={{fontSize:9,fontWeight:800,color:DS.text.muted,textTransform:'uppercase',letterSpacing:1.5,marginBottom:8}}>Standard</div>
+            <div style={{display:'flex',gap:6,marginBottom:10,flexWrap:'wrap'}}>
+              {[{id:'flashcards',icon:'📇',label:'Flashcards'},{id:'mcq',icon:'🎯',label:'Multiple Choice'},{id:'steps',icon:'🪜',label:'Worked Steps'},{id:'explain',icon:'💬',label:'Explain It'}].map(m=>(
+                <button key={m.id} onClick={()=>setLearnMode(m.id)} style={{padding:'7px 14px',borderRadius:DS.radius.sm,border:`1.5px solid ${learnMode===m.id?DS.accent.teal:DS.border}`,background:learnMode===m.id?DS.accent.tealDim:DS.bg.surface,color:learnMode===m.id?DS.accent.teal:DS.text.secondary,fontWeight:700,fontSize:12,cursor:'pointer',flexShrink:0,transition:DS.tr,display:'flex',alignItems:'center',gap:5}}>{m.icon} {m.label}</button>
+              ))}
+            </div>
+            <div style={{fontSize:9,fontWeight:800,color:DS.accent.amber,textTransform:'uppercase',letterSpacing:1.5,marginBottom:8}}>✨ AI-Powered</div>
+            <div style={{display:'flex',gap:6,marginBottom:18,flexWrap:'wrap'}}>
+              {[{id:'visual',icon:'🎨',label:'Visual Diagram'},{id:'errors',icon:'🕵️',label:'Error Hunt'},{id:'story',icon:'🌍',label:'Real World'}].map(m=>(
+                <button key={m.id} onClick={()=>setLearnMode(m.id)} style={{padding:'7px 14px',borderRadius:DS.radius.sm,border:`1.5px solid ${learnMode===m.id?DS.accent.amber:DS.border}`,background:learnMode===m.id?DS.accent.amberDim:DS.bg.surface,color:learnMode===m.id?DS.accent.amber:DS.text.secondary,fontWeight:700,fontSize:12,cursor:'pointer',flexShrink:0,transition:DS.tr,display:'flex',alignItems:'center',gap:5}}>{m.icon} {m.label}</button>
+              ))}
+            </div>
+          </div>
+
+          {/* Flashcards */}
+          {learnMode==='flashcards'&&(
+            <div>
+              <div style={{textAlign:'center',fontSize:11,color:DS.text.muted,marginBottom:12}}>Card {cardIdx+1} of {flashCards.length} · Tap to flip</div>
+              <div onClick={()=>setCardFlipped(f=>!f)} style={{background:cardFlipped?DS.accent.tealDim:DS.bg.elevated,border:`1.5px solid ${cardFlipped?DS.accent.teal:DS.border}`,borderRadius:DS.radius.lg,padding:32,textAlign:'center',cursor:'pointer',minHeight:170,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:12,transition:DS.tr,userSelect:'none'}}>
+                <div style={{fontSize:10,fontWeight:800,color:cardFlipped?DS.accent.teal:DS.text.muted,textTransform:'uppercase',letterSpacing:1.5}}>{cardFlipped?'Answer ↓':'Tap to reveal →'}</div>
+                <p style={{margin:0,fontSize:14,lineHeight:1.75,color:DS.text.primary,whiteSpace:'pre-line'}}>{cardFlipped?flashCards[cardIdx].back:flashCards[cardIdx].front}</p>
+              </div>
+              <div style={{display:'flex',gap:8,marginTop:12,justifyContent:'center'}}>
+                <button onClick={()=>{setCardIdx(i=>(i-1+flashCards.length)%flashCards.length);setCardFlipped(false);}} style={{padding:'8px 22px',borderRadius:DS.radius.sm,border:`1px solid ${DS.border}`,background:DS.bg.surface,color:DS.text.secondary,cursor:'pointer',fontWeight:700,fontSize:13}}>← Prev</button>
+                <button onClick={()=>{setCardIdx(i=>(i+1)%flashCards.length);setCardFlipped(false);}} style={{padding:'8px 22px',borderRadius:DS.radius.sm,border:`1px solid ${DS.border}`,background:DS.bg.surface,color:DS.text.secondary,cursor:'pointer',fontWeight:700,fontSize:13}}>Next →</button>
+              </div>
+            </div>
+          )}
+
+          {/* Multiple Choice */}
+          {learnMode==='mcq'&&(
+            <div>
+              {!mcqData&&!mcqLoading&&(
+                <div style={{textAlign:'center',padding:32}}>
+                  <div style={{fontSize:32,marginBottom:12}}>🎯</div>
+                  <p style={{fontSize:14,color:DS.text.secondary,marginBottom:20}}>AI generates 4 multiple-choice questions — pick the right answer and see why</p>
+                  <button onClick={handleLoadMCQ} disabled={!hasKey} style={{padding:'10px 28px',borderRadius:DS.radius.md,border:'none',background:DS.accent.teal,color:DS.bg.base,fontWeight:800,fontSize:13,cursor:hasKey?'pointer':'not-allowed',opacity:hasKey?1:0.5}}>Generate Questions</button>
+                  {mcqError&&<div style={{marginTop:12,color:DS.accent.red,fontSize:12}}>{mcqError}</div>}
+                  {!hasKey&&<div style={{marginTop:8,fontSize:11,color:DS.text.muted}}>Requires VITE_ANTHROPIC_API_KEY</div>}
+                </div>
+              )}
+              {mcqLoading&&<div style={{textAlign:'center',padding:40,color:DS.text.secondary}}><div style={{width:32,height:32,border:`3px solid ${DS.accent.tealDim}`,borderTopColor:DS.accent.teal,borderRadius:'50%',animation:'spin 0.8s linear infinite',margin:'0 auto 12px'}}/>Generating questions…</div>}
+              {mcqData&&mcqData.map((q,qi)=>{
+                const selected=mcqAnswers[qi];
+                return(
+                  <div key={qi} style={{background:DS.bg.elevated,border:`1.5px solid ${selected?selected===q.answer?DS.accent.teal:DS.accent.red:DS.border}`,borderRadius:DS.radius.md,padding:18,marginBottom:14,transition:DS.tr}}>
+                    <div style={{fontSize:13,fontWeight:700,color:DS.text.primary,marginBottom:12,lineHeight:1.5}}>Q{qi+1}. {q.q}</div>
+                    <div style={{display:'flex',flexDirection:'column',gap:6}}>
+                      {q.options.map((opt,oi)=>{
+                        const letter=String.fromCharCode(65+oi);
+                        const isSelected=selected===letter;
+                        const isCorrect=q.answer===letter;
+                        const revealed=!!selected;
+                        let bg=DS.bg.surface,border=DS.border,color=DS.text.secondary;
+                        if(revealed&&isCorrect){bg=DS.accent.tealDim;border=DS.accent.teal;color=DS.accent.teal;}
+                        else if(revealed&&isSelected&&!isCorrect){bg=DS.accent.redDim;border=DS.accent.red;color=DS.accent.red;}
+                        return(
+                          <button key={oi} onClick={()=>!selected&&setMcqAnswers(a=>({...a,[qi]:letter}))} style={{padding:'9px 14px',borderRadius:DS.radius.sm,border:`1.5px solid ${border}`,background:bg,color,textAlign:'left',cursor:selected?'default':'pointer',fontWeight:(isSelected||isCorrect&&revealed)?700:400,fontSize:13,transition:DS.tr}}>
+                            {opt}{revealed&&isCorrect?' ✓':revealed&&isSelected?' ✗':''}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {selected&&<div style={{marginTop:12,background:DS.bg.surface,borderLeft:`3px solid ${selected===q.answer?DS.accent.teal:DS.accent.amber}`,padding:'10px 14px',borderRadius:`0 ${DS.radius.sm}px ${DS.radius.sm}px 0`}}>
+                      <div style={{fontSize:10,fontWeight:800,color:selected===q.answer?DS.accent.teal:DS.accent.amber,marginBottom:4}}>{selected===q.answer?'✓ CORRECT':'✗ NOT QUITE — EXPLANATION'}</div>
+                      <p style={{margin:0,fontSize:13,color:DS.text.secondary,lineHeight:1.5}}>{q.explanation}</p>
+                    </div>}
+                  </div>
+                );
+              })}
+              {mcqData&&<button onClick={()=>{setMcqData(null);setMcqAnswers({});}} style={{width:'100%',padding:10,borderRadius:DS.radius.sm,border:`1px solid ${DS.border}`,background:DS.bg.surface,color:DS.text.secondary,fontSize:12,cursor:'pointer',fontWeight:700,marginTop:4}}>🔄 New Questions</button>}
+            </div>
+          )}
+
+          {/* Worked Steps */}
+          {learnMode==='steps'&&(
+            <div>
+              {!stepsData&&!stepsLoading&&(
+                <div style={{textAlign:'center',padding:32}}>
+                  <div style={{fontSize:32,marginBottom:12}}>🪜</div>
+                  <p style={{fontSize:14,color:DS.text.secondary,marginBottom:20}}>Watch a full solution broken into clear steps — reveal them one at a time</p>
+                  <button onClick={handleLoadSteps} disabled={!hasKey} style={{padding:'10px 28px',borderRadius:DS.radius.md,border:'none',background:DS.accent.amber,color:DS.bg.base,fontWeight:800,fontSize:13,cursor:hasKey?'pointer':'not-allowed',opacity:hasKey?1:0.5}}>Generate Worked Example</button>
+                  {!hasKey&&<div style={{marginTop:8,fontSize:11,color:DS.text.muted}}>Requires VITE_ANTHROPIC_API_KEY</div>}
+                </div>
+              )}
+              {stepsLoading&&<div style={{textAlign:'center',padding:40,color:DS.text.secondary}}><div style={{width:32,height:32,border:`3px solid ${DS.accent.amberDim}`,borderTopColor:DS.accent.amber,borderRadius:'50%',animation:'spin 0.8s linear infinite',margin:'0 auto 12px'}}/>Building worked example…</div>}
+              {stepsData&&!stepsData.error&&(
+                <div>
+                  <div style={{background:DS.bg.elevated,border:`1px solid ${DS.border}`,borderRadius:DS.radius.md,padding:18,marginBottom:14}}>
+                    <div style={{fontSize:10,fontWeight:800,color:DS.accent.amber,textTransform:'uppercase',letterSpacing:1.5,marginBottom:8}}>The Problem</div>
+                    <p style={{margin:0,fontSize:14,lineHeight:1.65,color:DS.text.primary}}>{stepsData.problem}</p>
+                  </div>
+                  {stepsData.steps?.slice(0,stepsRevealed).map((s,i)=>(
+                    <div key={i} style={{background:DS.bg.elevated,borderLeft:`3px solid ${DS.accent.teal}`,borderRadius:DS.radius.md,padding:16,marginBottom:10,animation:'fadeIn 0.3s ease',border:`1px solid ${DS.border}`}}>
+                      <div style={{fontSize:10,fontWeight:800,color:DS.accent.teal,marginBottom:8}}>STEP {s.number}</div>
+                      <div style={{fontSize:13,fontWeight:700,color:DS.text.primary,marginBottom:4}}>{s.what}</div>
+                      <div style={{fontSize:12,color:DS.text.secondary,marginBottom:8,fontStyle:'italic'}}>{s.why}</div>
+                      <div style={{background:DS.bg.surface,borderRadius:DS.radius.sm,padding:'8px 12px',fontFamily:'monospace',fontSize:13,color:DS.accent.amber}}>→ {s.result}</div>
+                    </div>
+                  ))}
+                  {stepsRevealed<(stepsData.steps?.length||0)&&(
+                    <button onClick={()=>setStepsRevealed(r=>r+1)} style={{width:'100%',padding:12,borderRadius:DS.radius.md,border:`1.5px dashed ${DS.accent.teal}`,background:DS.accent.tealDim,color:DS.accent.teal,fontWeight:800,fontSize:13,cursor:'pointer',transition:DS.tr}}>
+                      Reveal Step {stepsRevealed+1} of {stepsData.steps?.length} →
+                    </button>
+                  )}
+                  {stepsRevealed>0&&stepsRevealed>=(stepsData.steps?.length||0)&&(
+                    <div style={{textAlign:'center',padding:16,color:DS.accent.teal,fontWeight:800,fontSize:14}}>🎉 Full solution revealed!</div>
+                  )}
+                  <button onClick={()=>{setStepsData(null);setStepsRevealed(0);}} style={{width:'100%',padding:9,borderRadius:DS.radius.sm,border:`1px solid ${DS.border}`,background:DS.bg.surface,color:DS.text.secondary,fontSize:12,cursor:'pointer',fontWeight:700,marginTop:8}}>🔄 New Example</button>
+                </div>
+              )}
+              {stepsData?.error&&<div style={{background:DS.accent.redDim,borderRadius:DS.radius.sm,padding:'10px 14px',color:DS.accent.red,fontSize:12,border:`1px solid ${DS.accent.red}33`}}>{stepsData.error}</div>}
+            </div>
+          )}
+
+          {/* Explain It Back */}
+          {learnMode==='explain'&&(
+            <div>
+              <div style={{background:DS.bg.elevated,border:`1px solid ${DS.border}`,borderRadius:DS.radius.md,padding:18,marginBottom:16}}>
+                <div style={{fontSize:12,fontWeight:800,color:DS.text.primary,marginBottom:8}}>💬 Teach it back</div>
+                <p style={{margin:'0 0 14px',fontSize:13,color:DS.text.secondary,lineHeight:1.6}}>Imagine you're explaining <strong style={{color:DS.text.primary}}>{topic.title}</strong> to a friend. Write as much as you can — the AI will check what you know and what to add.</p>
+                <textarea value={explainText} onChange={e=>setExplainText(e.target.value)} placeholder={`In my own words, ${topic.title} is about...`} style={{width:'100%',minHeight:100,padding:12,borderRadius:DS.radius.sm,border:`1.5px solid ${DS.border}`,fontSize:13,fontFamily:'inherit',resize:'vertical',boxSizing:'border-box',outline:'none',background:DS.bg.surface,color:DS.text.primary}} onFocus={e=>e.target.style.borderColor=DS.accent.teal} onBlur={e=>e.target.style.borderColor=DS.border}/>
+                <button onClick={handleExplainSubmit} disabled={explainLoading||!explainText.trim()||!hasKey} style={{marginTop:10,width:'100%',padding:11,borderRadius:DS.radius.sm,border:'none',background:explainLoading||!explainText.trim()||!hasKey?DS.bg.overlay:DS.accent.teal,color:explainLoading||!explainText.trim()||!hasKey?DS.text.muted:DS.bg.base,fontWeight:800,fontSize:13,cursor:explainLoading||!explainText.trim()||!hasKey?'not-allowed':'pointer',transition:DS.tr}}>
+                  {explainLoading?'Checking your understanding…':'✓ Check My Understanding'}
+                </button>
+                {!hasKey&&<div style={{textAlign:'center',fontSize:11,color:DS.text.muted,marginTop:6}}>Requires VITE_ANTHROPIC_API_KEY</div>}
+              </div>
+              {explainResult&&!explainResult.error&&(
+                <div style={{background:DS.bg.elevated,border:`1.5px solid ${DS.borderHi}`,borderRadius:DS.radius.md,padding:18}}>
+                  <div style={{display:'flex',alignItems:'center',gap:14,marginBottom:16}}>
+                    <div style={{width:56,height:56,borderRadius:'50%',background:explainResult.score>=4?DS.accent.tealDim:explainResult.score>=2?DS.accent.amberDim:DS.accent.redDim,border:`2.5px solid ${explainResult.score>=4?DS.accent.teal:explainResult.score>=2?DS.accent.amber:DS.accent.red}`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                      <span style={{fontSize:18,fontWeight:900,color:explainResult.score>=4?DS.accent.teal:explainResult.score>=2?DS.accent.amber:DS.accent.red}}>{explainResult.score}/5</span>
+                    </div>
+                    <p style={{margin:0,fontSize:13,color:DS.text.secondary,lineHeight:1.5,fontStyle:'italic'}}>{explainResult.encouragement}</p>
+                  </div>
+                  {explainResult.correct&&<div style={{borderLeft:`3px solid ${DS.accent.teal}`,paddingLeft:10,marginBottom:10}}><div style={{fontSize:9,fontWeight:800,color:DS.accent.teal,marginBottom:3}}>WHAT YOU GOT RIGHT</div><p style={{margin:0,fontSize:13,color:DS.text.secondary,lineHeight:1.5}}>{explainResult.correct}</p></div>}
+                  {explainResult.missing&&<div style={{borderLeft:`3px solid ${DS.accent.amber}`,paddingLeft:10,marginBottom:10}}><div style={{fontSize:9,fontWeight:800,color:DS.accent.amber,marginBottom:3}}>KEY CONCEPTS TO ADD</div><p style={{margin:0,fontSize:13,color:DS.text.secondary,lineHeight:1.5}}>{explainResult.missing}</p></div>}
+                  {explainResult.tip&&<div style={{background:DS.bg.surface,borderRadius:DS.radius.sm,padding:'10px 14px'}}><div style={{fontSize:9,fontWeight:800,color:DS.text.muted,marginBottom:3}}>💡 TIP FOR NEXT TIME</div><p style={{margin:0,fontSize:13,color:DS.text.secondary,lineHeight:1.5}}>{explainResult.tip}</p></div>}
+                  <button onClick={()=>{setExplainText('');setExplainResult(null);}} style={{marginTop:14,width:'100%',padding:9,borderRadius:DS.radius.sm,border:`1px solid ${DS.border}`,background:'transparent',color:DS.text.muted,fontSize:12,cursor:'pointer',fontWeight:700}}>Try Again</button>
+                </div>
+              )}
+              {explainResult?.error&&<div style={{background:DS.accent.redDim,borderRadius:DS.radius.sm,padding:'10px 14px',color:DS.accent.red,fontSize:12,border:`1px solid ${DS.accent.red}33`}}>{explainResult.error}</div>}
+            </div>
+          )}
+
+          {/* Visual Diagram */}
+          {learnMode==='visual'&&(
+            <div>
+              {!vizData&&!vizLoading&&(
+                <div style={{textAlign:'center',padding:32}}>
+                  <div style={{fontSize:32,marginBottom:12}}>🎨</div>
+                  <p style={{fontSize:14,color:DS.text.secondary,marginBottom:8}}>AI generates a custom diagram — a number line, flowchart, formula breakdown, comparison grid — whatever best visualises this concept</p>
+                  <p style={{fontSize:12,color:DS.text.muted,marginBottom:20}}>Different every time you generate</p>
+                  <button onClick={handleLoadViz} disabled={!hasKey} style={{padding:'10px 28px',borderRadius:DS.radius.md,border:'none',background:DS.accent.amber,color:DS.bg.base,fontWeight:800,fontSize:13,cursor:hasKey?'pointer':'not-allowed',opacity:hasKey?1:0.5}}>Generate Visual</button>
+                  {!hasKey&&<div style={{marginTop:8,fontSize:11,color:DS.text.muted}}>Requires VITE_ANTHROPIC_API_KEY</div>}
+                </div>
+              )}
+              {vizLoading&&<div style={{textAlign:'center',padding:40,color:DS.text.secondary}}><div style={{width:32,height:32,border:`3px solid ${DS.accent.amberDim}`,borderTopColor:DS.accent.amber,borderRadius:'50%',animation:'spin 0.8s linear infinite',margin:'0 auto 12px'}}/>Drawing diagram…</div>}
+              {vizData&&!vizData.error&&(
+                <div>
+                  <div style={{background:DS.bg.elevated,border:`1px solid ${DS.border}`,borderRadius:DS.radius.md,padding:20,marginBottom:14}}>
+                    <div style={{fontSize:11,fontWeight:800,color:DS.accent.amber,textTransform:'uppercase',letterSpacing:1.5,marginBottom:16}}>{vizData.title}</div>
+                    <pre style={{margin:0,fontFamily:'monospace',fontSize:13,lineHeight:1.7,color:DS.accent.teal,overflowX:'auto',whiteSpace:'pre',background:DS.bg.surface,padding:16,borderRadius:DS.radius.sm,border:`1px solid ${DS.border}`}}>{vizData.diagram}</pre>
+                  </div>
+                  {vizData.callouts?.length>0&&(
+                    <div style={{background:DS.bg.elevated,border:`1px solid ${DS.border}`,borderRadius:DS.radius.md,padding:16,marginBottom:14}}>
+                      <div style={{fontSize:10,fontWeight:800,color:DS.text.muted,textTransform:'uppercase',letterSpacing:1.5,marginBottom:10}}>Key Points to Notice</div>
+                      {vizData.callouts.map((c,i)=>(
+                        <div key={i} style={{display:'flex',gap:10,marginBottom:8}}>
+                          <div style={{width:20,height:20,borderRadius:'50%',background:DS.accent.amberDim,color:DS.accent.amber,border:`1px solid ${DS.accent.amber}44`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,fontWeight:800,flexShrink:0}}>{i+1}</div>
+                          <p style={{margin:0,fontSize:13,color:DS.text.secondary,lineHeight:1.6}}>{c}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {vizData.insight&&<div style={{background:DS.accent.amberDim,border:`1px solid ${DS.accent.amber}33`,borderRadius:DS.radius.md,padding:'12px 16px'}}><span style={{fontSize:10,fontWeight:800,color:DS.accent.amber}}>💡 KEY INSIGHT  </span><span style={{fontSize:13,color:DS.text.secondary}}>{vizData.insight}</span></div>}
+                  <button onClick={()=>setVizData(null)} style={{width:'100%',padding:9,borderRadius:DS.radius.sm,border:`1px solid ${DS.border}`,background:DS.bg.surface,color:DS.text.secondary,fontSize:12,cursor:'pointer',fontWeight:700,marginTop:12}}>🔄 Generate Different Visual</button>
+                </div>
+              )}
+              {vizData?.error&&<div style={{background:DS.accent.redDim,borderRadius:DS.radius.sm,padding:'10px 14px',color:DS.accent.red,fontSize:12,border:`1px solid ${DS.accent.red}33`}}>{vizData.error}</div>}
+            </div>
+          )}
+
+          {/* Error Hunt */}
+          {learnMode==='errors'&&(
+            <div>
+              {!errorHuntData&&!errorHuntLoading&&(
+                <div style={{textAlign:'center',padding:32}}>
+                  <div style={{fontSize:32,marginBottom:12}}>🕵️</div>
+                  <p style={{fontSize:14,color:DS.text.secondary,marginBottom:8}}>AI writes a worked solution with <strong style={{color:DS.text.primary}}>2 deliberate mistakes</strong> hidden inside</p>
+                  <p style={{fontSize:12,color:DS.text.muted,marginBottom:20}}>Read each step carefully. Click the ones you think are wrong, then reveal to check</p>
+                  <button onClick={handleLoadErrorHunt} disabled={!hasKey} style={{padding:'10px 28px',borderRadius:DS.radius.md,border:'none',background:'#9B59B6',color:'#fff',fontWeight:800,fontSize:13,cursor:hasKey?'pointer':'not-allowed',opacity:hasKey?1:0.5}}>Generate Error Hunt</button>
+                  {!hasKey&&<div style={{marginTop:8,fontSize:11,color:DS.text.muted}}>Requires VITE_ANTHROPIC_API_KEY</div>}
+                </div>
+              )}
+              {errorHuntLoading&&<div style={{textAlign:'center',padding:40,color:DS.text.secondary}}><div style={{width:32,height:32,border:'3px solid rgba(155,89,182,0.2)',borderTopColor:'#9B59B6',borderRadius:'50%',animation:'spin 0.8s linear infinite',margin:'0 auto 12px'}}/>Planting mistakes…</div>}
+              {errorHuntData&&!errorHuntData.error&&(()=>{
+                const errorSteps=new Set((errorHuntData.errors||[]).map(e=>e.stepNum));
+                return(
+                  <div>
+                    <div style={{background:DS.bg.elevated,border:`1px solid ${DS.border}`,borderRadius:DS.radius.md,padding:18,marginBottom:14}}>
+                      <div style={{fontSize:10,fontWeight:800,color:'#9B59B6',textTransform:'uppercase',letterSpacing:1.5,marginBottom:8}}>The Problem</div>
+                      <p style={{margin:0,fontSize:14,lineHeight:1.65,color:DS.text.primary}}>{errorHuntData.question}</p>
+                    </div>
+                    {!errorHuntRevealed&&<div style={{fontSize:12,color:DS.text.muted,marginBottom:10,textAlign:'center'}}>👇 Click any steps you think contain a mistake ({errorHuntSelected.size} selected)</div>}
+                    {errorHuntData.steps?.map(s=>{
+                      const isSelected=errorHuntSelected.has(s.n);
+                      const isActuallyWrong=errorSteps.has(s.n);
+                      let bg=DS.bg.elevated,border=DS.border,color=DS.text.primary;
+                      if(errorHuntRevealed){
+                        if(isActuallyWrong){bg='rgba(155,89,182,0.12)';border='#9B59B6';color=DS.text.primary;}
+                        else{bg=DS.bg.elevated;border=DS.accent.teal+'44';}
+                      } else if(isSelected){bg='rgba(155,89,182,0.12)';border='#9B59B6';}
+                      return(
+                        <div key={s.n} onClick={()=>{if(errorHuntRevealed)return;setErrorHuntSelected(prev=>{const n=new Set(prev);n.has(s.n)?n.delete(s.n):n.add(s.n);return n;});}} style={{background:bg,border:`1.5px solid ${border}`,borderRadius:DS.radius.md,padding:'12px 16px',marginBottom:8,cursor:errorHuntRevealed?'default':'pointer',transition:DS.tr,display:'flex',gap:12,alignItems:'flex-start'}}>
+                          <div style={{minWidth:24,height:24,borderRadius:'50%',background:errorHuntRevealed&&isActuallyWrong?'rgba(155,89,182,0.2)':isSelected&&!errorHuntRevealed?'rgba(155,89,182,0.2)':DS.bg.surface,border:`1.5px solid ${errorHuntRevealed&&isActuallyWrong?'#9B59B6':isSelected&&!errorHuntRevealed?'#9B59B6':DS.border}`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:800,color:errorHuntRevealed&&isActuallyWrong?'#9B59B6':isSelected?'#9B59B6':DS.text.muted,flexShrink:0}}>{s.n}</div>
+                          <div style={{flex:1}}>
+                            <p style={{margin:0,fontSize:13,lineHeight:1.6,color,fontFamily:'monospace'}}>{s.text}</p>
+                            {errorHuntRevealed&&isActuallyWrong&&(errorHuntData.errors||[]).filter(e=>e.stepNum===s.n).map((e,i)=>(
+                              <div key={i} style={{marginTop:10,background:DS.bg.surface,borderRadius:DS.radius.sm,padding:'10px 14px',borderLeft:`3px solid #9B59B6`}}>
+                                <div style={{fontSize:9,fontWeight:800,color:'#9B59B6',marginBottom:4}}>MISTAKE FOUND</div>
+                                <p style={{margin:'0 0 6px',fontSize:12,color:DS.accent.red,lineHeight:1.5}}>{e.error}</p>
+                                <div style={{fontSize:9,fontWeight:800,color:DS.accent.teal,marginBottom:3}}>CORRECTION</div>
+                                <p style={{margin:0,fontSize:12,color:DS.accent.teal,lineHeight:1.5}}>{e.correction}</p>
+                              </div>
+                            ))}
+                            {errorHuntRevealed&&!isActuallyWrong&&<div style={{marginTop:6,fontSize:11,color:DS.accent.teal,fontWeight:700}}>✓ This step is correct</div>}
+                          </div>
+                          {!errorHuntRevealed&&<div style={{fontSize:16,flexShrink:0,opacity:isSelected?1:0.3}}>{isSelected?'🔴':'⚪'}</div>}
+                        </div>
+                      );
+                    })}
+                    {!errorHuntRevealed&&(
+                      <button onClick={()=>setErrorHuntRevealed(true)} style={{width:'100%',padding:12,borderRadius:DS.radius.md,border:'none',background:'#9B59B6',color:'#fff',fontWeight:800,fontSize:13,cursor:'pointer',marginTop:8,transition:DS.tr}}>
+                        Reveal Mistakes →
+                      </button>
+                    )}
+                    {errorHuntRevealed&&(
+                      <div>
+                        {errorHuntData.tip&&<div style={{background:'rgba(155,89,182,0.08)',border:'1px solid rgba(155,89,182,0.25)',borderRadius:DS.radius.md,padding:'12px 16px',marginTop:12}}><div style={{fontSize:10,fontWeight:800,color:'#9B59B6',marginBottom:4}}>💡 EXAMINER TIP</div><p style={{margin:0,fontSize:13,color:DS.text.secondary,lineHeight:1.5}}>{errorHuntData.tip}</p></div>}
+                        <button onClick={()=>{setErrorHuntData(null);setErrorHuntSelected(new Set());setErrorHuntRevealed(false);}} style={{width:'100%',padding:9,borderRadius:DS.radius.sm,border:`1px solid ${DS.border}`,background:DS.bg.surface,color:DS.text.secondary,fontSize:12,cursor:'pointer',fontWeight:700,marginTop:10}}>🔄 New Error Hunt</button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+              {errorHuntData?.error&&<div style={{background:DS.accent.redDim,borderRadius:DS.radius.sm,padding:'10px 14px',color:DS.accent.red,fontSize:12,border:`1px solid ${DS.accent.red}33`}}>{errorHuntData.error}</div>}
+            </div>
+          )}
+
+          {/* Real World Story */}
+          {learnMode==='story'&&(
+            <div>
+              {!realWorldData&&!realWorldLoading&&(
+                <div style={{textAlign:'center',padding:32}}>
+                  <div style={{fontSize:32,marginBottom:12}}>🌍</div>
+                  <p style={{fontSize:14,color:DS.text.secondary,marginBottom:8}}>AI creates an unexpected real-world scenario — gaming, music, sports, architecture — where this exact maths becomes essential</p>
+                  <p style={{fontSize:12,color:DS.text.muted,marginBottom:20}}>Different context every time</p>
+                  <button onClick={handleLoadRealWorld} disabled={!hasKey} style={{padding:'10px 28px',borderRadius:DS.radius.md,border:'none',background:DS.accent.teal,color:DS.bg.base,fontWeight:800,fontSize:13,cursor:hasKey?'pointer':'not-allowed',opacity:hasKey?1:0.5}}>Generate Story</button>
+                  {!hasKey&&<div style={{marginTop:8,fontSize:11,color:DS.text.muted}}>Requires VITE_ANTHROPIC_API_KEY</div>}
+                </div>
+              )}
+              {realWorldLoading&&<div style={{textAlign:'center',padding:40,color:DS.text.secondary}}><div style={{width:32,height:32,border:`3px solid ${DS.accent.tealDim}`,borderTopColor:DS.accent.teal,borderRadius:'50%',animation:'spin 0.8s linear infinite',margin:'0 auto 12px'}}/>Building scenario…</div>}
+              {realWorldData&&!realWorldData.error&&(
+                <div>
+                  <div style={{background:DS.bg.elevated,border:`1.5px solid ${DS.accent.teal}44`,borderRadius:DS.radius.lg,padding:20,marginBottom:14}}>
+                    <div style={{fontSize:16,fontWeight:800,color:DS.text.primary,marginBottom:12,lineHeight:1.4}}>{realWorldData.hook}</div>
+                    <p style={{margin:'0 0 16px',fontSize:13,color:DS.text.secondary,lineHeight:1.75}}>{realWorldData.context}</p>
+                    <div style={{background:DS.bg.surface,border:`1px solid ${DS.border}`,borderRadius:DS.radius.md,padding:14}}>
+                      <div style={{fontSize:10,fontWeight:800,color:DS.accent.amber,marginBottom:8,textTransform:'uppercase',letterSpacing:1.5}}>The Question</div>
+                      <p style={{margin:0,fontSize:14,color:DS.text.primary,lineHeight:1.65,fontWeight:600}}>{realWorldData.question}</p>
+                    </div>
+                  </div>
+                  {!realWorldSolutionShown?(
+                    <button onClick={()=>setRealWorldSolutionShown(true)} style={{width:'100%',padding:12,borderRadius:DS.radius.md,border:`1.5px dashed ${DS.accent.teal}`,background:DS.accent.tealDim,color:DS.accent.teal,fontWeight:800,fontSize:13,cursor:'pointer',transition:DS.tr}}>Have a go, then reveal the solution →</button>
+                  ):(
+                    <div>
+                      <div style={{background:DS.bg.elevated,border:`1px solid ${DS.border}`,borderRadius:DS.radius.md,padding:18,marginBottom:12}}>
+                        <div style={{fontSize:10,fontWeight:800,color:DS.accent.teal,textTransform:'uppercase',letterSpacing:1.5,marginBottom:10}}>Solution</div>
+                        <p style={{margin:0,fontSize:13,color:DS.text.secondary,lineHeight:1.85,whiteSpace:'pre-line'}}>{realWorldData.solution}</p>
+                      </div>
+                      {realWorldData.connection&&<div style={{background:DS.accent.amberDim,border:`1px solid ${DS.accent.amber}33`,borderRadius:DS.radius.md,padding:'12px 16px',marginBottom:12}}><span style={{fontSize:10,fontWeight:800,color:DS.accent.amber}}>🔗 GCSE LINK  </span><span style={{fontSize:13,color:DS.text.secondary}}>{realWorldData.connection}</span></div>}
+                      <button onClick={()=>{setRealWorldData(null);setRealWorldSolutionShown(false);}} style={{width:'100%',padding:9,borderRadius:DS.radius.sm,border:`1px solid ${DS.border}`,background:DS.bg.surface,color:DS.text.secondary,fontSize:12,cursor:'pointer',fontWeight:700}}>🔄 New Scenario</button>
+                    </div>
+                  )}
+                </div>
+              )}
+              {realWorldData?.error&&<div style={{background:DS.accent.redDim,borderRadius:DS.radius.sm,padding:'10px 14px',color:DS.accent.red,fontSize:12,border:`1px solid ${DS.accent.red}33`}}>{realWorldData.error}</div>}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

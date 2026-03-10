@@ -136,6 +136,16 @@ const DS={
   tr:'all 0.22s ease',
 };
 
+function useIsMobile(){
+  const [m,setM]=useState(()=>typeof window!=='undefined'&&window.innerWidth<640);
+  useEffect(()=>{
+    const h=()=>setM(window.innerWidth<640);
+    window.addEventListener('resize',h,{passive:true});
+    return()=>window.removeEventListener('resize',h);
+  },[]);
+  return m;
+}
+
 function heatColor(r){
   if(r===null)return{bg:DS.bg.elevated,c:DS.text.muted};
   if(r>=0.7)return{bg:DS.accent.tealDim,c:DS.accent.teal};
@@ -886,6 +896,12 @@ function AnimStyles(){
       @keyframes spin{to{transform:rotate(360deg)}}
       @keyframes slideUp{0%{transform:translateY(30px);opacity:0}100%{transform:translateY(0);opacity:1}}
       @keyframes popIn{0%{transform:scale(0.8);opacity:0}60%{transform:scale(1.05)}100%{transform:scale(1);opacity:1}}
+      *{-webkit-tap-highlight-color:transparent;box-sizing:border-box;}
+      body{overflow-x:hidden;}
+      @media(max-width:639px){
+        button,a{min-height:40px;}
+        input,textarea,select{font-size:16px!important;}
+      }
     `}</style>
   );
 }
@@ -1251,7 +1267,7 @@ function Onboarding({onComplete}){
               <div style={{fontSize:36,marginBottom:8}}>🎯</div>
               <div style={{fontSize:22,fontWeight:900,color:DS.text.primary,marginBottom:6}}>Target grade?</div>
               <div style={{fontSize:13,color:DS.text.secondary,marginBottom:20}}>Lumora will tune difficulty to your goal</div>
-              <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:10}}>
+              <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(72px,1fr))',gap:10}}>
                 {grades.map(g=>(
                   <button key={g} onClick={()=>update('grade',g)} style={{padding:'18px 0',borderRadius:DS.radius.md,border:`1.5px solid ${profile.grade===g?DS.accent.amber:DS.border}`,background:profile.grade===g?DS.accent.amberDim:DS.bg.elevated,color:profile.grade===g?DS.accent.amber:DS.text.secondary,fontWeight:900,fontSize:22,cursor:'pointer',transition:DS.tr}}>
                     {g}
@@ -1331,7 +1347,7 @@ function LandingPage({onStart}){
       <div style={{background:DS.bg.surface,padding:'40px 24px'}}>
         <div style={{maxWidth:680,margin:'0 auto'}}>
           <div style={{textAlign:'center',fontSize:12,fontWeight:800,color:DS.accent.amber,letterSpacing:2,textTransform:'uppercase',marginBottom:24}}>The Problem With Traditional Revision</div>
-          <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:14,textAlign:'center'}}>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',gap:14,textAlign:'center'}}>
             {[{stat:'1 in 3',desc:'students underperform in GCSE Maths despite revising'},{stat:'£60/hr',desc:'average private tutor — unaffordable for most families'},{stat:'957K',desc:'young people NEET — often held back by basic Maths'}].map(s=>(
               <div key={s.stat} style={{background:DS.bg.elevated,borderRadius:DS.radius.lg,padding:'20px 12px',border:`1px solid ${DS.border}`}}>
                 <div style={{fontSize:28,fontWeight:900,color:DS.accent.amber,marginBottom:8}}>{s.stat}</div>
@@ -1357,7 +1373,7 @@ function LandingPage({onStart}){
         <div style={{maxWidth:680,margin:'0 auto'}}>
           <div style={{textAlign:'center',fontSize:12,fontWeight:800,color:DS.accent.amber,letterSpacing:2,textTransform:'uppercase',marginBottom:8}}>Pricing</div>
           <div style={{textAlign:'center',fontSize:22,fontWeight:900,color:DS.text.primary,marginBottom:28}}>Simple, fair pricing</div>
-          <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:14}}>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(200px,1fr))',gap:14}}>
             {[{name:'Free',price:'£0',period:' forever',features:['All topics & questions','AI marking (5/day)','Spaced repetition','Streak tracking'],cta:'Start Free',hi:false},{name:'Student Plus',price:'£7.99',period:'/mo',features:['Unlimited AI marking','Socratic tutoring','Progress reports','XP & level system'],cta:'Start 7-day trial',hi:true},{name:'Tutor Connect',price:'£12.99',period:'/mo',features:['Everything in Plus','Parent dashboard','Tutor assignment','Weekly reports'],cta:'Get started',hi:false}].map(p=>(
               <div key={p.name} style={{background:p.hi?DS.accent.amber:DS.bg.elevated,borderRadius:DS.radius.lg,padding:'22px 16px',border:p.hi?'none':`1px solid ${DS.border}`,position:'relative'}}>
                 {p.hi&&<div style={{position:'absolute',top:-10,left:'50%',transform:'translateX(-50%)',background:DS.bg.elevated,color:DS.accent.amber,fontSize:8,fontWeight:800,padding:'3px 10px',borderRadius:6,letterSpacing:1,whiteSpace:'nowrap',border:`1px solid ${DS.accent.amber}44`}}>MOST POPULAR</div>}
@@ -1731,11 +1747,12 @@ function SettingsPanel({onClose,onLogout}){
   const email=getCurrentUserEmail()||'';
   const u=users[email]||{};
   const [showLogoutConfirm,setShowLogoutConfirm]=useState(false);
+  const isMobile=useIsMobile();
 
   return(
     <div style={{position:'fixed',inset:0,zIndex:200,display:'flex',alignItems:'flex-start',justifyContent:'flex-end'}}>
       <div onClick={onClose} style={{position:'absolute',inset:0,background:'rgba(0,0,0,0.55)'}}/>
-      <div style={{position:'relative',width:320,height:'100%',background:DS.bg.surface,borderLeft:`1px solid ${DS.border}`,padding:'24px 20px',display:'flex',flexDirection:'column',gap:20,overflowY:'auto',boxShadow:DS.shadow}}>
+      <div style={{position:'relative',width:isMobile?'100%':320,height:'100%',background:DS.bg.surface,borderLeft:`1px solid ${DS.border}`,padding:'24px 20px',display:'flex',flexDirection:'column',gap:20,overflowY:'auto',boxShadow:DS.shadow}}>
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
           <div style={{fontSize:16,fontWeight:800,color:DS.text.primary}}>Account</div>
           <button onClick={onClose} style={{background:'none',border:'none',color:DS.text.muted,fontSize:20,cursor:'pointer',lineHeight:1}}>×</button>
@@ -1847,6 +1864,7 @@ export default function App(){
 
   const xp=getXP();
   const streak=getStreakData();
+  const isMobile=useIsMobile();
   return(
     <div style={{fontFamily:"'Segoe UI',sans-serif",background:DS.bg.base,minHeight:"100vh"}}>
       <AnimStyles/>
@@ -1860,33 +1878,40 @@ export default function App(){
           />
         </div>
       )}
-      <div style={{background:DS.bg.surface,padding:"0 16px",display:"flex",alignItems:"center",position:"sticky",top:0,zIndex:100,borderBottom:`1px solid ${DS.border}`,gap:4,boxShadow:DS.shadow}}>
-        <button onClick={()=>setPage('platform')} style={{fontSize:14,fontWeight:900,color:DS.accent.amber,letterSpacing:0.5,padding:"14px 0",whiteSpace:"nowrap",background:'none',border:'none',cursor:'pointer'}}>📐 Lumora</button>
-        {/* Streak pill — prominent, next to logo */}
-        <div style={{display:'flex',alignItems:'center',gap:3,marginLeft:6,marginRight:8,background:streak.current>0?DS.accent.redDim:'transparent',borderRadius:DS.radius.sm,padding:'3px 8px',border:streak.current>0?`1px solid rgba(255,76,76,0.25)`:'none',flexShrink:0}}>
-          <span style={{fontSize:14}}>🔥</span>
-          <span style={{fontSize:13,fontWeight:900,color:streak.current>0?DS.accent.red:DS.text.muted,lineHeight:1}}>{streak.current}</span>
-        </div>
-        {[{id:"platform",label:"📚 Revision"},{id:"generator",label:"⚡ Generator"},{id:"mock",label:"📝 Mock"}].map(tab=>(
-          <button key={tab.id} onClick={()=>setPage(tab.id)} style={{padding:"6px 12px",margin:"6px 0",borderRadius:DS.radius.sm,border:"none",background:page===tab.id?DS.accent.amberDim:"transparent",cursor:"pointer",color:page===tab.id?DS.accent.amber:DS.text.muted,fontWeight:page===tab.id?800:500,fontSize:12,transition:DS.tr,whiteSpace:"nowrap"}}>
-            {tab.label}
+      <div style={{background:DS.bg.surface,padding:isMobile?"0 10px":"0 16px",display:"flex",alignItems:"center",position:"sticky",top:0,zIndex:100,borderBottom:`1px solid ${DS.border}`,gap:isMobile?2:4,boxShadow:DS.shadow,minHeight:48}}>
+        <button onClick={()=>setPage('platform')} style={{fontSize:14,fontWeight:900,color:DS.accent.amber,letterSpacing:0.5,padding:"12px 0",whiteSpace:"nowrap",background:'none',border:'none',cursor:'pointer',flexShrink:0}}>📐{!isMobile&&' Lumora'}</button>
+        {!isMobile&&streak.current>0&&(
+          <div style={{display:'flex',alignItems:'center',gap:3,marginLeft:6,marginRight:8,background:DS.accent.redDim,borderRadius:DS.radius.sm,padding:'3px 8px',border:'1px solid rgba(255,76,76,0.25)',flexShrink:0}}>
+            <span style={{fontSize:14}}>🔥</span>
+            <span style={{fontSize:13,fontWeight:900,color:DS.accent.red,lineHeight:1}}>{streak.current}</span>
+          </div>
+        )}
+        {[{id:"platform",label:"📚 Revision",short:"📚"},{id:"generator",label:"⚡ Generator",short:"⚡"},{id:"mock",label:"📝 Mock",short:"📝"}].map(tab=>(
+          <button key={tab.id} onClick={()=>setPage(tab.id)} style={{padding:isMobile?"8px 8px":"6px 12px",margin:"6px 0",borderRadius:DS.radius.sm,border:"none",background:page===tab.id?DS.accent.amberDim:"transparent",cursor:"pointer",color:page===tab.id?DS.accent.amber:DS.text.muted,fontWeight:page===tab.id?800:500,fontSize:isMobile?13:12,transition:DS.tr,whiteSpace:"nowrap",flexShrink:0}}>
+            {isMobile?tab.short:tab.label}
           </button>
         ))}
-        <div style={{marginLeft:'auto',display:'flex',alignItems:'center',gap:8,padding:'0 4px'}}>
-          {mode==='sprint'&&(
+        <div style={{marginLeft:'auto',display:'flex',alignItems:'center',gap:isMobile?4:8,padding:'0 2px'}}>
+          {isMobile&&streak.current>0&&(
+            <div style={{display:'flex',alignItems:'center',gap:2,background:DS.accent.redDim,borderRadius:DS.radius.sm,padding:'3px 6px',border:'1px solid rgba(255,76,76,0.25)',flexShrink:0}}>
+              <span style={{fontSize:13}}>🔥</span>
+              <span style={{fontSize:12,fontWeight:900,color:DS.accent.red,lineHeight:1}}>{streak.current}</span>
+            </div>
+          )}
+          {mode==='sprint'&&!isMobile&&(
             <div style={{display:'flex',alignItems:'center',gap:6}}>
-              <div style={{width:80,height:5,background:DS.bg.elevated,borderRadius:3,overflow:'hidden'}}>
+              <div style={{width:60,height:5,background:DS.bg.elevated,borderRadius:3,overflow:'hidden'}}>
                 <div style={{height:'100%',background:DS.accent.amber,width:`${Math.min(100,Math.round(((xp-(getLevel(xp).min))/((LEVELS.find(l=>l.min>xp)?.min||xp+1)-(getLevel(xp).min)))*100))}%`,transition:'width 0.6s ease',borderRadius:3}}/>
               </div>
               <div style={{fontSize:11,color:DS.accent.amber,fontWeight:800}}>{xp} XP</div>
             </div>
           )}
-          {(()=>{const p=lsGet('lumora_profile',{});return p.name?(
-            <div style={{fontSize:12,color:DS.text.secondary,fontWeight:600,whiteSpace:'nowrap',maxWidth:90,overflow:'hidden',textOverflow:'ellipsis'}}>Hi {p.name.split(' ')[0]}</div>
+          {!isMobile&&(()=>{const p=lsGet('lumora_profile',{});return p.name?(
+            <div style={{fontSize:12,color:DS.text.secondary,fontWeight:600,whiteSpace:'nowrap',maxWidth:80,overflow:'hidden',textOverflow:'ellipsis'}}>Hi {p.name.split(' ')[0]}</div>
           ):null;})()}
-          <button onClick={toggleSound} title={soundOn?'Mute sounds':'Enable sounds'} style={{background:'none',border:`1px solid ${DS.border}`,borderRadius:DS.radius.sm,padding:'4px 7px',fontSize:13,cursor:'pointer',color:DS.text.muted,lineHeight:1}}>{soundOn?'🔊':'🔇'}</button>
+          {!isMobile&&<button onClick={toggleSound} title={soundOn?'Mute sounds':'Enable sounds'} style={{background:'none',border:`1px solid ${DS.border}`,borderRadius:DS.radius.sm,padding:'5px 8px',fontSize:13,cursor:'pointer',color:DS.text.muted,lineHeight:1}}>{soundOn?'🔊':'🔇'}</button>}
           <StudyModeToggle mode={mode} setMode={setMode}/>
-          <button onClick={()=>setShowSettings(true)} title="Account settings" style={{background:'none',border:`1px solid ${DS.border}`,borderRadius:DS.radius.sm,padding:'4px 7px',fontSize:14,cursor:'pointer',color:DS.text.muted,lineHeight:1}}>⚙️</button>
+          <button onClick={()=>setShowSettings(true)} title="Account settings" style={{background:'none',border:`1px solid ${DS.border}`,borderRadius:DS.radius.sm,padding:'5px 8px',fontSize:14,cursor:'pointer',color:DS.text.muted,lineHeight:1}}>⚙️</button>
         </div>
         {showSettings&&<SettingsPanel onClose={()=>setShowSettings(false)} onLogout={handleLogout}/>}
       </div>
@@ -2655,7 +2680,7 @@ export function Platform({onXP=()=>{},xpV=0,mode='sprint',onOpenDaily=()=>{}}){
 
       {/* Module Mastery Grid */}
       <div style={{fontSize:10,fontWeight:800,color:DS.text.muted,textTransform:"uppercase",letterSpacing:1.5,marginBottom:10}}>Module Mastery</div>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginBottom:16}}>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(140px,1fr))",gap:8,marginBottom:16}}>
         {MODULES.map(m=>{
           const mPerf=m.topics.flatMap(t=>{const p=perf[t.id];return p&&p.total>0?[p.correct/p.total]:[];});
           const ratio=mPerf.length>0?mPerf.reduce((s,v)=>s+v,0)/mPerf.length:0;
@@ -2679,7 +2704,7 @@ export function Platform({onXP=()=>{},xpV=0,mode='sprint',onOpenDaily=()=>{}}){
       <WeaknessHeatmap key={`heat-${version}`} onNavigate={navigateToTopic} version={version}/>
 
       {/* Stats */}
-      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginBottom:14}}>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginBottom:14,minWidth:0}}>
         {[{l:"Modules",v:MODULES.length,c:DS.accent.amber},{l:"Topics",v:totalT,c:DS.accent.teal},{l:"Questions",v:totalQ,c:DS.accent.amber}].map(s=>(
           <div key={s.l} style={{background:DS.bg.surface,borderRadius:DS.radius.sm,padding:"10px",textAlign:"center",border:`1px solid ${DS.border}`}}>
             <div style={{fontSize:20,fontWeight:900,color:s.c}}>{s.v}</div>
@@ -2982,6 +3007,7 @@ function QCardGen({q,idx,board}){
 }
 
 export function Generator(){
+  const isMobile=useIsMobile();
   const allGenTopics=useMemo(()=>MODULES.flatMap(m=>m.topics.map(t=>({id:t.id,label:t.title,module:m.label}))),[]);
   const [cfg,setCfg]=useState({board:"AQA",tier:"Higher",topic:"1.3",topicLabel:"Percentages",diff:"Mid",count:3});
   const [qs,setQs]=useState([]);
@@ -3017,9 +3043,9 @@ export function Generator(){
         {!import.meta.env.VITE_ANTHROPIC_API_KEY&&<div style={{background:DS.accent.amberDim,border:`1.5px solid ${DS.accent.amber}`,borderRadius:DS.radius.md,padding:'12px 16px',marginBottom:16,fontSize:13,color:DS.accent.amber}}>
           API key not set. Create <code>.env.local</code> with: <code>VITE_ANTHROPIC_API_KEY=sk-ant-...</code> then restart.
         </div>}
-        <div style={{display:"grid",gridTemplateColumns:"260px 1fr",gap:20,alignItems:"start"}}>
+        <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"260px 1fr",gap:16,alignItems:"start"}}>
           {/* Sidebar */}
-          <div style={{background:DS.bg.surface,borderRadius:DS.radius.lg,border:`1px solid ${DS.border}`,overflow:"hidden",position:"sticky",top:60}}>
+          <div style={{background:DS.bg.surface,borderRadius:DS.radius.lg,border:`1px solid ${DS.border}`,overflow:"hidden",position:isMobile?"static":"sticky",top:60}}>
             <div style={{padding:"14px 16px",borderBottom:`1px solid ${DS.border}`}}>
               <div style={{fontSize:9,fontWeight:800,color:DS.text.muted,textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>Exam Board</div>
               <div style={{display:"flex",gap:5}}>

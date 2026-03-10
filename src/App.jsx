@@ -1854,6 +1854,7 @@ export default function App(){
     }
   },[]);
 
+  const isMobile=useIsMobile();
   const handleOnboardingComplete=()=>{touchStreak();setScreen('account_create');};
   const handleLogout=()=>{clearCurrentUser();setScreen('auth');setShowSettings(false);};
 
@@ -1864,7 +1865,6 @@ export default function App(){
 
   const xp=getXP();
   const streak=getStreakData();
-  const isMobile=useIsMobile();
   return(
     <div style={{fontFamily:"'Segoe UI',sans-serif",background:DS.bg.base,minHeight:"100vh"}}>
       <AnimStyles/>

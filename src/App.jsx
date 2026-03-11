@@ -1497,7 +1497,7 @@ function LandingPage({onStart}){
           <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(200px,1fr))',gap:14}}>
             {[
               {name:'Free',price:'£0',period:' forever',features:['All topics & questions','AI marking (5/day)','Spaced repetition','Streak tracking'],cta:'Start Free',hi:false,soon:false},
-              {name:'Student Plus',price:'£7.99',period:'/mo',features:['Unlimited AI marking','Socratic tutoring','Progress reports','XP & level system'],cta:'Start 7-day trial',hi:true,soon:false},
+              {name:'Student Plus',price:'£7.99',period:'/mo',features:['Unlimited AI marking','Socratic tutoring','Progress reports','XP & level system'],cta:'Free during beta',hi:true,soon:false},
               {name:'Tutor Connect',price:'£12.99',period:'/mo',features:['Everything in Plus','Parent dashboard','Tutor assignment','Weekly reports'],cta:'Join Waitlist',hi:false,soon:true}
             ].map(p=>(
               <div key={p.name} style={{background:p.hi?DS.accent.amber:DS.bg.elevated,borderRadius:DS.radius.lg,padding:'22px 16px',border:p.hi?'none':p.soon?`1px solid ${DS.accent.teal}44`:`1px solid ${DS.border}`,position:'relative',opacity:p.soon?0.9:1}}>

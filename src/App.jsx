@@ -606,6 +606,28 @@ const MODULES=[
         {q:"Show that (3 + √5)² – (3 – √5)² = 12√5.",marks:4,diff:"Killer",ms:["M1: (3+√5)² = 14 + 6√5","M1: (3–√5)² = 14 – 6√5","M1: Subtract → 12√5","A1: All steps clearly visible"],insight:"Answer is given. Examiners mark your ALGEBRA. Jumping to 12√5 without expansions = 0/4."}
       ],
       mistakes:["64^(2/3): squaring before rooting","Standard form: 12 × 10⁴ instead of 1.2 × 10⁵","(√5)² = 5 NOT √10","In (3–√5)²: –3√5 × –1 = +3√5 (sign errors)"]
+    },
+    {id:"1.5",title:"Surds",
+      boards:{AQA:"Simplify surds (√48=4√3). Expand double brackets with surds. Rationalise denominator. 'Leave in exact form' = surd answer required.",Edexcel:"(a+√b)² expansion with full working. Rationalise with conjugate. Edexcel Higher: 'Show that...' surd proofs.",OCR:"'Prove that (1+√2)²=3+2√2'. Rationalise complex denominators. 'Express in simplest surd form'."},
+      analogy:{icon:"√",title:"Surds — 3 Laws That Cover Everything",lines:["√(ab) = √a × √b  ← use to simplify","SIMPLIFY: find largest perfect square factor","  √48 = √(16×3) = 4√3","EXPAND: FOIL works — (√5)²=5, not √25","RATIONALISE: multiply top and bottom by the surd","  3/√5 → ×(√5/√5) → 3√5/5","CONJUGATE: (a+√b)(a–√b)=a²–b (no surds remain)"]},
+      markScheme:["B1 for simplified surd with correct integer coefficient","Expansion: M1 any 3 correct terms, A1 fully simplified","Rationalise: M1 multiply by conjugate, A1 integer denominator","'Exact form': decimal answer scores 0","(√n)²=n, not √(n²)"],
+      questions:[
+        {q:"Simplify √75.",marks:2,diff:"Starter",ms:["M1: √(25×3)","A1: 5√3"],insight:"Look for the largest square factor of 75. 75=25×3. √25=5. So √75=5√3. Writing √(5×15) then √5×√15 earns M1 but leads nowhere useful — always find the LARGEST square factor first."},
+        {q:"Expand and simplify  (3+√5)(3–√5).",marks:2,diff:"Mid",ms:["M1: FOIL: 9–3√5+3√5–(√5)²","A1: 9–5=4"],insight:"Difference of two squares: (a+b)(a–b)=a²–b². Here a=3, b=√5, result is 9–5=4. The middle terms cancel. Result is an integer — this is the conjugate pairing used in rationalising."},
+        {q:"Rationalise the denominator of  (5+√3)/(2–√3). Give your answer in the form  a+b√3.",marks:4,diff:"Killer",ms:["M1: Multiply by (2+√3)/(2+√3)","M1: Denominator: (2–√3)(2+√3)=4–3=1","M1: Numerator: (5+√3)(2+√3)=10+5√3+2√3+3=13+7√3","A1: 13+7√3"],insight:"Conjugate of (2–√3) is (2+√3). Denominator becomes 4–3=1 — the surd vanishes. Numerator uses FOIL: 10+5√3+2√3+(√3)²=10+7√3+3=13+7√3."}
+      ],
+      mistakes:["√48=√4×√12=2√12 — not fully simplified (must reach 4√3)","(2+√3)²=4+3=7 — missing middle term 2×2×√3=4√3","Rationalise: multiplying only the numerator by the conjugate","(√5)²=√25 — correct result is 5 but wrong route confuses students"]
+    },
+    {id:"1.6",title:"Prime Factorisation, HCF & LCM",
+      boards:{AQA:"'Express 360 as product of prime factors in index form'. HCF and LCM from Venn diagram of primes. Prime factorisation to find square roots.",Edexcel:"'Write 2520 as product of its prime factors'. 'Given LCM and one number, find the other'. Integer problems using HCF.",OCR:"'Show that HCF of 126 and 84 is 42'. Applied LCM: 'Two lights flash every 8s and 12s — when do they next flash together?'"},
+      analogy:{icon:"🌳",title:"The Factor Tree — Two Answers from One Diagram",lines:["STEP 1: Factor tree until all branches are prime","STEP 2: Write as product in index form","  360 = 2³ × 3² × 5","HCF: shared primes at LOWEST power","LCM: all primes at HIGHEST power","Example: 360=2³×3²×5  and  84=2²×3×7","HCF: 2²×3=12  (shared: 2 and 3, lowest powers)","LCM: 2³×3²×5×7=2520 (all primes, highest powers)"]},
+      markScheme:["M1 complete factor tree with all primes visible","A1 correct index form (must write 2³, not 2×2×2)","HCF: M1 correct method (intersect/minimum), A1 correct value","LCM: M1 correct method (union/maximum), A1 correct value","Applied: M1 identifying HCF or LCM as relevant, A1 answer"],
+      questions:[
+        {q:"Express 360 as a product of its prime factors. Write your answer in index form.",marks:3,diff:"Starter",ms:["M1: Factor tree reaching 2,2,2,3,3,5","M1: All prime factors identified","A1: 2³×3²×5"],insight:"Index form means writing powers (2³ not 2×2×2). Draw the tree: 360=2×180=2×2×90=2×2×2×45=2×2×2×3×15=2×2×2×3×3×5. Collect: three 2s, two 3s, one 5."},
+        {q:"Find the HCF and LCM of 84 and 180.",marks:4,diff:"Mid",ms:["M1: 84=2²×3×7  and 180=2²×3²×5","M1: HCF=shared primes at lowest power: 2²×3","A1: HCF=12","A1: LCM=2²×3²×5×7=1260"],insight:"HCF: shared primes (2 and 3) at their lowest power → 2²×3=12. LCM: every prime at its highest power from either number → 2²×3²×5×7=1260. One set of trees, two answers."},
+        {q:"Two lights are switched on at the same time. Light A flashes every 36 seconds, Light B every 48 seconds. After how many seconds will they next flash together?",marks:4,diff:"Killer",ms:["M1: 36=2²×3²  and 48=2⁴×3","M1: LCM takes highest power of each prime","A1: LCM=2⁴×3²=16×9=144","A1: 144 seconds"],insight:"'Next flash together' = LCM. Both events repeat — find smallest common multiple. 36=2²×3², 48=2⁴×3. Max power of 2 is 4, max power of 3 is 2. LCM=2⁴×3²=144 seconds."}
+      ],
+      mistakes:["HCF: using highest power instead of lowest (that gives LCM)","LCM: finding HCF for 'next time together' problems — must use LCM","Not writing index form: 2×2×2 not 2³ loses the A mark","Factor tree: stopping at 4 or 6 (not prime!) — must divide until all branches are prime"]
     }
   ]},
   {id:2,code:"M2",label:"Algebra",color:"#4FC3A1",icon:"∑",topics:[
@@ -685,6 +707,17 @@ const MODULES=[
         {q:"Prove algebraically that the sum of the squares of two consecutive even numbers is never a multiple of 8.",marks:5,diff:"Killer",ms:["M1: consecutive even: 2n and 2n+2","M1: (2n)²+(2n+2)²=4n²+4n²+8n+4","M1: =8n²+8n+4","M1: =8(n²+n)+4","A1: remainder 4 when divided by 8, therefore never a multiple of 8"],insight:"=8(n²+n)+4 shows that dividing by 8 always leaves remainder 4. The conclusion 'therefore never a multiple of 8' is the final A mark. Without those words, the algebra alone is worth 4/5."}
       ],
       mistakes:["Using specific numbers (n=3) — this is verification, not proof","Missing written conclusion — symbolic result without words loses B marks","Two odd numbers: using 2n+1 for both (must use 2m+1 and 2n+1)","Not fully factorising — 4n²+8n+4 must become 4(n²+2n+1) to show divisibility"]
+    },
+    {id:"2.8",title:"Straight Line Graphs",
+      boards:{AQA:"Find equation from two points. Parallel lines: equal gradients. 'Is point P on line L?' — substitute and check. Rearrange ax+by=c to y=mx+c form.",Edexcel:"'Find equation of perpendicular bisector of AB'. Midpoint + perpendicular gradient. 'Show that lines are perpendicular'.",OCR:"'Line L: 4x–2y=7. Find equation through (3,1) parallel to L'. Rearrange first. Distance between two points from Pythagoras."},
+      analogy:{icon:"📏",title:"3 Line Situations — One Formula",lines:["GRADIENT: m=(y₂–y₁)/(x₂–x₁) = rise/run","EQUATION: y–y₁=m(x–x₁) then rearrange","PARALLEL: same gradient (m₁=m₂)","PERPENDICULAR: m₁×m₂=–1 (negative reciprocal)","  perpendicular to m=3 → m=–⅓","REARRANGING ax+by=c: get y on left","  4x–2y=7 → 2y=4x–7 → y=2x–3.5 → m=2","y-intercept: substitute x=0. x-intercept: y=0."]},
+      markScheme:["M1 gradient calculated correctly with correct formula","A1 equation in y=mx+c or equivalent","Perpendicular: M1 negative reciprocal gradient identified","Midpoint: M1 correct formula ((x₁+x₂)/2,(y₁+y₂)/2)","'Show that': verify by substituting coordinates with working"],
+      questions:[
+        {q:"Find the equation of the line passing through (2,3) and (6,11). Give your answer in the form y=mx+c.",marks:3,diff:"Starter",ms:["M1: m=(11–3)/(6–2)=8/4=2","M1: y–3=2(x–2)→y=2x–1","A1: y=2x–1"],insight:"Gradient first: rise/run=(11–3)/(6–2)=2. Then substitute one point into y–y₁=m(x–x₁). Rearrange. Check: y=2(6)–1=11 ✓ — verifying with the second point confirms the answer."},
+        {q:"Line L has equation y=3x–4. Line M is perpendicular to L and passes through (6,1). Find the equation of M.",marks:3,diff:"Mid",ms:["M1: gradient of L=3 → gradient of M=–⅓","M1: y–1=–⅓(x–6)","A1: y=–⅓x+3  or  x+3y=9"],insight:"Perpendicular gradient = negative reciprocal: –1/3. Into y–y₁=m(x–x₁): y–1=–⅓(x–6) → y=–⅓x+2+1=–⅓x+3. Check: at x=6, y=–2+3=1 ✓"},
+        {q:"A is (1,5) and B is (7,–1). a) Find the midpoint M of AB. b) Find the equation of the perpendicular bisector of AB.",marks:5,diff:"Killer",ms:["A1: M=(4,2)","M1: gradient AB=(–1–5)/(7–1)=–1","M1: perp bisector gradient=1","M1: y–2=1(x–4)","A1: y=x–2"],insight:"Perpendicular bisector: passes through midpoint, perpendicular to AB. Midpoint=((1+7)/2,(5+–1)/2)=(4,2). Gradient AB=–6/6=–1. Perp gradient=1. y–2=x–4 → y=x–2."}
+      ],
+      mistakes:["Gradient: (y₁–y₂)÷(x₂–x₁) — wrong order gives negative of correct answer","Perpendicular: only negating (need to also flip the fraction)","Parallel: using same y-intercept instead of same gradient","Equation from graph: y-intercept read incorrectly when scale isn't 1:1"]
     }
   ]},
   {id:3,code:"M3",label:"Ratio & Rates",color:"#E07B54",icon:"∶",topics:[
@@ -709,6 +742,28 @@ const MODULES=[
         {q:"Pendulum time T ∝ √L. L=25cm gives T=2s. Find L when T=3s.",marks:4,diff:"Killer",ms:["M1: T=k√L, k=0.4","A1: T=0.4√L","M1: √L=7.5","A1: L=56.25 cm"],insight:"Final step: √L=7.5 → L=56.25 (SQUARE both sides). L=√7.5 is a common wrong answer."}
       ],
       mistakes:["Writing y=3x when y∝x²","Not finding k before answering","Confusing y=k/x with y=kx","Negative roots in applied contexts"]
+    },
+    {id:"3.3",title:"Speed, Distance & Time",
+      boards:{AQA:"SDT triangle. Multi-leg journey average speed. Unit conversions km/h↔m/s (÷3.6). Time as decimal hours — not hrs:mins.",Edexcel:"Distance-time graph: gradient=speed, horizontal=stationary. 'Compare speeds of two sections'. Multi-leg: total distance ÷ total time.",OCR:"'Show that average speed is 80 km/h'. Convert units in context. Distance-time to velocity-time interpretation."},
+      analogy:{icon:"🚗",title:"The SDT Triangle — Cover What You Want",lines:["      D","  ─────────","  S  ×  T","Speed=D÷T    Distance=S×T    Time=D÷S","UNIT CONVERSIONS:","  km/h to m/s: ÷3.6   (or ×5/18)","  m/s to km/h: ×3.6   (or ×18/5)","TIME: 1h 30min = 1.5 hours (NOT 1.3)","AVERAGE SPEED: total distance ÷ TOTAL time","  Never take the mean of two speeds!"]},
+      markScheme:["M1 correct formula, A1 correct answer with units","Unit conversion: M1 method (×3.6 or ÷3.6), A1 correct value","Average speed: M1 total distance, M1 total time, A1 division","Time: M1 convert to consistent unit, A1 with correct unit","Missing units: loses A mark on OCR"],
+      questions:[
+        {q:"A car travels 135 km at an average speed of 60 km/h. How long does the journey take? Give your answer in hours and minutes.",marks:2,diff:"Starter",ms:["M1: T=D÷S=135÷60=2.25 hours","A1: 2 hours 15 minutes"],insight:"2.25 hours is NOT 2 hours 25 minutes. Decimal → minutes: 0.25×60=15. So 2 hours 15 minutes. Always convert decimal time if the question asks for hours and minutes."},
+        {q:"A train travels 120 km at 80 km/h, then 90 km at 60 km/h. Find the average speed for the whole journey.",marks:4,diff:"Mid",ms:["M1: Time₁=120÷80=1.5 hours","M1: Time₂=90÷60=1.5 hours","M1: Average speed=210÷3","A1: 70 km/h"],insight:"Average speed = TOTAL distance ÷ TOTAL time. Not (80+60)/2=70 — that coincidentally matches here only because the times are equal. Always compute total D and total T separately."},
+        {q:"Convert 54 km/h to m/s. Show your working.",marks:2,diff:"Killer",ms:["M1: 54÷3.6  or  54×(1000/3600)","A1: 15 m/s"],insight:"km/h to m/s: ÷3.6 or ×5/18. 54÷3.6=15. Alternatively: 54×1000=54000m per hour, ÷3600=15m per second. Show the conversion step explicitly — the M mark is for the method."}
+      ],
+      mistakes:["2.25 hours = 2h 25min — decimal hours and clock time are different","Average speed: averaging the two speeds rather than total D ÷ total T","T=D×S instead of T=D÷S — wrong formula from misremembering triangle","Failing to state units — loses the A mark"]
+    },
+    {id:"3.4",title:"Compound Measures",
+      boards:{AQA:"Density=mass÷volume, Pressure=force÷area. 'Which container gives greater pressure?' — compare. Mixed units: g/cm³ vs kg/m³.",Edexcel:"Multi-material density. 'Find density of combined object'. Flow rate in litres/min. Population density.",OCR:"'Show object floats by comparing densities'. Convert density units (g/cm³ to kg/m³: ×1000). Applied: dosage in mg/kg."},
+      analogy:{icon:"⚖️",title:"Three Compound Measure Triangles",lines:["DENSITY:  M      PRESSURE:  F      SPEED: D","        ─────             ─────          ────","        D × V             P × A          S × T","D=M/V  M=D×V  V=M/D","P=F/A  F=P×A  A=F/P","UNIT CHECK — must be consistent:","  mass(kg) + volume(m³) → density(kg/m³)","  mass(g)  + volume(cm³)→ density(g/cm³)","FLOW RATE: Volume = Rate × Time"]},
+      markScheme:["M1 correct formula, M1 substitution, A1 value + units","Units: wrong or missing units loses A mark","Comparison: must show both values and state which is greater","Conversion: 1 g/cm³ = 1000 kg/m³ — M1 if correct conversion shown","Flow rate: M1 rate×time, A1 correct total"],
+      questions:[
+        {q:"A metal block has mass 450 g and volume 60 cm³. Calculate its density. State your units.",marks:2,diff:"Starter",ms:["M1: D=M÷V=450÷60","A1: 7.5 g/cm³"],insight:"Density = Mass ÷ Volume. Units follow from the inputs: g ÷ cm³ = g/cm³. Always state units — 7.5 alone loses the A mark."},
+        {q:"Object A: mass 2.4 kg, volume 300 cm³. Object B: mass 1.8 kg, volume 150 cm³. Which has greater density? Show working.",marks:4,diff:"Mid",ms:["M1: Convert masses: 2400g and 1800g","M1: Density A=2400÷300=8 g/cm³","M1: Density B=1800÷150=12 g/cm³","A1: Object B has greater density (12>8 g/cm³)"],insight:"Show both calculations AND state the comparison with values. 'B has greater density' alone earns 1/4. 'Density A=8, Density B=12' without conclusion earns 2/4. All three elements needed for full marks."},
+        {q:"Water flows through a pipe at 0.8 litres per second. A tank holds 1,200 litres. How many minutes will it take to fill the tank?",marks:3,diff:"Killer",ms:["M1: Time=Volume÷Rate=1200÷0.8=1500 seconds","M1: Convert to minutes: 1500÷60","A1: 25 minutes"],insight:"Flow rate: Time=Volume÷Rate. 1200÷0.8=1500 seconds. Then ÷60=25 minutes. Two-step with unit conversion — each step is a method mark. Skipping the conversion and giving 1500 loses the final A mark."}
+      ],
+      mistakes:["Density: V=M/D but writing D=V/M (inverted)","Pressure: A=F/P but computing F=P/A","Units: kg and cm³ mixed without converting — gives kg/cm³ which is wrong","Comparison: computing only one density then guessing the comparison"]
     }
   ]},
   {id:4,code:"M4",label:"Geometry",color:"#9B59B6",icon:"△",topics:[
@@ -788,6 +843,28 @@ const MODULES=[
         {q:"OA⃗=2a, OB⃗=6b, OC⃗=2a+4b. Prove that A, B and C are collinear.",marks:4,diff:"Killer",ms:["M1: AB⃗=6b–2a","M1: AC⃗=4b","M1: Show AB⃗ and BC⃗ are parallel — BC⃗=OC⃗–OB⃗=2a–2b... check against AB","A1: state 'AC and CB are parallel and share point C, therefore A, B, C collinear'"],insight:"To prove collinear: find two vectors between the three points and show they are scalar multiples. Then name the common point. Without explicitly naming the shared point and stating the conclusion, the proof is incomplete."}
       ],
       mistakes:["AB⃗=a–b instead of b–a (reversed direction)","Parallel proof: not writing the conclusion — 'therefore parallel' required","Collinear: showing parallel vectors without naming a common point","Midpoint: forgetting to halve — writing a+b instead of ½(a+b)"]
+    },
+    {id:"4.8",title:"Area & Perimeter",
+      boards:{AQA:"Composite shapes. Sector area=(θ/360)πr². Reverse: find radius given area. 'Give answer in terms of π'.",Edexcel:"Shaded region (subtract circle from rectangle). 'Show that area=...' with full working. Non-calc: exact π answers.",OCR:"Arcs, sectors, segments. 'Find perimeter of the sector'. Annulus. Context-based compound shapes."},
+      analogy:{icon:"📐",title:"The Area Toolkit — 8 Key Shapes",lines:["Rectangle:     A=l×w","Triangle:      A=½×b×h","Parallelogram: A=b×h","Trapezium:     A=½(a+b)h","Circle:        A=πr²    C=2πr","Sector:        A=(θ/360)×πr²","Arc length:    L=(θ/360)×2πr","COMPOUND: split → add/subtract areas","PERIMETER: add ALL outer edges + arcs"]},
+      markScheme:["M1 correct formula with correct values substituted","Sector: M1 (θ/360)×πr², A1 correct value","'In terms of π': decimal loses all marks after this instruction","Perimeter: M1 arc length included correctly, A1 total","Compound: M1 correct shapes, M1 each area computed"],
+      questions:[
+        {q:"Find the area of a sector with radius 9 cm and angle 120°. Give your answer in terms of π.",marks:2,diff:"Starter",ms:["M1: (120/360)×π×9²","A1: 27π cm²"],insight:"Sector area=(angle/360)×πr². Fraction=120/360=1/3. Area=(1/3)×π×81=27π. 'In terms of π' = leave as 27π — writing 84.8... scores 0. Show the fraction simplification."},
+        {q:"A shape consists of a rectangle 12cm×8cm with a semicircle removed from one of the shorter sides. Find the area to 3 s.f.",marks:4,diff:"Mid",ms:["M1: Rectangle=12×8=96cm²","M1: Semicircle radius=4, area=½×π×16=8π","M1: Shaded=96–8π","A1: 70.9cm²"],insight:"The shorter side is 8cm, so semicircle radius=4cm. Remove the semicircle: 96–8π=96–25.13...=70.87≈70.9cm². Show the subtraction step clearly — that's the M mark."},
+        {q:"A sector OAB has radius 15cm and arc length 20π cm. Find: a) angle AOB,  b) area of the sector.",marks:5,diff:"Killer",ms:["M1: Arc=(θ/360)×2π×15=20π","M1: θ/360=20π/30π=2/3","A1: θ=240°","M1: Area=(240/360)×π×225=(2/3)×225π","A1: 150π cm²"],insight:"Arc length formula first: (θ/360)×2πr=20π → (θ/360)×30π=20π → θ/360=2/3 → θ=240°. Then area=(2/3)×π×225=150π. Leave in exact form — no need to compute."}
+      ],
+      mistakes:["Sector: using r² for arc length OR 2πr for area — swap the formulas","'In terms of π': writing a decimal instead of leaving in π form","Perimeter of sector: forgetting to add the two radii (only including the arc)","Composite: adding when asked to subtract a removed region"]
+    },
+    {id:"4.9",title:"Volume & Surface Area",
+      boards:{AQA:"Volume and SA of prisms, cylinders, cones, spheres. 'Show that volume ≈ 300 cm³'. Formulae given on sheet.",Edexcel:"'Calculate total surface area of composite solid'. Sphere+cylinder. Exact answer in terms of π.",OCR:"Reverse: find height from volume. Volume of frustum by subtraction. 'Compare volumes of two containers'."},
+      analogy:{icon:"📦",title:"Volume & Surface Area Toolkit",lines:["PRISM: V=cross-section area × length","CYLINDER: V=πr²h    SA=2πr²+2πrh","CONE: V=⅓πr²h      SA=πrl+πr²  (l=slant height)","SPHERE: V=4/3πr³    SA=4πr²","PYRAMID: V=⅓×base area×height","Slant height: l=√(r²+h²) from Pythagoras","'Curved SA' = exclude flat base(s)","COMPOSITE: compute each solid separately, add/subtract"]},
+      markScheme:["M1 correct formula, M1 correct substitution, A1 answer","SA: include ALL faces unless 'curved' specified","Slant height: M1 Pythagoras, A1 correct l value","Composite: M1 each shape computed, A1 total","Exact form required when instruction given"],
+      questions:[
+        {q:"Find the volume of a cylinder with radius 6 cm and height 10 cm. Give your answer to 3 significant figures.",marks:2,diff:"Starter",ms:["M1: V=π×6²×10=360π","A1: 1130 cm³"],insight:"V=πr²h. Substitute: π×36×10=360π≈1131≈1130cm³. Show the substitution step — that's the M mark. If giving 3 s.f., check rounding: 1131 → 1130."},
+        {q:"A cone has radius 5 cm and perpendicular height 12 cm. Find: a) slant height, b) total surface area. Give answers to 3 s.f.",marks:5,diff:"Mid",ms:["M1: l=√(5²+12²)=√169","A1: l=13cm","M1: SA=πrl+πr²=π×5×13+π×25=65π+25π=90π","A1: 283 cm²"],insight:"Slant height from Pythagoras: l=√(25+144)=13. Total SA = curved (πrl) + base (πr²). 'Total' means include the base. 'Curved surface area only' means πrl only."},
+        {q:"A solid is made by placing a cone (radius 4cm, height 3cm) on top of a cylinder (radius 4cm, height 8cm). Find the total volume in terms of π.",marks:4,diff:"Killer",ms:["M1: Cylinder V=π×16×8=128π","M1: Cone V=⅓×π×16×3=16π","M1: Add volumes","A1: 144π cm³"],insight:"Composite solid: compute each separately, then add. Cylinder: πr²h=128π. Cone: ⅓πr²h=16π. Total=144π. Leave in exact form — no need to evaluate."}
+      ],
+      mistakes:["SA: forgetting to include the base(s) when 'total' is asked","Cone SA: using h instead of slant height l","Sphere SA: using πr² (circle area) instead of 4πr²","Composite: using total height for cylinder instead of just its portion"]
     }
   ]},
   {id:5,code:"M5",label:"Probability",color:"#E74C3C",icon:"◈",topics:[
@@ -801,6 +878,39 @@ const MODULES=[
         {q:"120 students: 72 Maths, 58 Science, 35 both.\na) Venn diagram  b) P(Maths only)  c) P(Science | Maths)",marks:5,diff:"Killer",ms:["M1+A1: M only=37, S only=23, neither=25","A1: 37/120","M1: 35/72","A1: 35/72"],insight:"Conditional from Venn: 'given Maths' restricts to Maths circle (72 students). Of those, 35 study Science. No formula needed."}
       ],
       mistakes:["Without replacement: same denominator for both draws","P(A and B) = P(A)+P(B) — WRONG. That's OR.","Conditional: dividing by wrong total","Venn: 35 in both circles separately instead of intersection only"]
+    },
+    {id:"5.2",title:"Venn Diagrams & Set Notation",
+      boards:{AQA:"A∩B=intersection, A∪B=union, A'=complement. Fill Venn from frequency data. P(A∩B) from completed diagram.",Edexcel:"Three-circle Venn diagrams. 'Find n(A∪B)'. Universal set ξ defined. Write values in all regions.",OCR:"'Shade region A'∩B'. Set builder notation. List elements of sets. 'Use a Venn diagram to find P(A|B)'."},
+      analogy:{icon:"⭕",title:"Venn Notation — 5 Symbols to Master",lines:["A ∩ B = AND = intersection (middle only)","A ∪ B = OR  = union (everything in either)","A' = NOT A = complement (outside A in ξ)","ξ = universal set = everything in rectangle","n(A) = number of elements in set A","TO FILL A VENN DIAGRAM:","  1. Put intersection (middle) in first","  2. Subtract from each circle total","  3. Remaining = outside both = n(ξ)–n(A∪B)"]},
+      markScheme:["B1 correct intersection value","B1 outer sections of each circle (after subtracting intersection)","B1 'outside both' value correct","Probability: M1 correct numerator, A1 fraction simplified","Set notation: ∩, ∪, ' — words not accepted"],
+      questions:[
+        {q:"30 students: 18 study French, 12 German, 7 both. Draw a Venn diagram. Find P(French only).",marks:4,diff:"Starter",ms:["B1: intersection=7","B1: French only=11, German only=5","B1: neither=30–23=7","A1: P(French only)=11/30"],insight:"Start with 7 in the middle. French circle: 18 total, 7 in overlap → 11 outside. German: 12–7=5 outside. Total accounted: 11+7+5=23. Neither: 30–23=7. Build inside-out."},
+        {q:"ξ={1,2,...,10}, A={multiples of 2}, B={multiples of 3}. List A∩B and find P(A'∩B).",marks:4,diff:"Mid",ms:["M1: A={2,4,6,8,10}, B={3,6,9}","M1: A∩B={6}","M1: A'={1,3,5,7,9}, A'∩B={3,9}","A1: P(A'∩B)=2/10=1/5"],insight:"A'∩B means 'in B but NOT in A'. A'={1,3,5,7,9}. Intersect with B={3,6,9}: elements in both={3,9}. P=2/10=1/5. Always simplify probability fractions."},
+        {q:"80 students: 45 do Maths (M), 38 English (E), 22 both M and E, 15 Science only, 5 all three, 8 E∩S only, 6 M∩S only. Find the number who study none of the three subjects.",marks:5,diff:"Killer",ms:["M1: M only=45–22–6–5=12","M1: E only=38–22–8–5=3","M1: All regions: 12+3+15+5+6+8+22=71","M1: Check total ≤80","A1: Neither=80–71=9"],insight:"Three-circle Venn: always start from the centre (all three=5), work outwards — subtract centre from each two-circle overlap, then subtract all overlaps from single-subject totals. Sum all regions, subtract from grand total for 'none'."}
+      ],
+      mistakes:["A∪B: counting only the outside parts, forgetting the intersection","Building Venn: putting full totals in circles instead of subtracting intersection first","Complement A': students think A' means elements from outside ξ — it just means not in A","Three circles: double-counting the triple intersection when filling two-circle overlaps"]
+    },
+    {id:"5.3",title:"Experimental Probability & Relative Frequency",
+      boards:{AQA:"'Estimate probability from experiment'. Expected frequency=prob×trials. Compare experimental vs theoretical. 'How could the experiment be improved?'",Edexcel:"Spinner spun 200 times. Large samples give better estimates. 'Is the dice fair? Justify with results.'",OCR:"'Calculate relative frequency for each outcome'. Bias identification. 'Why might results differ from theoretical?'"},
+      analogy:{icon:"🎯",title:"Experimental vs Theoretical Probability",lines:["THEORETICAL: what SHOULD happen (calculated)","EXPERIMENTAL: what DID happen (from data)","RELATIVE FREQUENCY = frequency ÷ total trials","MORE TRIALS → better estimate (less spread)","EXPECTED FREQUENCY = probability × n","  Fair dice, 600 rolls: expected 6s=(1/6)×600=100","BIAS: experimental ≠ theoretical by a large amount","  → either poor experiment OR the item is biased","IMPROVEMENT: increase n, remove identifiable bias source"]},
+      markScheme:["Relative frequency: M1 division, A1 fraction or decimal","Expected frequency: M1 p×n, A1 correct value","Comparison: quote both values AND give verdict","'Is it fair?': calculate expected, compare, state conclusion with figures","Bias/improvement: contextual — not generic 'do more trials'"],
+      questions:[
+        {q:"A biased coin is flipped 400 times and lands heads 260 times. Estimate the probability of heads.",marks:2,diff:"Starter",ms:["M1: 260÷400","A1: 13/20  (or 0.65)"],insight:"Experimental probability=frequency÷total. 260÷400=0.65=13/20. This is an ESTIMATE — more trials give a more reliable estimate. Always simplify the fraction if possible."},
+        {q:"A six-sided dice is rolled 300 times. The number 4 appears 65 times. Is there evidence the dice is biased toward 4? Justify.",marks:3,diff:"Mid",ms:["M1: Expected frequency=(1/6)×300=50","M1: Actual 65 vs expected 50","A1: 65/300=0.217 vs 1/6≈0.167 — notably higher, evidence of bias toward 4"],insight:"Compare actual with expected using numbers. 65 when 50 expected is a 30% excess — notable evidence of bias. State: '65 > expected 50, so there is evidence of bias.' Give verdict with figures."},
+        {q:"A manufacturer tests 5,000 lightbulbs. 4,725 work. a) Estimate P(bulb fails). b) In a batch of 20,000, how many are expected to fail?",marks:4,diff:"Killer",ms:["M1: P(fails)=275÷5000","A1: 11/200  (0.055)","M1: 0.055×20000","A1: 1100 bulbs"],insight:"P(fails)=(5000–4725)/5000=275/5000=11/200=0.055. Expected failures in 20,000: 0.055×20,000=1100. The relative frequency from the sample scales directly — that's the power of large-sample estimation."}
+      ],
+      mistakes:["Using successes as the probability without dividing by total","Expected frequency: P÷n instead of P×n","'Is it biased?': saying 'yes' without computing expected value to compare","Improvement: 'more trials' without specifying why — need contextual justification"]
+    },
+    {id:"5.4",title:"Conditional Probability",
+      boards:{AQA:"P(A|B)=P(A∩B)/P(B). Two-way tables. 'Given student is Year 11, find P(plays sport)'.",Edexcel:"Without replacement combined with conditional. 'Given first marble red, find P(second also red)'.",OCR:"Conditional from Venn. 'Given studies French, P(also German)?'. Tree diagrams with conditional branching."},
+      analogy:{icon:"🔍",title:"Conditional Probability — Shrink the Sample Space",lines:["P(A|B) = 'probability of A GIVEN B happened'","Read | as 'given'","METHOD: RESTRICT to the condition first","  'Given it rained' → look only at rainy rows","  Total becomes the condition count, not grand total","FORMULA: P(A|B)=P(A∩B)/P(B)","FROM TABLE: numerator=both conditions met","  denominator=row/column total for given condition","INDEPENDENCE: P(A|B)=P(A) → knowing B doesn't change A"]},
+      markScheme:["M1 restricted denominator (the condition count)","A1 correct fraction using conditional denominator","From table: M1 correct cell, A1 correct fraction","'Given that': wrong denominator (using grand total) = M0","Simplify to lowest terms for A mark","Independence check: P(A|B)=P(A) with explanation"],
+      questions:[
+        {q:"30 students: 12 boys, 18 girls. 5 boys and 7 girls wear glasses. A student is chosen at random. Given they wear glasses, find P(they are a boy).",marks:3,diff:"Starter",ms:["M1: Total wearing glasses=5+7=12","M1: P(boy|glasses)=5/12","A1: 5/12"],insight:"'Given they wear glasses' → restrict to the 12 wearers. Of those, 5 are boys. P=5/12. Using 30 as the denominator would give 5/30 — wrong. The 'given' always shrinks the denominator."},
+        {q:"A bag has 4 red and 6 blue balls. Two drawn without replacement. Find P(second red | first was red).",marks:3,diff:"Mid",ms:["M1: After one red removed: 3 red, 6 blue, 9 total remain","A1: P(2nd red|1st red)=3/9","A1: =1/3"],insight:"'Given first was red' → update the bag. Now 9 balls remain, 3 are red. P=3/9=1/3. This is the second branch on the tree diagram. Full P(both red)=4/10×3/9=12/90=2/15."},
+        {q:"Events A and B: P(A)=0.4, P(B)=0.5, P(A∩B)=0.2. Find P(A|B) and P(B|A). Are A and B independent? Justify.",marks:5,diff:"Killer",ms:["M1: P(A|B)=0.2÷0.5=0.4","A1: P(A|B)=0.4","M1: P(B|A)=0.2÷0.4=0.5","A1: P(B|A)=0.5","A1: P(A|B)=P(A)=0.4 → independent (knowing B doesn't change P(A))"],insight:"P(A|B)=P(A) means B's occurrence doesn't affect A's probability — that's the definition of independence. Also verify: P(A∩B)=P(A)×P(B)=0.4×0.5=0.2 ✓ — both methods confirm independence."}
+      ],
+      mistakes:["Using grand total as denominator instead of the condition group","P(A|B)=P(B|A) — they're generally NOT equal (prosecutor's fallacy)","Without replacement: using original bag size for second draw","Independence: saying 'yes' without showing P(A|B)=P(A) with calculation"]
     }
   ]},
   {id:6,code:"M6",label:"Statistics",color:"#3498DB",icon:"⊞",topics:[
@@ -847,6 +957,17 @@ const MODULES=[
         {q:"A study finds a strong positive correlation between the number of fire engines at a fire and the damage caused. A journalist writes: 'More fire engines cause more damage'. Explain why this is incorrect.",marks:2,diff:"Killer",ms:["B1: correlation does not imply causation","B1: a third factor (size of fire) causes both — larger fires require more engines and also cause more damage"],insight:"The confounding variable is the key: fire size drives both variables. This is the 'causation vs correlation' distinction. Always look for the hidden third variable when correlation seems implausible."}
       ],
       mistakes:["'There is a correlation' without strength or direction — loses the mark","Line of best fit not passing through the mean point (x̄,ȳ)","Extrapolation described as reliable without acknowledging the data range limitation","Causation: saying 'it shows that X causes Y' — correlation alone never proves causation"]
+    },
+    {id:"6.5",title:"Sampling Methods & Bias",
+      boards:{AQA:"Describe random, systematic, stratified, opportunity. Identify bias in a described method. 'Give one advantage of stratified over simple random'.",Edexcel:"Calculate stratified sample: '240 Yr10, 160 Yr11, sample of 50 needed — how many from each year?'",OCR:"'Criticise this method'. Response bias, self-selection. 'Design an unbiased survey'. Evaluate sampling frames."},
+      analogy:{icon:"📋",title:"4 Sampling Methods — Know When to Use Each",lines:["RANDOM: every member equally likely","  Number all members → random number generator","SYSTEMATIC: every kth member (k=population÷sample)","  Random start between 1 and k, then add k each time","STRATIFIED: proportion from each subgroup","  Group sample=(group size/total)×sample size","  Best for comparing subgroups","OPPORTUNITY: whoever is available — most biased","BIAS: leading questions, self-selected responses,","  non-random selection, unrepresentative location"]},
+      markScheme:["Describe: must include HOW — naming the method alone earns 0","Stratified: M1 (group/total)×sample, A1 each group's size rounded","Criticism: specific to the described method — 'it's biased' alone=0","Advantage: must compare to specific alternative","Total sample must equal required — check rounding"],
+      questions:[
+        {q:"A school has 180 Year 10 and 120 Year 11 students. A stratified sample of 60 is needed. How many from each year?",marks:3,diff:"Starter",ms:["M1: Year 10: (180/300)×60=36","M1: Year 11: (120/300)×60=24","A1: 36 from Y10, 24 from Y11  (check: 36+24=60 ✓)"],insight:"Stratified: sample proportions match population proportions. 180/300=3/5, so (3/5)×60=36. Check totals add to 60 — they must. If rounding creates mismatch, adjust the larger group."},
+        {q:"A researcher surveys people leaving a sports centre to find out about the town's exercise habits. Identify one source of bias and explain how it affects the results.",marks:2,diff:"Mid",ms:["B1: Opportunity sample at a sports centre selects people who already exercise regularly","B1: Results will overestimate exercise levels in the general population — non-exercisers excluded"],insight:"Self-selection bias: people at a sports centre are not representative of the town. The sample is biased toward active people. Results will overestimate how much people exercise. Always explain the direction of bias."},
+        {q:"A factory produces 5,000 items per day. A quality control manager wants a systematic sample of 50 items. Describe exactly how to carry out this sample.",marks:3,diff:"Killer",ms:["B1: k=5000÷50=100 (sample every 100th item)","B1: Use random number generator to select a random start n between 1 and 100","B1: Sample items n, n+100, n+200, ... continuing to n+4900"],insight:"Systematic sampling: k=population÷sample=100. Random start between 1 and k ensures it's not entirely predictable. Then every 100th item from that start. The method must be fully specified — just 'every 100th' without a random start isn't truly systematic."}
+      ],
+      mistakes:["Stratified: giving proportion not count (forgetting ×sample size)","Rounding: all groups rounded up → total exceeds required sample","Bias criticism: vague answer ('not representative') — must explain who is under/over-represented","Systematic: not randomising the start — must pick a random starting point within the first k items"]
     }
   ]}
 ];
@@ -1374,15 +1495,20 @@ function LandingPage({onStart}){
           <div style={{textAlign:'center',fontSize:12,fontWeight:800,color:DS.accent.amber,letterSpacing:2,textTransform:'uppercase',marginBottom:8}}>Pricing</div>
           <div style={{textAlign:'center',fontSize:22,fontWeight:900,color:DS.text.primary,marginBottom:28}}>Simple, fair pricing</div>
           <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(200px,1fr))',gap:14}}>
-            {[{name:'Free',price:'£0',period:' forever',features:['All topics & questions','AI marking (5/day)','Spaced repetition','Streak tracking'],cta:'Start Free',hi:false},{name:'Student Plus',price:'£7.99',period:'/mo',features:['Unlimited AI marking','Socratic tutoring','Progress reports','XP & level system'],cta:'Start 7-day trial',hi:true},{name:'Tutor Connect',price:'£12.99',period:'/mo',features:['Everything in Plus','Parent dashboard','Tutor assignment','Weekly reports'],cta:'Get started',hi:false}].map(p=>(
-              <div key={p.name} style={{background:p.hi?DS.accent.amber:DS.bg.elevated,borderRadius:DS.radius.lg,padding:'22px 16px',border:p.hi?'none':`1px solid ${DS.border}`,position:'relative'}}>
+            {[
+              {name:'Free',price:'£0',period:' forever',features:['All topics & questions','AI marking (5/day)','Spaced repetition','Streak tracking'],cta:'Start Free',hi:false,soon:false},
+              {name:'Student Plus',price:'£7.99',period:'/mo',features:['Unlimited AI marking','Socratic tutoring','Progress reports','XP & level system'],cta:'Start 7-day trial',hi:true,soon:false},
+              {name:'Tutor Connect',price:'£12.99',period:'/mo',features:['Everything in Plus','Parent dashboard','Tutor assignment','Weekly reports'],cta:'Join Waitlist',hi:false,soon:true}
+            ].map(p=>(
+              <div key={p.name} style={{background:p.hi?DS.accent.amber:DS.bg.elevated,borderRadius:DS.radius.lg,padding:'22px 16px',border:p.hi?'none':p.soon?`1px solid ${DS.accent.teal}44`:`1px solid ${DS.border}`,position:'relative',opacity:p.soon?0.9:1}}>
                 {p.hi&&<div style={{position:'absolute',top:-10,left:'50%',transform:'translateX(-50%)',background:DS.bg.elevated,color:DS.accent.amber,fontSize:8,fontWeight:800,padding:'3px 10px',borderRadius:6,letterSpacing:1,whiteSpace:'nowrap',border:`1px solid ${DS.accent.amber}44`}}>MOST POPULAR</div>}
+                {p.soon&&<div style={{position:'absolute',top:-10,left:'50%',transform:'translateX(-50%)',background:DS.accent.teal,color:DS.bg.base,fontSize:8,fontWeight:800,padding:'3px 10px',borderRadius:6,letterSpacing:1,whiteSpace:'nowrap'}}>COMING SOON</div>}
                 <div style={{fontSize:14,fontWeight:800,color:p.hi?DS.bg.base:DS.text.primary,marginBottom:4}}>{p.name}</div>
-                <div style={{fontSize:28,fontWeight:900,color:p.hi?DS.bg.base:DS.accent.amber,marginBottom:2}}>{p.price}<span style={{fontSize:11,fontWeight:500}}>{p.period}</span></div>
+                <div style={{fontSize:28,fontWeight:900,color:p.hi?DS.bg.base:p.soon?DS.accent.teal:DS.accent.amber,marginBottom:2}}>{p.price}<span style={{fontSize:11,fontWeight:500}}>{p.period}</span></div>
                 <div style={{margin:'14px 0',borderTop:`1px solid ${p.hi?'rgba(0,0,0,0.15)':DS.border}`,paddingTop:14}}>
-                  {p.features.map(f=><div key={f} style={{fontSize:10,color:p.hi?DS.bg.base:DS.text.secondary,marginBottom:5,display:'flex',gap:5}}><span style={{fontWeight:800}}>✓</span>{f}</div>)}
+                  {p.features.map(f=><div key={f} style={{fontSize:10,color:p.hi?DS.bg.base:p.soon?DS.text.muted:DS.text.secondary,marginBottom:5,display:'flex',gap:5}}><span style={{fontWeight:800,color:p.soon?DS.accent.teal:undefined}}>✓</span>{f}</div>)}
                 </div>
-                <button onClick={onStart} style={{width:'100%',padding:'9px 0',borderRadius:DS.radius.sm,border:'none',background:p.hi?DS.bg.base:DS.bg.overlay,color:p.hi?DS.accent.amber:DS.text.secondary,fontWeight:800,fontSize:11,cursor:'pointer'}}>{p.cta}</button>
+                <button onClick={p.soon?(()=>{const done=localStorage.getItem('lumora_waitlist');localStorage.setItem('lumora_waitlist','1');alert(done?'You\'re already on the waitlist — we\'ll be in touch!':'You\'re on the list! We\'ll email you when Tutor Connect launches.');}):(onStart)} style={{width:'100%',padding:'9px 0',borderRadius:DS.radius.sm,border:p.soon?`1px solid ${DS.accent.teal}44`:'none',background:p.hi?DS.bg.base:p.soon?'transparent':DS.bg.overlay,color:p.hi?DS.accent.amber:p.soon?DS.accent.teal:DS.text.secondary,fontWeight:800,fontSize:11,cursor:'pointer'}}>{p.cta}</button>
               </div>
             ))}
           </div>
@@ -1796,7 +1922,61 @@ function SettingsPanel({onClose,onLogout}){
           ):(
             <button onClick={()=>setShowLogoutConfirm(true)} style={{width:'100%',background:'transparent',border:`1px solid rgba(255,76,76,0.3)`,borderRadius:DS.radius.md,padding:'10px',color:DS.accent.red,fontWeight:700,fontSize:13,cursor:'pointer'}}>Sign Out</button>
           )}
+          <button onClick={()=>{const code=encodeProgress();const url=`${window.location.origin}${window.location.pathname}?p=${code}`;navigator.clipboard.writeText(url).then(()=>alert('Progress link copied!\n\nShare it with parents, tutors, or anyone to show your GCSE Maths progress.')).catch(()=>prompt('Copy this link to share your progress:',url));}} style={{width:'100%',background:'transparent',border:`1px solid ${DS.accent.teal}44`,borderRadius:DS.radius.md,padding:'10px',color:DS.accent.teal,fontWeight:700,fontSize:13,cursor:'pointer',marginTop:8}}>📤 Share Progress Report</button>
           <div style={{textAlign:'center',marginTop:14,fontSize:11,color:DS.text.muted}}>🔒 Data stored on this device only</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═══ SHARE PROGRESS ══════════════════════════════════════════════════════════
+function encodeProgress(){
+  const perf=lsGet('gcse_perf',{});
+  const profile=lsGet('lumora_profile',{});
+  const xp=getXP();
+  const streak=getStreakData();
+  const entries=Object.entries(perf).filter(([,p])=>p.total>0);
+  const avg=entries.length?Math.round(entries.reduce((s,[,p])=>s+(p.correct/p.total),0)/entries.length*100):0;
+  const data={n:profile.name||'A student',xp,streak:streak.current,best:streak.best,topics:entries.length,qs:entries.reduce((s,[,p])=>s+p.total,0),avg,ts:Date.now()};
+  return btoa(encodeURIComponent(JSON.stringify(data)));
+}
+function ProgressReport({data}){
+  const {n,xp,streak,best,topics,qs,avg,ts}=data;
+  const date=new Date(ts).toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'});
+  const grade=avg>=90?'9':avg>=80?'8':avg>=70?'7':avg>=60?'6':avg>=50?'5':avg>=40?'4':avg>=30?'3':'U';
+  const gradeColor=avg>=70?DS.accent.teal:avg>=50?DS.accent.amber:DS.accent.red;
+  return(
+    <div style={{minHeight:'100vh',background:DS.bg.base,fontFamily:"'Segoe UI',sans-serif",padding:'32px 20px'}}>
+      <AnimStyles/>
+      <div style={{maxWidth:520,margin:'0 auto'}}>
+        <div style={{textAlign:'center',marginBottom:32}}>
+          <div style={{fontSize:24,fontWeight:900,color:DS.accent.amber,marginBottom:4}}>📐 Lumora</div>
+          <div style={{fontSize:13,color:DS.text.secondary}}>Progress Report · {date}</div>
+        </div>
+        <div style={{background:DS.bg.surface,borderRadius:DS.radius.xl,padding:28,border:`1px solid ${DS.border}`,boxShadow:DS.shadow,marginBottom:20}}>
+          <div style={{fontSize:20,fontWeight:900,color:DS.text.primary,marginBottom:2}}>{n}</div>
+          <div style={{fontSize:12,color:DS.text.secondary,marginBottom:24}}>GCSE Maths · Lumora Progress Summary</div>
+          <div style={{display:'flex',justifyContent:'center',marginBottom:24}}>
+            <div style={{textAlign:'center',background:DS.bg.elevated,borderRadius:DS.radius.lg,padding:'20px 40px',border:`2px solid ${gradeColor}44`}}>
+              <div style={{fontSize:56,fontWeight:900,color:gradeColor,lineHeight:1}}>{grade}</div>
+              <div style={{fontSize:11,color:DS.text.secondary,marginTop:4}}>Predicted Grade</div>
+              <div style={{fontSize:10,color:DS.text.muted}}>{avg}% average accuracy</div>
+            </div>
+          </div>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(110px,1fr))',gap:10}}>
+            {[{icon:'⚡',label:'Total XP',val:`${xp} XP`},{icon:'🔥',label:'Streak',val:`${streak} days`},{icon:'🏆',label:'Best Streak',val:`${best} days`},{icon:'📚',label:'Topics Covered',val:`${topics}`},{icon:'✏️',label:'Questions Done',val:`${qs}`},{icon:'🎯',label:'Accuracy',val:`${avg}%`}].map(s=>(
+              <div key={s.label} style={{background:DS.bg.elevated,borderRadius:DS.radius.md,padding:'12px 10px',textAlign:'center',border:`1px solid ${DS.border}`}}>
+                <div style={{fontSize:20,marginBottom:4}}>{s.icon}</div>
+                <div style={{fontSize:15,fontWeight:900,color:DS.text.primary}}>{s.val}</div>
+                <div style={{fontSize:9,color:DS.text.muted,marginTop:2}}>{s.label}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div style={{background:DS.accent.amberDim,border:`1px solid ${DS.accent.amber}44`,borderRadius:DS.radius.lg,padding:'14px 20px',textAlign:'center'}}>
+          <div style={{fontSize:12,fontWeight:800,color:DS.accent.amber,marginBottom:3}}>Powered by Lumora</div>
+          <div style={{fontSize:11,color:DS.text.secondary}}>AI-powered GCSE Maths revision · AQA · Edexcel · OCR</div>
         </div>
       </div>
     </div>
@@ -1855,9 +2035,11 @@ export default function App(){
   },[]);
 
   const isMobile=useIsMobile();
+  const sharedData=useMemo(()=>{try{const p=new URLSearchParams(window.location.search).get('p');return p?JSON.parse(decodeURIComponent(atob(p))):null;}catch{return null;}},[]);
   const handleOnboardingComplete=()=>{touchStreak();setScreen('account_create');};
   const handleLogout=()=>{clearCurrentUser();setScreen('auth');setShowSettings(false);};
 
+  if(sharedData)return<><AnimStyles/><ProgressReport data={sharedData}/></>;
   if(screen==='onboarding')return<><AnimStyles/><Onboarding onComplete={handleOnboardingComplete}/></>;
   if(screen==='account_create')return<AccountCreateScreen onCreated={()=>{touchStreak();setScreen('landing');}}/>;
   if(screen==='auth')return<LoginScreen onLogin={()=>setScreen('landing')} onRegister={()=>setScreen('onboarding')}/>;

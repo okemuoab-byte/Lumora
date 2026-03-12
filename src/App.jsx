@@ -226,6 +226,7 @@ async function generateTopicQs(topicTitle,moduleLabel,board,diffMix){
   const boardStyle={
     AQA:'Multi-step worded problems. Reward method marks at each step. Show all working.',
     Edexcel:'Real-world applied context. "Evaluate and justify" questions. Formulae may not be given.',
+    'Edexcel IGCSE':'Edexcel IGCSE (4MA1) style. Two papers: 1H non-calculator and 2H calculator. Set notation and proof prominent at Higher. Functions and calculus appear on Higher paper only. Real-world applied contexts. Show all working for method marks.',
     OCR:'Give a reason for each step. "Show that" and proof components. Justify all decisions.'
   };
   const res=await fetch('https://api.anthropic.com/v1/messages',{
@@ -564,7 +565,7 @@ function SocraticChat({question,ms,aiResult,maxMarks=0}){
 const MODULES=[
   {id:1,code:"M1",label:"Number",color:"#E8B84B",icon:"⬡",topics:[
     {id:"1.1",title:"Place Value, Ordering & Rounding",
-      boards:{AQA:"Direct: 'Round 0.007462 to 2 s.f.' Expects answer clearly shown. Upper/lower bounds use < not ≤.",Edexcel:"Context-based: 'Give your answer to an appropriate degree of accuracy'. Bounds: compute max/min of A÷B.",OCR:"Justify rounding: 'Explain why 3 s.f. is appropriate'. Error intervals as a ≤ x < b."},
+      boards:{AQA:"Direct: 'Round 0.007462 to 2 s.f.' Expects answer clearly shown. Upper/lower bounds use < not ≤.",Edexcel:"Context-based: 'Give your answer to an appropriate degree of accuracy'. Bounds: compute max/min of A÷B.",OCR:"Justify rounding: 'Explain why 3 s.f. is appropriate'. Error intervals as a ≤ x < b.",'Edexcel IGCSE':"Same as Edexcel. Error intervals use ≤ x < notation. Paper 1H (non-calc): bounds and significant figures without a calculator. 'Appropriate degree of accuracy' = match the precision of given data."},
       analogy:{icon:"🪨",title:"The Cliff Edge Rule",lines:["A ball rolls toward a cliff edge — the next digit decides its fate.","5 or more → ball goes OVER → round UP.","0–4 → ball rolls BACK → round DOWN.","Significant figures: count from the FIRST NON-ZERO digit.","0.00741 to 1 s.f. → first non-zero is 7 → answer: 0.007"]},
       markScheme:["B marks: correct answer regardless of method","M marks: method correct, even if arithmetic wrong","A marks: accuracy, only awarded after M mark earned","Upper bound: always < (strict), never ≤","Show all working — examiners award marks for correct steps"],
       questions:[
@@ -718,6 +719,28 @@ const MODULES=[
         {q:"A is (1,5) and B is (7,–1). a) Find the midpoint M of AB. b) Find the equation of the perpendicular bisector of AB.",marks:5,diff:"Killer",ms:["A1: M=(4,2)","M1: gradient AB=(–1–5)/(7–1)=–1","M1: perp bisector gradient=1","M1: y–2=1(x–4)","A1: y=x–2"],insight:"Perpendicular bisector: passes through midpoint, perpendicular to AB. Midpoint=((1+7)/2,(5+–1)/2)=(4,2). Gradient AB=–6/6=–1. Perp gradient=1. y–2=x–4 → y=x–2."}
       ],
       mistakes:["Gradient: (y₁–y₂)÷(x₂–x₁) — wrong order gives negative of correct answer","Perpendicular: only negating (need to also flip the fraction)","Parallel: using same y-intercept instead of same gradient","Equation from graph: y-intercept read incorrectly when scale isn't 1:1"]
+    },
+    {id:"2.9",title:"Functions (IGCSE Higher)",
+      boards:{'Edexcel IGCSE':"Paper 2H only. f(x) notation, domain/range, composite fg(x), inverse f⁻¹(x). 'Find fg(3)' and 'Find f⁻¹(x)' are standard question types. NOT on standard GCSE — IGCSE Higher only."},
+      analogy:{icon:"🔧",title:"Functions — Input → Machine → Output",lines:["f(x) = the machine. x = the input. f(x) = the output.","COMPOSITE fg(x): apply g FIRST, then f","  fg(3): step 1 find g(3), step 2 find f(that answer)","  fg(x): replace x in f with the expression for g(x)","INVERSE f⁻¹(x): reverse the machine","  Write y=f(x), swap x and y, rearrange for y","  That rearranged y IS f⁻¹(x)","CHECK: ff⁻¹(x)=x always — use to verify your answer"]},
+      markScheme:["Composite: M1 correct order (g first, then f), A1 correct value or expression","Inverse: M1 swap x and y, M1 rearrange correctly, A1 simplified expression","'Find fg(x)': substitute g(x) into f — show the substitution step","Domain/range: B1 each — domain is inputs, range is outputs","ff⁻¹(x)=x: verify by substituting — earns a check mark"],
+      questions:[
+        {q:"f(x) = 3x + 1  and  g(x) = x² – 4.  Find:  a) fg(2)   b) gf(x)",marks:5,diff:"Starter",ms:["M1: g(2)=4–4=0","A1: fg(2)=f(0)=1","M1: f(x)=3x+1 substituted into g","M1: gf(x)=(3x+1)²–4","A1: 9x²+6x–3"],insight:"Composite fg means g first, then f. fg(2): find g(2)=0, then f(0)=1. For gf(x): put the whole of f(x) into g(x), expand the bracket carefully — (3x+1)²=9x²+6x+1, then –4 gives 9x²+6x–3."},
+        {q:"f(x) = (2x + 5)/3.  Find f⁻¹(x).",marks:3,diff:"Mid",ms:["M1: y=(2x+5)/3","M1: swap: x=(2y+5)/3 → 3x=2y+5 → 2y=3x–5","A1: f⁻¹(x)=(3x–5)/2"],insight:"Inverse: write y=f(x), swap x and y everywhere, rearrange for y. Check: f(f⁻¹(4))=f((12–5)/2)=f(3.5)=(7+5)/3=4 ✓. The check always works if your inverse is correct."},
+        {q:"f(x) = 2x – 3  and  g(x) = x² + 1.  a) Solve fg(x) = 25.   b) Find gf⁻¹(x).",marks:6,diff:"Killer",ms:["M1: fg(x)=f(x²+1)=2(x²+1)–3=2x²–1","M1: 2x²–1=25 → x²=13","A1: x=±√13","M1: f⁻¹(x)=(x+3)/2","M1: gf⁻¹(x)=((x+3)/2)²+1","A1: (x²+6x+9)/4+1=(x²+6x+13)/4"],insight:"fg(x): substitute g into f first. Set =25 and solve the quadratic. For gf⁻¹(x): find f⁻¹ first, then substitute into g. Don't forget ±√13 for part a — quadratic solutions come in pairs."}
+      ],
+      mistakes:["fg(x): applying f first instead of g first — must apply g first","Inverse: rearranging f(x) without swapping x and y first","Composite value: finding f(2) then g(2) and adding, rather than feeding f into g","Forgetting ±√ when solving x²=k in equations"]
+    },
+    {id:"2.10",title:"Calculus: Differentiation (IGCSE Higher)",
+      boards:{'Edexcel IGCSE':"Paper 2H only. Differentiation of polynomials: dy/dx = nxⁿ⁻¹. Gradient of curve at a point. Stationary points (dy/dx=0). Increasing/decreasing functions. Integration as reverse differentiation. NOT on standard GCSE — IGCSE Higher only."},
+      analogy:{icon:"📉",title:"Differentiation — Finding the Gradient at Any Point",lines:["RULE: if y = axⁿ, then dy/dx = naxⁿ⁻¹","  Multiply by power, then reduce power by 1","  y = 3x²  →  dy/dx = 6x","  y = 5x³ – 2x + 7  →  dy/dx = 15x² – 2","GRADIENT AT A POINT: substitute x into dy/dx","  y=3x², gradient at x=4: dy/dx=6(4)=24","STATIONARY POINTS: dy/dx = 0, then solve for x","  Then substitute x into y= to get the coordinates","INCREASING: dy/dx > 0. DECREASING: dy/dx < 0","CONSTANT: dy/dx = 0 (not the same as a stationary point of curve)"]},
+      markScheme:["M1 correct differentiation of at least one term using power rule","A1 fully correct dy/dx expression","Gradient at point: M1 substitute x into dy/dx, A1 correct value","Stationary point: M1 dy/dx=0, M1 solve for x, A1 coordinates (x and y both needed)","Increasing/decreasing: M1 correct inequality, A1 correct range — must use dy/dx"],
+      questions:[
+        {q:"Given  y = 3x³ – 5x² + 2.  Find dy/dx.",marks:2,diff:"Starter",ms:["M1: Differentiate term by term","A1: dy/dx = 9x² – 10x"],insight:"Differentiate each term: 3x³ → 3×3x² = 9x². Then 5x² → 5×2x = 10x. Constant 2 → 0 (constants always disappear). dy/dx = 9x² – 10x. Check each term individually."},
+        {q:"A curve has equation  y = x³ – 6x² + 9x + 1.\na) Find dy/dx.\nb) Find the coordinates of both stationary points.",marks:6,diff:"Mid",ms:["M1: dy/dx=3x²–12x+9","A1: correct dy/dx","M1: 3x²–12x+9=0 → x²–4x+3=0","M1: (x–1)(x–3)=0 → x=1 and x=3","A1: (1, 5)","A1: (3, 1)"],insight:"Stationary points: set dy/dx=0 and solve. Always find both x AND y coordinates — just giving x values loses the A marks. Substitute back into the original equation y= for the y coordinates."},
+        {q:"A curve has equation  y = 2x³ – 3x² – 12x + 4.\na) Show that the curve is decreasing when  –1 < x < 2.\nb) Find the x-coordinates where the curve has zero gradient.",marks:5,diff:"Killer",ms:["M1: dy/dx=6x²–6x–12","M1: 6x²–6x–12<0 → x²–x–2<0","M1: (x–2)(x+1)<0 → –1<x<2 confirmed","M1: 6x²–6x–12=0 → x=2 and x=–1","A1: x=–1 and x=2"],insight:"Decreasing: dy/dx<0. Factorise and find roots, then sketch quadratic to identify where it's negative (between roots for positive leading coefficient). Zero gradient: same roots where dy/dx=0. 'Show that' means show every step including the inequality reasoning."}
+      ],
+      mistakes:["Not reducing the power: y=3x² → dy/dx=3x² (forgetting to reduce from 2 to 1)","Constants: dy/dx of 7 is 0, not 7 and not 7x","Stationary points: only giving x values without finding y coordinates","Increasing/decreasing: using y= instead of dy/dx — must use the derivative","Sign of leading coefficient: dy/dx<0 between roots only when coefficient of x² is positive"]
     }
   ]},
   {id:3,code:"M3",label:"Ratio & Rates",color:"#E07B54",icon:"∶",topics:[
@@ -1335,7 +1358,7 @@ function WeeklyGoalBar(){
 function Onboarding({onComplete}){
   const [step,setStep]=useState(1);
   const [profile,setProfile]=useState({name:'',board:'AQA',grade:'7',examDate:'',weaknesses:[]});
-  const boards=['AQA','Edexcel','OCR'];
+  const boards=['AQA','Edexcel','OCR','Edexcel IGCSE'];
   const grades=['9','8','7','6','5','4'];
   const allTopics=MODULES.flatMap(m=>m.topics.map(t=>({id:t.id,title:t.title,module:m.label,color:m.color})));
   const update=(k,v)=>setProfile(p=>({...p,[k]:v}));
@@ -2282,7 +2305,7 @@ function TopicPage({topic,moduleColor,moduleLabel,onAnswered,onXP}){
     setRealWorldLoading(false);
   };
   const tabs=[{id:"questions",l:"Questions"},{id:"learn",l:"🎓 Learn"},{id:"boards",l:"Board Diff"},{id:"concept",l:"Core Concept"},{id:"markscheme",l:"Mark Scheme"},{id:"mistakes",l:"Mistakes"}];
-  const boardColors={AQA:{bd:'#1B2A4A',c:'#7B9FC4'},Edexcel:{bd:'#C0392B',c:'#E07B6A'},OCR:{bd:'#0D6E72',c:'#00C9B1'}};
+  const boardColors={AQA:{bd:'#1B2A4A',c:'#7B9FC4'},Edexcel:{bd:'#C0392B',c:'#E07B6A'},OCR:{bd:'#0D6E72',c:'#00C9B1'},'Edexcel IGCSE':{bd:'#7B2D8B',c:'#C39BD3'}};
   const hasKey=!!import.meta.env.VITE_ANTHROPIC_API_KEY;
 
   const handleGenerate=async()=>{
@@ -2343,13 +2366,27 @@ function TopicPage({topic,moduleColor,moduleLabel,onAnswered,onXP}){
         </div>
       )}
 
-      {tab==="boards"&&Object.entries(topic.boards).map(([b,txt])=>{
-        const bc=boardColors[b]||{bd:DS.border,c:DS.text.secondary};
-        return<div key={b} style={{background:DS.bg.elevated,borderLeft:`3px solid ${bc.bd}`,borderRadius:DS.radius.md,padding:'14px 18px',marginBottom:10,border:`1px solid ${DS.border}`}}>
-          <span style={{background:bc.bd,color:'#fff',fontSize:10,fontWeight:800,padding:'2px 8px',borderRadius:4,letterSpacing:1,display:'inline-block',marginBottom:8}}>{b}</span>
-          <p style={{margin:0,fontSize:13,lineHeight:1.6,color:DS.text.secondary}}>{txt}</p>
-        </div>;
-      })}
+      {tab==="boards"&&(()=>{
+        const userBoard=lsGet('lumora_profile',{}).board||'';
+        const entries=Object.entries(topic.boards);
+        const hasIGCSE=topic.boards['Edexcel IGCSE'];
+        const showIGCSEFallback=userBoard==='Edexcel IGCSE'&&!hasIGCSE;
+        return<>
+          {showIGCSEFallback&&(
+            <div style={{background:'rgba(123,45,139,0.1)',border:'1px solid rgba(123,45,139,0.3)',borderRadius:DS.radius.md,padding:'12px 16px',marginBottom:12,display:'flex',gap:10,alignItems:'flex-start'}}>
+              <span style={{fontSize:16,flexShrink:0}}>ℹ️</span>
+              <div style={{fontSize:12,color:'#C39BD3',lineHeight:1.5}}><strong>Edexcel IGCSE (4MA1):</strong> No major differences for this topic — Edexcel guidance below applies directly. IGCSE-specific content (Functions, Calculus) is in the dedicated topics.</div>
+            </div>
+          )}
+          {entries.map(([b,txt])=>{
+            const bc=boardColors[b]||{bd:DS.border,c:DS.text.secondary};
+            return<div key={b} style={{background:DS.bg.elevated,borderLeft:`3px solid ${bc.bd}`,borderRadius:DS.radius.md,padding:'14px 18px',marginBottom:10,border:`1px solid ${DS.border}`}}>
+              <span style={{background:bc.bd,color:'#fff',fontSize:10,fontWeight:800,padding:'2px 8px',borderRadius:4,letterSpacing:1,display:'inline-block',marginBottom:8}}>{b}</span>
+              <p style={{margin:0,fontSize:13,lineHeight:1.6,color:DS.text.secondary}}>{txt}</p>
+            </div>;
+          })}
+        </>;
+      })()}
       {tab==="concept"&&<div style={{background:DS.bg.elevated,borderRadius:DS.radius.lg,padding:24,border:`1px solid ${DS.border}`}}>
         <div style={{fontSize:36,marginBottom:8}}>{topic.analogy.icon}</div>
         <div style={{fontSize:17,fontWeight:800,color:DS.accent.amber,marginBottom:14}}>{topic.analogy.title}</div>
@@ -2791,8 +2828,13 @@ export function Platform({onXP=()=>{},xpV=0,mode='sprint',onOpenDaily=()=>{}}){
       <div style={{display:"grid",gap:8}}>
         {mod.topics.map(t=>(
           <button key={t.id} onClick={()=>setTopicId(t.id)} style={{background:DS.bg.surface,border:`1px solid ${DS.border}`,borderRadius:DS.radius.md,padding:"16px 18px",textAlign:"left",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"space-between",transition:DS.tr}} onMouseEnter={e=>e.currentTarget.style.borderColor=mod.color} onMouseLeave={e=>e.currentTarget.style.borderColor=DS.border}>
-            <div>
-              <div style={{fontSize:14,fontWeight:700,color:DS.text.primary,marginBottom:4}}>{t.title}</div>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:4,flexWrap:'wrap'}}>
+                <div style={{fontSize:14,fontWeight:700,color:DS.text.primary}}>{t.title}</div>
+                {t.boards&&Object.keys(t.boards).length===1&&t.boards['Edexcel IGCSE']&&(
+                  <span style={{fontSize:9,fontWeight:800,background:'rgba(123,45,139,0.15)',color:'#C39BD3',border:'1px solid rgba(123,45,139,0.3)',borderRadius:4,padding:'1px 6px',letterSpacing:0.5,whiteSpace:'nowrap'}}>IGCSE ONLY</span>
+                )}
+              </div>
               <div style={{display:"flex",gap:5,alignItems:"center"}}>
                 {t.questions.map((q,i)=><span key={i} style={{width:8,height:8,borderRadius:"50%",background:(DIFF[q.diff]||DIFF.Mid).c,display:"inline-block"}}/>)}
                 <span style={{fontSize:10,color:DS.text.muted,marginLeft:4}}>{t.questions.length} questions</span>

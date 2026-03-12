@@ -65,7 +65,6 @@ function touchStreak(){
 
 // ═══ DAILY CHALLENGE & WEEKLY GOAL ════════════════════════════════════════════
 function todayStr(){return new Date().toISOString().slice(0,10);}
-function isDailyDone(){const d=lsGet('lumora_daily',{date:null,completed:false});return d.date===todayStr()&&d.completed;}
 function setDailyDone(xp){lsSet('lumora_daily',{date:todayStr(),completed:true,xp});}
 function getWeeklyData(){
   const today=new Date();const dow=(today.getDay()+6)%7;
@@ -1367,7 +1366,8 @@ function Onboarding({onComplete}){
     if(cur.includes(id)){update('weaknesses',cur.filter(x=>x!==id));}
     else if(cur.length<3){update('weaknesses',[...cur,id]);}
   };
-  const weeks=profile.examDate?Math.max(0,Math.round((new Date(profile.examDate)-Date.now())/(1000*60*60*24*7))):null;
+  const [now]=useState(Date.now);
+  const weeks=profile.examDate?Math.max(0,Math.round((new Date(profile.examDate)-now)/(1000*60*60*24*7))):null;
   const canNext=(
     (step===1&&profile.name.trim().length>=2)||
     step===2||step===3||
@@ -1461,7 +1461,8 @@ function Onboarding({onComplete}){
 // ═══ LANDING PAGE ════════════════════════════════════════════════════════════
 function LandingPage({onStart}){
   const profile=lsGet('lumora_profile',null);
-  const weeks=profile?.examDate?Math.max(0,Math.round((new Date(profile.examDate)-Date.now())/(1000*60*60*24*7))):null;
+  const [now]=useState(Date.now);
+  const weeks=profile?.examDate?Math.max(0,Math.round((new Date(profile.examDate)-now)/(1000*60*60*24*7))):null;
   const xp=getXP();
   const lvl=getLevel(xp);
   const streak=getStreakData();
@@ -2228,7 +2229,13 @@ function QCard({q,idx,topicId,onAnswered,onXP,isAI=false}){
 }
 
 // ═══ TOPIC PAGE ═══════════════════════════════════════════════════════════════
-function TopicPage({topic,moduleColor,moduleLabel,onAnswered,onXP}){
+const Divider=({label,color})=>(
+  <div style={{display:'flex',alignItems:'center',gap:8,margin:'4px 0 12px'}}>
+    <div style={{fontSize:9,fontWeight:800,color:color||DS.text.muted,textTransform:'uppercase',letterSpacing:1.5,whiteSpace:'nowrap'}}>{label}</div>
+    <div style={{flex:1,height:1,background:DS.border}}/>
+  </div>
+);
+function TopicPage({topic,moduleLabel,onAnswered,onXP}){
   const [tab,setTab]=useState("questions");
   const [aiQs,setAiQs]=useState([]);
   const [aiLoading,setAiLoading]=useState(false);
@@ -2324,12 +2331,7 @@ function TopicPage({topic,moduleColor,moduleLabel,onAnswered,onXP}){
     setAiLoading(false);
   };
 
-  const Divider=({label,color})=>(
-    <div style={{display:'flex',alignItems:'center',gap:8,margin:'4px 0 12px'}}>
-      <div style={{fontSize:9,fontWeight:800,color:color||DS.text.muted,textTransform:'uppercase',letterSpacing:1.5,whiteSpace:'nowrap'}}>{label}</div>
-      <div style={{flex:1,height:1,background:DS.border}}/>
-    </div>
-  );
+
 
   return(
     <div>
@@ -2702,7 +2704,7 @@ function TopicPage({topic,moduleColor,moduleLabel,onAnswered,onXP}){
 }
 
 // ═══ FOCUS TODAY (DUE FOR REVIEW) ════════════════════════════════════════════
-function DueForReview({onNavigate,version}){
+function DueForReview({onNavigate}){
   const dueIds=getDueIds();
   const dueQs=dueIds.map(id=>QUESTION_MAP[id]).filter(Boolean);
   const urgent=dueQs.length>3;
@@ -2734,7 +2736,7 @@ function DueForReview({onNavigate,version}){
 }
 
 // ═══ WEAKNESS HEATMAP ════════════════════════════════════════════════════════
-function WeaknessHeatmap({onNavigate,version}){
+function WeaknessHeatmap({onNavigate}){
   const perf=lsGet('gcse_perf',{});
   const allTopics=MODULES.flatMap(m=>m.topics.map(t=>({...t,moduleLabel:m.label,moduleColor:m.color})));
   return(
@@ -2772,7 +2774,6 @@ export function Platform({onXP=()=>{},xpV=0,mode='sprint',onOpenDaily=()=>{}}){
   const [topicId,setTopicId]=useState(null);
   const [search,setSearch]=useState("");
   const [version,setVersion]=useState(0);
-  const bump=useCallback(()=>setVersion(v=>v+1),[]);
   const xp=getXP();
 
   const mod=MODULES.find(m=>m.id===modId);
@@ -2780,7 +2781,7 @@ export function Platform({onXP=()=>{},xpV=0,mode='sprint',onOpenDaily=()=>{}}){
   const totalQ=MODULES.reduce((s,m)=>s+m.topics.reduce((ss,t)=>ss+t.questions.length,0),0);
   const totalT=MODULES.reduce((s,m)=>s+m.topics.length,0);
 
-  const handleAnswered=useCallback(()=>{
+  const handleAnswered=()=>{
     setVersion(v=>v+1);
     if(topic){
       const flagKey=`lumora_tc_${topic.id}`;
@@ -2790,7 +2791,7 @@ export function Platform({onXP=()=>{},xpV=0,mode='sprint',onOpenDaily=()=>{}}){
         if(allAnswered){lsSet(flagKey,true);onXP(50);}
       }
     }
-  },[topic,onXP]);
+  };
   const searchRes=search.trim().length>1?MODULES.flatMap(m=>m.topics.filter(t=>t.title.toLowerCase().includes(search.toLowerCase())).map(t=>({...t,mod:m}))):[];
 
   const navigateToTopic=(tid)=>{
@@ -2897,7 +2898,7 @@ export function Platform({onXP=()=>{},xpV=0,mode='sprint',onOpenDaily=()=>{}}){
       )}
 
       {/* Focus Today */}
-      <DueForReview key={`due-${version}`} onNavigate={navigateToTopic} version={version}/>
+      <DueForReview key={`due-${version}`} onNavigate={navigateToTopic}/>
 
       {/* Weekly Goal */}
       <WeeklyGoalBar/>
@@ -2925,7 +2926,7 @@ export function Platform({onXP=()=>{},xpV=0,mode='sprint',onOpenDaily=()=>{}}){
       </div>
 
       {/* Analytics */}
-      <WeaknessHeatmap key={`heat-${version}`} onNavigate={navigateToTopic} version={version}/>
+      <WeaknessHeatmap key={`heat-${version}`} onNavigate={navigateToTopic}/>
 
       {/* Stats */}
       <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginBottom:14,minWidth:0}}>
@@ -3054,7 +3055,7 @@ export function MockExam({onXP=()=>{},mode='sprint'}){
 
   useEffect(()=>{
     if(!started||submitted)return;
-    if(timeLeft<=0){handleSubmit();return;}
+    if(timeLeft<=0){setTimeout(handleSubmit,0);return;}
     const t=setInterval(()=>setTimeLeft(s=>s-1),1000);
     return()=>clearInterval(t);
   },[started,submitted,timeLeft,handleSubmit]);

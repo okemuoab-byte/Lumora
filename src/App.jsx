@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { Flame, Zap, Trophy, Target, Calendar, Check, X, Lightbulb, Sparkles, Info, MessageCircle, Volume2, VolumeX, Settings, AlertTriangle, GraduationCap, Rocket, BookOpen, FileText, Bot, BarChart2, TrendingUp, PenLine, Award, Snowflake, ClipboardList, Loader2, Share2, CheckCircle2, XCircle, BarChart, FlaskConical, Sigma } from "lucide-react";
 
 // ═══ STORAGE & AUTH ══════════════════════════════════════════════════════════
 let _currentUser=null;// set on login/init — email string
@@ -38,6 +39,8 @@ const LEVELS=[
   {name:'Platinum',min:3500,max:Infinity,icon:'💎',color:'#7B68EE'},
 ];
 function getLevel(xp){return LEVELS.find(l=>xp>=l.min&&xp<=l.max)||LEVELS[0];}
+const LEVEL_ICON_MAP={Bronze:Award,Silver:Award,Gold:Trophy,Platinum:FlaskConical};
+function LevelIcon({name,size=14,color}){const Icon=LEVEL_ICON_MAP[name]||Award;return<Icon size={size} color={color} strokeWidth={2}/>;}
 function getXP(){return lsGet('lumora_xp',{total:0}).total;}
 function addXP(amount){
   const d=lsGet('lumora_xp',{total:0});
@@ -1023,13 +1026,13 @@ const TOPICS=[
   {module:"Statistics",id:"histograms",label:"Histograms & Cumulative Frequency"},{module:"Statistics",id:"scatter",label:"Scatter Graphs & Sampling"},
 ];
 const MCOLORS={Number:"#E8B84B",Algebra:"#4FC3A1","Ratio & Rates":"#E07B54",Geometry:"#9B59B6",Probability:"#E74C3C",Statistics:"#3498DB"};
-const BCOLORS={AQA:"#1B2A4A",Edexcel:"#C0392B",OCR:"#0D6E72"};
+const BCOLORS={AQA:"#1B2A4A",Edexcel:"#C0392B",OCR:"#0D6E72",'Edexcel IGCSE':"#7B2D8B"};
 
 // ═══ ANIMATION STYLES ════════════════════════════════════════════════════════
 function AnimStyles(){
   return(
     <style>{`
-      @keyframes celebPop{0%{transform:scale(0.5);opacity:0}60%{transform:scale(1.15)}100%{transform:scale(1);opacity:1}}
+      @keyframes celebPop{from{opacity:0;transform:scale(0.92)}to{opacity:1;transform:scale(1)}}
       @keyframes celebFade{0%{opacity:1}70%{opacity:1}100%{opacity:0}}
       @keyframes fadeInUp{0%{transform:translateY(20px);opacity:0}100%{transform:translateY(0);opacity:1}}
       @keyframes ringFill{0%{stroke-dashoffset:var(--circ)}100%{stroke-dashoffset:var(--offset)}}
@@ -1038,7 +1041,7 @@ function AnimStyles(){
       @keyframes dotPulse{0%,80%,100%{opacity:0.2}40%{opacity:1}}
       @keyframes spin{to{transform:rotate(360deg)}}
       @keyframes slideUp{0%{transform:translateY(30px);opacity:0}100%{transform:translateY(0);opacity:1}}
-      @keyframes popIn{0%{transform:scale(0.8);opacity:0}60%{transform:scale(1.05)}100%{transform:scale(1);opacity:1}}
+      @keyframes popIn{from{opacity:0;transform:scale(0.95)}to{opacity:1;transform:scale(1)}}
       *{-webkit-tap-highlight-color:transparent;box-sizing:border-box;}
       body{overflow-x:hidden;}
       @media(max-width:639px){
@@ -1090,7 +1093,7 @@ function PredictedGrade({perf}){
 function StudyModeToggle({mode,setMode}){
   return(
     <div style={{display:'flex',gap:2,background:DS.bg.elevated,borderRadius:DS.radius.sm,padding:2,border:`1px solid ${DS.border}`}}>
-      {[{id:'sprint',label:'⚡ Sprint'},{id:'deep',label:'🎯 Focus'}].map(m=>(
+      {[{id:'sprint',label:<><Zap size={12} strokeWidth={2}/> Sprint</>},{id:'deep',label:<><Target size={12} strokeWidth={2}/> Focus</>}].map(m=>(
         <button key={m.id} onClick={()=>setMode(m.id)} style={{padding:'4px 10px',borderRadius:6,border:'none',fontSize:11,fontWeight:700,cursor:'pointer',background:mode===m.id?DS.accent.amber:'transparent',color:mode===m.id?DS.bg.base:DS.text.secondary,transition:DS.tr}}>{m.label}</button>
       ))}
     </div>
@@ -1121,10 +1124,10 @@ function GamificationBar({xp}){
   return(
     <div style={{background:DS.bg.surface,borderRadius:DS.radius.md,padding:'10px 14px',border:`1px solid ${DS.border}`,display:'flex',alignItems:'center',gap:10}}>
       <div style={{display:'flex',alignItems:'center',gap:8,minWidth:0,flex:1}}>
-        <span style={{fontSize:20,flexShrink:0}}>{lvl.icon}</span>
+        <span style={{fontSize:20,flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center'}}><LevelIcon name={lvl.name} size={20} color={lvl.color}/></span>
         <div style={{minWidth:0}}>
           <div style={{fontSize:12,fontWeight:800,color:DS.text.primary,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{lvl.name} · {xp} XP</div>
-          <div style={{fontSize:9,color:DS.text.muted}}>{next?`${next.min-xp} XP to ${next.name}`:'Max level 🏆'}</div>
+          <div style={{fontSize:9,color:DS.text.muted}}>{next?`${next.min-xp} XP to ${next.name}`:<><Trophy size={10} strokeWidth={2} style={{display:'inline',verticalAlign:'middle'}}/> Max level</>}</div>
         </div>
       </div>
       <div style={{flex:2,minWidth:60}}>
@@ -1134,7 +1137,7 @@ function GamificationBar({xp}){
         <div style={{fontSize:9,color:DS.text.muted,marginTop:2,textAlign:'right'}}>{pct}%</div>
       </div>
       <div style={{display:'flex',alignItems:'center',gap:4,flexShrink:0}}>
-        <span style={{fontSize:16}}>🔥</span>
+        <span style={{display:'flex',alignItems:'center'}}><Flame size={16} strokeWidth={2} color={DS.accent.red}/></span>
         <div>
           <div style={{fontSize:13,fontWeight:800,color:DS.text.primary,lineHeight:1}}>{streak.current}</div>
           <div style={{fontSize:9,color:DS.text.muted}}>streak</div>
@@ -1198,7 +1201,7 @@ function PersonalisedHero({onNavigate}){
             <div style={{fontSize:19,fontWeight:900,color:DS.text.primary,lineHeight:1.1}}>
               {profile?.name?`Hi, ${profile.name} 👋`:'Welcome back 👋'}
             </div>
-            <div style={{fontSize:11,color:DS.text.muted,marginTop:3}}>{lvl.icon} {lvl.name} · {xp} XP</div>
+            <div style={{fontSize:11,color:DS.text.muted,marginTop:3,display:'flex',alignItems:'center',gap:4}}><LevelIcon name={lvl.name} size={12} color={lvl.color}/> {lvl.name} · {xp} XP</div>
           </div>
           {days!==null?(
             <div style={{background:DS.bg.elevated,borderRadius:DS.radius.md,padding:'8px 14px',border:`1px solid ${DS.border}`,textAlign:'center',flexShrink:0}}>
@@ -1208,7 +1211,7 @@ function PersonalisedHero({onNavigate}){
             </div>
           ):(
             <div style={{background:DS.accent.amberDim,borderRadius:DS.radius.md,padding:'8px 12px',border:`1px solid ${DS.accent.amber}33`,fontSize:11,color:DS.accent.amber,fontWeight:700,flexShrink:0}}>
-              📅 Set exam date
+              <Calendar size={13} strokeWidth={2} style={{display:'inline',verticalAlign:'middle',marginRight:4}}/> Set exam date
             </div>
           )}
         </div>
@@ -1227,7 +1230,7 @@ function PersonalisedHero({onNavigate}){
                     +{gapToNext}% in <span style={{color:DS.accent.amber,fontWeight:700}}>{weakestForGrade.title.split(' ').slice(0,2).join(' ')}</span> → Grade {currentGrade+1}
                   </div>
                 )}
-                {currentGrade===9&&<div style={{fontSize:9,color:DS.accent.teal,marginTop:5,fontWeight:700}}>🏆 Maximum grade!</div>}
+                {currentGrade===9&&<div style={{fontSize:9,color:DS.accent.teal,marginTop:5,fontWeight:700,display:'flex',alignItems:'center',gap:3}}><Trophy size={10} strokeWidth={2}/> Maximum grade!</div>}
               </>
             ):(
               <>
@@ -1243,9 +1246,9 @@ function PersonalisedHero({onNavigate}){
           <div style={{background:DS.bg.elevated,borderRadius:DS.radius.md,padding:'12px 14px',border:`1px solid ${DS.border}`,display:'flex',flexDirection:'column'}}>
             <div style={{fontSize:9,fontWeight:700,color:DS.text.muted,textTransform:'uppercase',letterSpacing:1,marginBottom:10}}>This Week</div>
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:4,flex:1}}>
-              {[{icon:'📝',val:weeklyStats.qCount,label:'Qs'},{icon:'🔥',val:streak.current,label:'Streak'},{icon:'⚡',val:xpThisWeek,label:'XP'}].map(s=>(
+              {[{icon:<FileText size={14} strokeWidth={2}/>,val:weeklyStats.qCount,label:'Qs'},{icon:<Flame size={14} strokeWidth={2}/>,val:streak.current,label:'Streak'},{icon:<Zap size={14} strokeWidth={2}/>,val:xpThisWeek,label:'XP'}].map(s=>(
                 <div key={s.label} style={{textAlign:'center'}}>
-                  <div style={{fontSize:12,marginBottom:2}}>{s.icon}</div>
+                  <div style={{fontSize:12,marginBottom:2,display:'flex',justifyContent:'center'}}>{s.icon}</div>
                   <div style={{fontSize:20,fontWeight:900,color:DS.accent.amber,lineHeight:1}}>{s.val}</div>
                   <div style={{fontSize:9,color:DS.text.muted,fontWeight:600,marginTop:1}}>{s.label}</div>
                 </div>
@@ -1319,7 +1322,7 @@ function PersonalisedHero({onNavigate}){
           }finally{setShareLoading(false);}
         }}
           style={{width:'100%',padding:'10px 0',borderRadius:DS.radius.sm,border:`1px solid ${DS.border}`,background:'transparent',color:DS.text.secondary,fontWeight:700,fontSize:12,cursor:shareLoading?'wait':'pointer',transition:DS.tr,display:'flex',alignItems:'center',justifyContent:'center',gap:6,opacity:shareLoading?0.6:1}}>
-          {shareLoading?'⏳ Generating report…':'📊 Share Progress Report'}
+          {shareLoading?<><Loader2 size={14} strokeWidth={2} style={{animation:'spin 0.8s linear infinite'}}/> Generating report…</>:<><BarChart2 size={14} strokeWidth={2} style={{display:'inline',verticalAlign:'middle',marginRight:4}}/> Share Progress Report</>}
         </button>
 
       </div>
@@ -1337,7 +1340,7 @@ function WeeklyGoalBar(){
   return(
     <div style={{background:DS.bg.surface,borderRadius:DS.radius.md,padding:'12px 14px',border:`1px solid ${DS.border}`,marginBottom:14}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
-        <div style={{fontSize:11,fontWeight:800,color:DS.accent.amber}}>⚡ Weekly Goal</div>
+        <div style={{fontSize:11,fontWeight:800,color:DS.accent.amber,display:'flex',alignItems:'center',gap:4}}><Zap size={14} strokeWidth={2}/> Weekly Goal</div>
         <div style={{fontSize:12,fontWeight:900,color:d.count>=goal?DS.accent.teal:DS.text.primary}}>
           {d.count}<span style={{color:DS.text.muted,fontWeight:400}}>/{goal} days</span>
         </div>
@@ -1347,8 +1350,8 @@ function WeeklyGoalBar(){
           <div key={i} style={{flex:1,height:5,borderRadius:3,background:i<d.count?DS.accent.amber:DS.bg.elevated,transition:'background 0.3s ease'}}/>
         ))}
       </div>
-      {nudge&&<div style={{fontSize:11,color:DS.accent.amber,fontWeight:700}}>One more to hit your weekly goal! 🎯</div>}
-      {d.count>=goal&&<div style={{fontSize:11,color:DS.accent.teal,fontWeight:700}}>✓ Weekly goal smashed! 🏆</div>}
+      {nudge&&<div style={{fontSize:11,color:DS.accent.amber,fontWeight:700,display:'flex',alignItems:'center',gap:4}}>One more to hit your weekly goal! <Target size={14} strokeWidth={2}/></div>}
+      {d.count>=goal&&<div style={{fontSize:11,color:DS.accent.teal,fontWeight:700,display:'flex',alignItems:'center',gap:4}}><Check size={14} strokeWidth={2.5}/> Weekly goal smashed! <Trophy size={14} strokeWidth={2}/></div>}
     </div>
   );
 }
@@ -1394,13 +1397,13 @@ function Onboarding({onComplete}){
           )}
           {step===2&&(
             <div style={{animation:'fadeInUp 0.3s ease'}}>
-              <div style={{fontSize:36,marginBottom:8}}>📋</div>
+              <div style={{fontSize:36,marginBottom:8,display:'flex',justifyContent:'center'}}><ClipboardList size={36} strokeWidth={1.5} color={DS.accent.amber}/></div>
               <div style={{fontSize:22,fontWeight:900,color:DS.text.primary,marginBottom:6}}>Which exam board?</div>
               <div style={{fontSize:13,color:DS.text.secondary,marginBottom:20}}>We'll highlight board-specific tips for you</div>
               <div style={{display:'grid',gap:10}}>
                 {boards.map(b=>(
                   <button key={b} onClick={()=>update('board',b)} style={{padding:'16px 20px',borderRadius:DS.radius.md,border:`1.5px solid ${profile.board===b?DS.accent.amber:DS.border}`,background:profile.board===b?DS.accent.amberDim:DS.bg.elevated,color:profile.board===b?DS.accent.amber:DS.text.primary,fontWeight:700,fontSize:14,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',justifyContent:'space-between',transition:DS.tr}}>
-                    {b}{profile.board===b&&<span style={{color:DS.accent.amber}}>✓</span>}
+                    {b}{profile.board===b&&<span style={{color:DS.accent.amber,display:'flex',alignItems:'center'}}><Check size={14} strokeWidth={2.5}/></span>}
                   </button>
                 ))}
               </div>
@@ -1408,7 +1411,7 @@ function Onboarding({onComplete}){
           )}
           {step===3&&(
             <div style={{animation:'fadeInUp 0.3s ease'}}>
-              <div style={{fontSize:36,marginBottom:8}}>🎯</div>
+              <div style={{fontSize:36,marginBottom:8,display:'flex',justifyContent:'center'}}><Target size={36} strokeWidth={1.5} color={DS.accent.amber}/></div>
               <div style={{fontSize:22,fontWeight:900,color:DS.text.primary,marginBottom:6}}>Target grade?</div>
               <div style={{fontSize:13,color:DS.text.secondary,marginBottom:20}}>Lumora will tune difficulty to your goal</div>
               <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(72px,1fr))',gap:10}}>
@@ -1422,7 +1425,7 @@ function Onboarding({onComplete}){
           )}
           {step===4&&(
             <div style={{animation:'fadeInUp 0.3s ease'}}>
-              <div style={{fontSize:36,marginBottom:8}}>📅</div>
+              <div style={{fontSize:36,marginBottom:8,display:'flex',justifyContent:'center'}}><Calendar size={36} strokeWidth={1.5} color={DS.accent.amber}/></div>
               <div style={{fontSize:22,fontWeight:900,color:DS.text.primary,marginBottom:6}}>When's your exam?</div>
               <div style={{fontSize:13,color:DS.text.secondary,marginBottom:20}}>We'll create a revision countdown for you</div>
               <input type="date" value={profile.examDate} onChange={e=>update('examDate',e.target.value)} style={{width:'100%',padding:'14px 16px',borderRadius:DS.radius.md,border:`1.5px solid ${DS.border}`,fontSize:16,fontFamily:'inherit',outline:'none',boxSizing:'border-box',color:DS.text.primary,background:DS.bg.elevated,colorScheme:'dark'}} onFocus={e=>e.target.style.borderColor=DS.accent.amber} onBlur={e=>e.target.style.borderColor=DS.border}/>
@@ -1431,7 +1434,7 @@ function Onboarding({onComplete}){
           )}
           {step===5&&(
             <div style={{animation:'fadeInUp 0.3s ease'}}>
-              <div style={{fontSize:36,marginBottom:8}}>📊</div>
+              <div style={{fontSize:36,marginBottom:8,display:'flex',justifyContent:'center'}}><BarChart2 size={36} strokeWidth={1.5} color={DS.accent.amber}/></div>
               <div style={{fontSize:22,fontWeight:900,color:DS.text.primary,marginBottom:6}}>Your biggest weaknesses?</div>
               <div style={{fontSize:13,color:DS.text.secondary,marginBottom:16}}>Pick up to 3 topics — we'll prioritise these first</div>
               <div style={{maxHeight:280,overflowY:'auto',display:'grid',gap:6}}>
@@ -1440,7 +1443,7 @@ function Onboarding({onComplete}){
                   const dis=!sel&&profile.weaknesses.length>=3;
                   return(
                     <button key={t.id} onClick={()=>!dis&&toggleWeak(t.id)} style={{padding:'10px 14px',borderRadius:DS.radius.sm,border:`1.5px solid ${sel?DS.accent.amber:DS.border}`,background:sel?DS.accent.amberDim:DS.bg.elevated,color:sel?DS.accent.amber:DS.text.secondary,fontWeight:sel?700:400,fontSize:12,cursor:dis?'not-allowed':'pointer',textAlign:'left',opacity:dis?0.4:1,display:'flex',justifyContent:'space-between',alignItems:'center',transition:DS.tr}}>
-                      <span>{t.title}</span>{sel&&<span style={{color:DS.accent.amber}}>✓</span>}
+                      <span>{t.title}</span>{sel&&<span style={{color:DS.accent.amber,display:'flex',alignItems:'center'}}><Check size={12} strokeWidth={2.5}/></span>}
                     </button>
                   );
                 })}
@@ -1449,7 +1452,7 @@ function Onboarding({onComplete}){
             </div>
           )}
           <button onClick={handleNext} disabled={!canNext} style={{marginTop:24,width:'100%',padding:'15px 0',borderRadius:DS.radius.md,border:'none',background:canNext?DS.accent.amber:DS.bg.overlay,color:canNext?DS.bg.base:DS.text.muted,fontWeight:900,fontSize:15,cursor:canNext?'pointer':'not-allowed',transition:DS.tr}}>
-            {step<5?'Continue →':`Let's go, ${profile.name}! 🚀`}
+            {step<5?'Continue →':<>Let's go, {profile.name}! <Rocket size={15} strokeWidth={2} style={{display:'inline',verticalAlign:'middle'}}/></>}
           </button>
           {step>1&&<button onClick={()=>setStep(s=>s-1)} style={{marginTop:8,width:'100%',padding:'10px 0',borderRadius:DS.radius.md,border:'none',background:'transparent',color:DS.text.muted,fontSize:13,cursor:'pointer'}}>← Back</button>}
         </div>
@@ -1478,11 +1481,11 @@ function LandingPage({onStart}){
         {profile&&(
           <div style={{background:DS.accent.amberDim,border:`1.5px solid ${DS.accent.amber}44`,borderRadius:DS.radius.lg,padding:'14px 20px',marginBottom:28,display:'inline-block'}}>
             <div style={{fontSize:14,color:DS.accent.amber,fontWeight:700}}>
-              Welcome back, {profile.name}! {lvl.icon} {xp} XP · 🔥 {streak.current} day streak{weeks!==null?` · 📅 ${weeks}w to exam`:''}
+              Welcome back, {profile.name}! <LevelIcon name={lvl.name} size={14} color={lvl.color}/> {xp} XP · <Flame size={13} strokeWidth={2} style={{display:'inline',verticalAlign:'middle'}}/> {streak.current} day streak{weeks!==null?<> · <Calendar size={13} strokeWidth={2} style={{display:'inline',verticalAlign:'middle'}}/> {weeks}w to exam</>:''}
             </div>
           </div>
         )}
-        <div style={{fontSize:48,marginBottom:16}}>🎓</div>
+        <div style={{fontSize:48,marginBottom:16,display:'flex',justifyContent:'center'}}><GraduationCap size={48} strokeWidth={1.5} color={DS.accent.amber}/></div>
         <h1 style={{fontSize:40,fontWeight:900,color:DS.text.primary,lineHeight:1.1,margin:'0 0 16px'}}>Meet <span style={{color:DS.accent.amber}}>Lumora</span></h1>
         <p style={{fontSize:17,color:DS.text.secondary,lineHeight:1.6,margin:'0 0 32px'}}>The AI tutor that thinks like your best teacher</p>
         <button onClick={onStart} style={{padding:'16px 40px',borderRadius:50,border:'none',background:`linear-gradient(135deg,${DS.accent.amber},#E8B84B)`,color:DS.bg.base,fontWeight:900,fontSize:16,cursor:'pointer',boxShadow:`0 8px 32px ${DS.accent.amber}44`}}>
@@ -1506,9 +1509,9 @@ function LandingPage({onStart}){
         <div style={{textAlign:'center',fontSize:12,fontWeight:800,color:DS.accent.amber,letterSpacing:2,textTransform:'uppercase',marginBottom:8}}>How It Works</div>
         <div style={{textAlign:'center',fontSize:22,fontWeight:900,color:DS.text.primary,marginBottom:28}}>Four steps from confused to confident</div>
         <div style={{display:'grid',gap:14}}>
-          {[{n:1,icon:'📝',t:'Practice',d:'Work through exam-style questions at 3 difficulty levels across all GCSE Maths topics'},{n:2,icon:'🤖',t:'AI Marks Your Working',d:'Claude analyses your method step-by-step, just like a real examiner would'},{n:3,icon:'📊',t:'Progress Tracked',d:'Spaced repetition schedules your revision. Heatmaps show exactly where to focus next'},{n:4,icon:'🏆',t:'Level Up',d:'Earn XP, build streaks, and unlock levels as you improve. Revision that actually feels rewarding'}].map(s=>(
+          {[{n:1,icon:<FileText size={20} strokeWidth={2}/>,t:'Practice',d:'Work through exam-style questions at 3 difficulty levels across all GCSE Maths topics'},{n:2,icon:<Bot size={20} strokeWidth={2}/>,t:'AI Marks Your Working',d:'Claude analyses your method step-by-step, just like a real examiner would'},{n:3,icon:<BarChart2 size={20} strokeWidth={2}/>,t:'Progress Tracked',d:'Spaced repetition schedules your revision. Heatmaps show exactly where to focus next'},{n:4,icon:<Trophy size={20} strokeWidth={2}/>,t:'Level Up',d:'Earn XP, build streaks, and unlock levels as you improve. Revision that actually feels rewarding'}].map(s=>(
             <div key={s.n} style={{display:'flex',gap:16,alignItems:'flex-start',background:DS.bg.surface,borderRadius:DS.radius.lg,padding:'18px 20px',border:`1px solid ${DS.border}`}}>
-              <div style={{width:40,height:40,borderRadius:DS.radius.sm,background:DS.accent.amberDim,border:`1px solid ${DS.accent.amber}44`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:20,flexShrink:0}}>{s.icon}</div>
+              <div style={{width:40,height:40,borderRadius:DS.radius.sm,background:DS.accent.amberDim,border:`1px solid ${DS.accent.amber}44`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>{s.icon}</div>
               <div><div style={{fontSize:15,fontWeight:800,color:DS.text.primary,marginBottom:4}}>{s.t}</div><div style={{fontSize:13,color:DS.text.secondary,lineHeight:1.5}}>{s.d}</div></div>
             </div>
           ))}
@@ -1530,7 +1533,7 @@ function LandingPage({onStart}){
                 <div style={{fontSize:14,fontWeight:800,color:p.hi?DS.bg.base:DS.text.primary,marginBottom:4}}>{p.name}</div>
                 <div style={{fontSize:28,fontWeight:900,color:p.hi?DS.bg.base:p.soon?DS.accent.teal:DS.accent.amber,marginBottom:2}}>{p.price}<span style={{fontSize:11,fontWeight:500}}>{p.period}</span></div>
                 <div style={{margin:'14px 0',borderTop:`1px solid ${p.hi?'rgba(0,0,0,0.15)':DS.border}`,paddingTop:14}}>
-                  {p.features.map(f=><div key={f} style={{fontSize:10,color:p.hi?DS.bg.base:p.soon?DS.text.muted:DS.text.secondary,marginBottom:5,display:'flex',gap:5}}><span style={{fontWeight:800,color:p.soon?DS.accent.teal:undefined}}>✓</span>{f}</div>)}
+                  {p.features.map(f=><div key={f} style={{fontSize:10,color:p.hi?DS.bg.base:p.soon?DS.text.muted:DS.text.secondary,marginBottom:5,display:'flex',gap:5,alignItems:'center'}}><Check size={11} strokeWidth={2.5} style={{flexShrink:0,color:p.soon?DS.accent.teal:undefined}}/>{f}</div>)}
                 </div>
                 <button onClick={p.soon?(()=>{const done=localStorage.getItem('lumora_waitlist');localStorage.setItem('lumora_waitlist','1');alert(done?'You\'re already on the waitlist — we\'ll be in touch!':'You\'re on the list! We\'ll email you when Tutor Connect launches.');}):(onStart)} style={{width:'100%',padding:'9px 0',borderRadius:DS.radius.sm,border:p.soon?`1px solid ${DS.accent.teal}44`:'none',background:p.hi?DS.bg.base:p.soon?'transparent':DS.bg.overlay,color:p.hi?DS.accent.amber:p.soon?DS.accent.teal:DS.text.secondary,fontWeight:800,fontSize:11,cursor:'pointer'}}>{p.cta}</button>
               </div>
@@ -1618,10 +1621,10 @@ function DailyChallengeModal({onComplete,onSkip,onAwardXP}){
   if(phase==='loading')return(
     <div style={{position:'fixed',inset:0,zIndex:1000,background:DS.bg.deep,display:'flex',alignItems:'center',justifyContent:'center',fontFamily:"'Segoe UI',sans-serif"}}>
       <div style={{textAlign:'center'}}>
-        <div style={{fontSize:52,marginBottom:16}}>📅</div>
+        <div style={{fontSize:52,marginBottom:16,display:'flex',justifyContent:'center'}}><Calendar size={52} strokeWidth={1.5} color={DS.accent.amber}/></div>
         <div style={{fontSize:20,fontWeight:900,color:DS.text.primary,marginBottom:6}}>Daily Challenge</div>
         <div style={{fontSize:13,color:DS.text.muted,marginBottom:24}}>Preparing today's questions…</div>
-        <div style={{width:36,height:36,border:`3px solid ${DS.border}`,borderTopColor:DS.accent.amber,borderRadius:'50%',animation:'spin 0.8s linear infinite',margin:'0 auto'}}/>
+        <Loader2 size={36} strokeWidth={2} style={{animation:'spin 0.8s linear infinite',color:DS.accent.amber,margin:'0 auto',display:'block'}}/>
       </div>
     </div>
   );
@@ -1641,7 +1644,7 @@ function DailyChallengeModal({onComplete,onSkip,onAwardXP}){
               <div style={{fontSize:10,color:DS.text.muted,fontWeight:700,textTransform:'uppercase',letterSpacing:1}}>XP Earned</div>
             </div>
             <div style={{background:DS.accent.redDim,border:`1px solid rgba(255,76,76,0.2)`,borderRadius:DS.radius.md,padding:'12px 20px'}}>
-              <div style={{fontSize:26,fontWeight:900,color:DS.accent.red}}>🔥 {streakInfo?.streak||streak.current}</div>
+              <div style={{fontSize:26,fontWeight:900,color:DS.accent.red,display:'flex',alignItems:'center',gap:4}}><Flame size={20} strokeWidth={2}/> {streakInfo?.streak||streak.current}</div>
               <div style={{fontSize:10,color:DS.text.muted,fontWeight:700,textTransform:'uppercase',letterSpacing:1}}>Day Streak</div>
             </div>
           </div>
@@ -1658,7 +1661,7 @@ function DailyChallengeModal({onComplete,onSkip,onAwardXP}){
   if(showSkip)return(
     <div style={{position:'fixed',inset:0,zIndex:1000,background:'rgba(0,0,0,0.88)',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:"'Segoe UI',sans-serif",padding:20}}>
       <div style={{width:'100%',maxWidth:360,background:DS.bg.surface,borderRadius:DS.radius.xl,padding:28,textAlign:'center',border:`1px solid ${DS.border}`,boxShadow:DS.shadow}}>
-        <div style={{fontSize:40,marginBottom:12}}>⚠️</div>
+        <div style={{fontSize:40,marginBottom:12,display:'flex',justifyContent:'center'}}><AlertTriangle size={40} strokeWidth={1.5} color={DS.accent.amber}/></div>
         <div style={{fontSize:18,fontWeight:900,color:DS.text.primary,marginBottom:8}}>Skip today?</div>
         <div style={{fontSize:13,color:DS.accent.red,fontWeight:700,marginBottom:20,background:DS.accent.redDim,borderRadius:DS.radius.sm,padding:'8px 12px',border:`1px solid ${DS.accent.red}33`}}>
           {streak.current>0?`Skipping resets your ${streak.current}-day streak!`:'Skipping breaks your streak habit.'}
@@ -1679,7 +1682,7 @@ function DailyChallengeModal({onComplete,onSkip,onAwardXP}){
       <div style={{background:DS.bg.surface,padding:'12px 20px',display:'flex',alignItems:'center',justifyContent:'space-between',borderBottom:`1px solid ${DS.border}`,position:'sticky',top:0,zIndex:10}}>
         <div>
           <div style={{fontSize:11,fontWeight:800,color:DS.accent.amber,letterSpacing:1.5,textTransform:'uppercase'}}>Daily Challenge</div>
-          <div style={{fontSize:10,color:DS.text.muted,marginTop:1}}>🔥 {streak.current} day streak{profile?` · ${profile.name}`:''}</div>
+          <div style={{fontSize:10,color:DS.text.muted,marginTop:1,display:'flex',alignItems:'center',gap:3}}><Flame size={11} strokeWidth={2} color={DS.accent.red}/> {streak.current} day streak{profile?` · ${profile.name}`:''}</div>
         </div>
         <div style={{display:'flex',gap:6,alignItems:'center'}}>
           {questions.map((_,i)=>(
@@ -1717,7 +1720,7 @@ function DailyChallengeModal({onComplete,onSkip,onAwardXP}){
               <div style={{background:DS.bg.elevated,borderRadius:DS.radius.sm,padding:'12px 14px'}}>
                 <div style={{fontSize:9,fontWeight:800,color:DS.accent.teal,textTransform:'uppercase',letterSpacing:1,marginBottom:6}}>Mark Scheme</div>
                 {q.ms.map((m,i)=><div key={i} style={{fontSize:13,color:DS.text.primary,padding:'3px 0',display:'flex',gap:8}}><span style={{color:DS.accent.teal,fontWeight:700}}>›</span>{m}</div>)}
-                {q.insight&&<div style={{background:DS.bg.surface,borderLeft:`3px solid ${DS.accent.teal}`,borderRadius:`0 6px 6px 0`,padding:'8px 12px',marginTop:8}}><p style={{margin:0,fontSize:12,color:DS.text.secondary,lineHeight:1.5}}>💡 {q.insight}</p></div>}
+                {q.insight&&<div style={{background:DS.bg.surface,borderLeft:`3px solid ${DS.accent.teal}`,borderRadius:`0 6px 6px 0`,padding:'8px 12px',marginTop:8}}><p style={{margin:0,fontSize:12,color:DS.text.secondary,lineHeight:1.5,display:'flex',gap:5,alignItems:'flex-start'}}><Lightbulb size={13} strokeWidth={2} style={{flexShrink:0,marginTop:2}}/>{q.insight}</p></div>}
                 <div style={{marginTop:12}}>
                   <div style={{fontSize:11,fontWeight:700,color:DS.text.secondary,marginBottom:6}}>Self-mark:</div>
                   <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
@@ -1736,7 +1739,7 @@ function DailyChallengeModal({onComplete,onSkip,onAwardXP}){
             {hasKey&&working.trim()&&(
               <button onClick={handleAIMark} disabled={aiLoading||qAnswered}
                 style={{width:'100%',padding:'9px 0',borderRadius:DS.radius.sm,border:`1.5px solid ${DS.borderHi}`,background:aiLoading||qAnswered?DS.bg.overlay:DS.bg.surface,color:aiLoading||qAnswered?DS.text.muted:DS.accent.amber,fontWeight:800,fontSize:12,cursor:aiLoading||qAnswered?'not-allowed':'pointer',transition:DS.tr}}>
-                {aiLoading?'🤖 Marking…':'🤖 Get AI Feedback'}
+                {aiLoading?'Marking…':'Get AI Feedback'}
               </button>
             )}
             {aiResult&&!aiResult.error&&(
@@ -1946,7 +1949,7 @@ function SettingsPanel({onClose,onLogout}){
           ):(
             <button onClick={()=>setShowLogoutConfirm(true)} style={{width:'100%',background:'transparent',border:`1px solid rgba(255,76,76,0.3)`,borderRadius:DS.radius.md,padding:'10px',color:DS.accent.red,fontWeight:700,fontSize:13,cursor:'pointer'}}>Sign Out</button>
           )}
-          <button onClick={()=>{const code=encodeProgress();const url=`${window.location.origin}${window.location.pathname}?p=${code}`;navigator.clipboard.writeText(url).then(()=>alert('Progress link copied!\n\nShare it with parents, tutors, or anyone to show your GCSE Maths progress.')).catch(()=>prompt('Copy this link to share your progress:',url));}} style={{width:'100%',background:'transparent',border:`1px solid ${DS.accent.teal}44`,borderRadius:DS.radius.md,padding:'10px',color:DS.accent.teal,fontWeight:700,fontSize:13,cursor:'pointer',marginTop:8}}>📤 Share Progress Report</button>
+          <button onClick={()=>{const code=encodeProgress();const url=`${window.location.origin}${window.location.pathname}?p=${code}`;navigator.clipboard.writeText(url).then(()=>alert('Progress link copied!\n\nShare it with parents, tutors, or anyone to show your GCSE Maths progress.')).catch(()=>prompt('Copy this link to share your progress:',url));}} style={{width:'100%',background:'transparent',border:`1px solid ${DS.accent.teal}44`,borderRadius:DS.radius.md,padding:'10px',color:DS.accent.teal,fontWeight:700,fontSize:13,cursor:'pointer',marginTop:8,display:'flex',alignItems:'center',justifyContent:'center',gap:6}}><Share2 size={14} strokeWidth={2}/>Share Progress Report</button>
           <div style={{textAlign:'center',marginTop:14,fontSize:11,color:DS.text.muted}}>🔒 Data stored on this device only</div>
         </div>
       </div>
@@ -1989,9 +1992,9 @@ function ProgressReport({data}){
             </div>
           </div>
           <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(110px,1fr))',gap:10}}>
-            {[{icon:'⚡',label:'Total XP',val:`${xp} XP`},{icon:'🔥',label:'Streak',val:`${streak} days`},{icon:'🏆',label:'Best Streak',val:`${best} days`},{icon:'📚',label:'Topics Covered',val:`${topics}`},{icon:'✏️',label:'Questions Done',val:`${qs}`},{icon:'🎯',label:'Accuracy',val:`${avg}%`}].map(s=>(
+            {[{icon:<Zap size={18} strokeWidth={2}/>,label:'Total XP',val:`${xp} XP`},{icon:<Flame size={18} strokeWidth={2}/>,label:'Streak',val:`${streak} days`},{icon:<Trophy size={18} strokeWidth={2}/>,label:'Best Streak',val:`${best} days`},{icon:<BookOpen size={18} strokeWidth={2}/>,label:'Topics Covered',val:`${topics}`},{icon:<PenLine size={18} strokeWidth={2}/>,label:'Questions Done',val:`${qs}`},{icon:<Target size={18} strokeWidth={2}/>,label:'Accuracy',val:`${avg}%`}].map(s=>(
               <div key={s.label} style={{background:DS.bg.elevated,borderRadius:DS.radius.md,padding:'12px 10px',textAlign:'center',border:`1px solid ${DS.border}`}}>
-                <div style={{fontSize:20,marginBottom:4}}>{s.icon}</div>
+                <div style={{fontSize:20,marginBottom:4,display:'flex',justifyContent:'center'}}>{s.icon}</div>
                 <div style={{fontSize:15,fontWeight:900,color:DS.text.primary}}>{s.val}</div>
                 <div style={{fontSize:9,color:DS.text.muted,marginTop:2}}>{s.label}</div>
               </div>
@@ -2088,11 +2091,11 @@ export default function App(){
         <button onClick={()=>setPage('platform')} style={{fontSize:14,fontWeight:900,color:DS.accent.amber,letterSpacing:0.5,padding:"12px 0",whiteSpace:"nowrap",background:'none',border:'none',cursor:'pointer',flexShrink:0}}>📐{!isMobile&&' Lumora'}</button>
         {!isMobile&&streak.current>0&&(
           <div style={{display:'flex',alignItems:'center',gap:3,marginLeft:6,marginRight:8,background:DS.accent.redDim,borderRadius:DS.radius.sm,padding:'3px 8px',border:'1px solid rgba(255,76,76,0.25)',flexShrink:0}}>
-            <span style={{fontSize:14}}>🔥</span>
+            <Flame size={14} strokeWidth={2} color={DS.accent.red}/>
             <span style={{fontSize:13,fontWeight:900,color:DS.accent.red,lineHeight:1}}>{streak.current}</span>
           </div>
         )}
-        {[{id:"platform",label:"📚 Revision",short:"📚"},{id:"generator",label:"⚡ Generator",short:"⚡"},{id:"mock",label:"📝 Mock",short:"📝"}].map(tab=>(
+        {[{id:"platform",label:<><BookOpen size={14} strokeWidth={2} style={{display:'inline',verticalAlign:'middle',marginRight:4}}/>Revision</>,short:<BookOpen size={14} strokeWidth={2}/>},{id:"generator",label:<><Zap size={14} strokeWidth={2} style={{display:'inline',verticalAlign:'middle',marginRight:4}}/>Generator</>,short:<Zap size={14} strokeWidth={2}/>},{id:"mock",label:<><FileText size={14} strokeWidth={2} style={{display:'inline',verticalAlign:'middle',marginRight:4}}/>Mock</>,short:<FileText size={14} strokeWidth={2}/>}].map(tab=>(
           <button key={tab.id} onClick={()=>setPage(tab.id)} style={{padding:isMobile?"8px 8px":"6px 12px",margin:"6px 0",borderRadius:DS.radius.sm,border:"none",background:page===tab.id?DS.accent.amberDim:"transparent",cursor:"pointer",color:page===tab.id?DS.accent.amber:DS.text.muted,fontWeight:page===tab.id?800:500,fontSize:isMobile?13:12,transition:DS.tr,whiteSpace:"nowrap",flexShrink:0}}>
             {isMobile?tab.short:tab.label}
           </button>
@@ -2100,7 +2103,7 @@ export default function App(){
         <div style={{marginLeft:'auto',display:'flex',alignItems:'center',gap:isMobile?4:8,padding:'0 2px'}}>
           {isMobile&&streak.current>0&&(
             <div style={{display:'flex',alignItems:'center',gap:2,background:DS.accent.redDim,borderRadius:DS.radius.sm,padding:'3px 6px',border:'1px solid rgba(255,76,76,0.25)',flexShrink:0}}>
-              <span style={{fontSize:13}}>🔥</span>
+              <Flame size={13} strokeWidth={2} color={DS.accent.red}/>
               <span style={{fontSize:12,fontWeight:900,color:DS.accent.red,lineHeight:1}}>{streak.current}</span>
             </div>
           )}
@@ -2115,9 +2118,9 @@ export default function App(){
           {!isMobile&&(()=>{const p=lsGet('lumora_profile',{});return p.name?(
             <div style={{fontSize:12,color:DS.text.secondary,fontWeight:600,whiteSpace:'nowrap',maxWidth:80,overflow:'hidden',textOverflow:'ellipsis'}}>Hi {p.name.split(' ')[0]}</div>
           ):null;})()}
-          {!isMobile&&<button onClick={toggleSound} title={soundOn?'Mute sounds':'Enable sounds'} style={{background:'none',border:`1px solid ${DS.border}`,borderRadius:DS.radius.sm,padding:'5px 8px',fontSize:13,cursor:'pointer',color:DS.text.muted,lineHeight:1}}>{soundOn?'🔊':'🔇'}</button>}
+          {!isMobile&&<button onClick={toggleSound} title={soundOn?'Mute sounds':'Enable sounds'} style={{background:'none',border:`1px solid ${DS.border}`,borderRadius:DS.radius.sm,padding:'5px 8px',cursor:'pointer',color:DS.text.muted,lineHeight:1,display:'flex',alignItems:'center'}}>{soundOn?<Volume2 size={15} strokeWidth={2}/>:<VolumeX size={15} strokeWidth={2}/>}</button>}
           <StudyModeToggle mode={mode} setMode={setMode}/>
-          <button onClick={()=>setShowSettings(true)} title="Account settings" style={{background:'none',border:`1px solid ${DS.border}`,borderRadius:DS.radius.sm,padding:'5px 8px',fontSize:14,cursor:'pointer',color:DS.text.muted,lineHeight:1}}>⚙️</button>
+          <button onClick={()=>setShowSettings(true)} title="Account settings" style={{background:'none',border:`1px solid ${DS.border}`,borderRadius:DS.radius.sm,padding:'5px 8px',cursor:'pointer',color:DS.text.muted,lineHeight:1,display:'flex',alignItems:'center'}}><Settings size={16} strokeWidth={2}/></button>
         </div>
         {showSettings&&<SettingsPanel onClose={()=>setShowSettings(false)} onLogout={handleLogout}/>}
       </div>
@@ -2161,12 +2164,12 @@ function QCard({q,idx,topicId,onAnswered,onXP,isAI=false}){
       <div style={{padding:'14px 18px 14px 22px'}}>
         <div style={{display:'flex',gap:8,marginBottom:8,flexWrap:'wrap',alignItems:'center'}}>
           {isAI
-            ?<span style={{background:'rgba(155,89,182,0.15)',color:'#9B59B6',fontSize:10,fontWeight:800,padding:'2px 8px',borderRadius:5,border:'1px solid rgba(155,89,182,0.3)',flexShrink:0}}>✨ AI</span>
+            ?<span style={{background:'rgba(155,89,182,0.15)',color:'#9B59B6',fontSize:10,fontWeight:800,padding:'2px 8px',borderRadius:5,border:'1px solid rgba(155,89,182,0.3)',flexShrink:0,display:'inline-flex',alignItems:'center',gap:3}}><Sparkles size={10} strokeWidth={2}/>AI</span>
             :<span style={{width:24,height:24,borderRadius:'50%',background:DS.bg.elevated,color:DS.accent.amber,display:'flex',alignItems:'center',justifyContent:'center',fontWeight:900,fontSize:11,flexShrink:0}}>{idx+1}</span>
           }
           <span style={{background:d.bg,color:d.c,fontSize:11,fontWeight:800,padding:'2px 8px',borderRadius:6}}>{q.diff}</span>
           <span style={{fontSize:11,color:DS.text.muted,fontWeight:600}}>[{q.marks} mark{q.marks>1?'s':''}]</span>
-          {answered&&<span style={{fontSize:11,fontWeight:800,color:answered==='right'?DS.accent.teal:DS.accent.red}}>{answered==='right'?'✓ Got it':'✗ Wrong'}</span>}
+          {answered&&<span style={{fontSize:11,fontWeight:800,color:answered==='right'?DS.accent.teal:DS.accent.red,display:'inline-flex',alignItems:'center',gap:3}}>{answered==='right'?<><Check size={13} strokeWidth={2.5}/>Got it</>:<><X size={13} strokeWidth={2.5}/>Wrong</>}</span>}
         </div>
         <p style={{margin:'0 0 12px',fontSize:15,lineHeight:1.65,color:DS.text.primary,whiteSpace:'pre-line'}}>{q.q}</p>
         <div>
@@ -2180,7 +2183,7 @@ function QCard({q,idx,topicId,onAnswered,onXP,isAI=false}){
           <div style={{fontSize:10,fontWeight:800,color:DS.accent.teal,textTransform:'uppercase',letterSpacing:1.5,marginBottom:8,borderLeft:`3px solid ${DS.accent.teal}`,paddingLeft:8}}>Mark Scheme</div>
           {q.ms.map((m,i)=><div key={i} style={{fontSize:13,color:DS.text.primary,padding:'3px 0',display:'flex',gap:8}}><span style={{color:DS.accent.teal,fontWeight:700}}>›</span>{m}</div>)}
           {q.insight&&<div style={{background:DS.bg.surface,borderLeft:`3px solid ${DS.accent.teal}`,borderRadius:`0 ${DS.radius.sm}px ${DS.radius.sm}px 0`,padding:'10px 14px',marginTop:10}}>
-            <div style={{fontSize:10,fontWeight:800,color:DS.accent.teal}}>💡 Examiner Insight</div>
+            <div style={{fontSize:10,fontWeight:800,color:DS.accent.teal,display:'flex',alignItems:'center',gap:4}}><Lightbulb size={12} strokeWidth={2}/>Examiner Insight</div>
             <p style={{margin:'4px 0 0',fontSize:13,color:DS.text.secondary,lineHeight:1.5}}>{q.insight}</p>
           </div>}
 
@@ -2188,8 +2191,8 @@ function QCard({q,idx,topicId,onAnswered,onXP,isAI=false}){
             <div style={{marginTop:14}}>
               <div style={{fontSize:11,fontWeight:700,color:DS.text.secondary,marginBottom:8}}>After checking the mark scheme, how did you do?</div>
               <div style={{display:'flex',gap:8}}>
-                <button onClick={()=>handleAnswer(true)} style={{flex:1,padding:9,borderRadius:DS.radius.sm,border:'none',background:DS.accent.teal,color:DS.bg.base,fontWeight:800,fontSize:12,cursor:'pointer'}}>✓ Got It</button>
-                <button onClick={()=>handleAnswer(false)} style={{flex:1,padding:9,borderRadius:DS.radius.sm,border:'none',background:DS.accent.red,color:'#fff',fontWeight:800,fontSize:12,cursor:'pointer'}}>✗ Wrong</button>
+                <button onClick={()=>handleAnswer(true)} style={{flex:1,padding:9,borderRadius:DS.radius.sm,border:'none',background:DS.accent.teal,color:DS.bg.base,fontWeight:800,fontSize:12,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:5}}><Check size={13} strokeWidth={2.5}/> Got It</button>
+                <button onClick={()=>handleAnswer(false)} style={{flex:1,padding:9,borderRadius:DS.radius.sm,border:'none',background:DS.accent.red,color:'#fff',fontWeight:800,fontSize:12,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:5}}><X size={13} strokeWidth={2.5}/> Wrong</button>
               </div>
             </div>
           )}
@@ -2197,7 +2200,7 @@ function QCard({q,idx,topicId,onAnswered,onXP,isAI=false}){
           {working.trim()&&(
             <div style={{marginTop:12}}>
               <button onClick={handleAI} disabled={aiLoading} style={{width:'100%',padding:9,borderRadius:DS.radius.sm,border:`1.5px solid ${DS.borderHi}`,background:aiLoading?DS.bg.overlay:DS.bg.surface,color:aiLoading?DS.text.muted:DS.accent.amber,fontWeight:800,fontSize:12,cursor:aiLoading?'not-allowed':'pointer',transition:DS.tr}}>
-                {aiLoading?'🤖 Marking your working...':'🤖 Get AI Feedback on My Working'}
+                {aiLoading?'Marking your working...':'Get AI Feedback on My Working'}
               </button>
               {aiResult&&!aiResult.error&&(
                 <div style={{marginTop:10,background:DS.bg.surface,border:`1.5px solid ${DS.borderHi}`,borderRadius:DS.radius.md,padding:14}}>
@@ -2360,8 +2363,8 @@ function TopicPage({topic,moduleLabel,onAnswered,onXP}){
           <button onClick={handleGenerate} disabled={aiLoading||!hasKey}
             style={{width:'100%',padding:'13px',borderRadius:DS.radius.md,border:`1.5px dashed ${aiLoading?DS.border:'rgba(155,89,182,0.45)'}`,background:'rgba(155,89,182,0.06)',color:aiLoading||!hasKey?DS.text.muted:'#9B59B6',fontWeight:700,fontSize:13,cursor:aiLoading||!hasKey?'not-allowed':'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:8,transition:DS.tr,marginTop:4}}>
             {aiLoading
-              ?<><div style={{width:14,height:14,border:'2px solid rgba(155,89,182,0.25)',borderTopColor:'#9B59B6',borderRadius:'50%',animation:'spin 0.8s linear infinite'}}/>Generating questions…</>
-              :<>✨ Generate 3 More Questions{aiQs.length>0?` (${aiQs.length} generated so far)`:''}</>
+              ?<><Loader2 size={14} strokeWidth={2} style={{animation:'spin 0.8s linear infinite',color:'#9B59B6'}}/>Generating questions…</>
+              :<><Sparkles size={14} strokeWidth={2}/> Generate 3 More Questions{aiQs.length>0?` (${aiQs.length} generated so far)`:''}</>
             }
           </button>
           {!hasKey&&<div style={{textAlign:'center',fontSize:11,color:DS.text.muted,marginTop:6}}>Add VITE_ANTHROPIC_API_KEY to .env.local to enable AI generation</div>}
@@ -2376,7 +2379,7 @@ function TopicPage({topic,moduleLabel,onAnswered,onXP}){
         return<>
           {showIGCSEFallback&&(
             <div style={{background:'rgba(123,45,139,0.1)',border:'1px solid rgba(123,45,139,0.3)',borderRadius:DS.radius.md,padding:'12px 16px',marginBottom:12,display:'flex',gap:10,alignItems:'flex-start'}}>
-              <span style={{fontSize:16,flexShrink:0}}>ℹ️</span>
+              <span style={{flexShrink:0,display:'flex',alignItems:'center'}}><Info size={16} strokeWidth={2} color="#C39BD3"/></span>
               <div style={{fontSize:12,color:'#C39BD3',lineHeight:1.5}}><strong>Edexcel IGCSE (4MA1):</strong> No major differences for this topic — Edexcel guidance below applies directly. IGCSE-specific content (Functions, Calculus) is in the dedicated topics.</div>
             </div>
           )}
@@ -2413,7 +2416,7 @@ function TopicPage({topic,moduleLabel,onAnswered,onXP}){
                 <button key={m.id} onClick={()=>setLearnMode(m.id)} style={{padding:'7px 14px',borderRadius:DS.radius.sm,border:`1.5px solid ${learnMode===m.id?DS.accent.teal:DS.border}`,background:learnMode===m.id?DS.accent.tealDim:DS.bg.surface,color:learnMode===m.id?DS.accent.teal:DS.text.secondary,fontWeight:700,fontSize:12,cursor:'pointer',flexShrink:0,transition:DS.tr,display:'flex',alignItems:'center',gap:5}}>{m.icon} {m.label}</button>
               ))}
             </div>
-            <div style={{fontSize:9,fontWeight:800,color:DS.accent.amber,textTransform:'uppercase',letterSpacing:1.5,marginBottom:8}}>✨ AI-Powered</div>
+            <div style={{fontSize:9,fontWeight:800,color:DS.accent.amber,textTransform:'uppercase',letterSpacing:1.5,marginBottom:8,display:'flex',alignItems:'center',gap:4}}><Sparkles size={10} strokeWidth={2}/>AI-Powered</div>
             <div style={{display:'flex',gap:6,marginBottom:18,flexWrap:'wrap'}}>
               {[{id:'visual',icon:'🎨',label:'Visual Diagram'},{id:'errors',icon:'🕵️',label:'Error Hunt'},{id:'story',icon:'🌍',label:'Real World'}].map(m=>(
                 <button key={m.id} onClick={()=>setLearnMode(m.id)} style={{padding:'7px 14px',borderRadius:DS.radius.sm,border:`1.5px solid ${learnMode===m.id?DS.accent.amber:DS.border}`,background:learnMode===m.id?DS.accent.amberDim:DS.bg.surface,color:learnMode===m.id?DS.accent.amber:DS.text.secondary,fontWeight:700,fontSize:12,cursor:'pointer',flexShrink:0,transition:DS.tr,display:'flex',alignItems:'center',gap:5}}>{m.icon} {m.label}</button>
@@ -2441,14 +2444,14 @@ function TopicPage({topic,moduleLabel,onAnswered,onXP}){
             <div>
               {!mcqData&&!mcqLoading&&(
                 <div style={{textAlign:'center',padding:32}}>
-                  <div style={{fontSize:32,marginBottom:12}}>🎯</div>
+                  <div style={{fontSize:32,marginBottom:12,display:'flex',justifyContent:'center'}}><Target size={32} strokeWidth={1.5} color={DS.accent.amber}/></div>
                   <p style={{fontSize:14,color:DS.text.secondary,marginBottom:20}}>AI generates 4 multiple-choice questions — pick the right answer and see why</p>
                   <button onClick={handleLoadMCQ} disabled={!hasKey} style={{padding:'10px 28px',borderRadius:DS.radius.md,border:'none',background:DS.accent.teal,color:DS.bg.base,fontWeight:800,fontSize:13,cursor:hasKey?'pointer':'not-allowed',opacity:hasKey?1:0.5}}>Generate Questions</button>
                   {mcqError&&<div style={{marginTop:12,color:DS.accent.red,fontSize:12}}>{mcqError}</div>}
                   {!hasKey&&<div style={{marginTop:8,fontSize:11,color:DS.text.muted}}>Requires VITE_ANTHROPIC_API_KEY</div>}
                 </div>
               )}
-              {mcqLoading&&<div style={{textAlign:'center',padding:40,color:DS.text.secondary}}><div style={{width:32,height:32,border:`3px solid ${DS.accent.tealDim}`,borderTopColor:DS.accent.teal,borderRadius:'50%',animation:'spin 0.8s linear infinite',margin:'0 auto 12px'}}/>Generating questions…</div>}
+              {mcqLoading&&<div style={{textAlign:'center',padding:40,color:DS.text.secondary}}><Loader2 size={32} strokeWidth={2} style={{animation:'spin 0.8s linear infinite',color:DS.accent.teal,margin:'0 auto 12px',display:'block'}}/>Generating questions…</div>}
               {mcqData&&mcqData.map((q,qi)=>{
                 const selected=mcqAnswers[qi];
                 return(
@@ -2465,13 +2468,13 @@ function TopicPage({topic,moduleLabel,onAnswered,onXP}){
                         else if(revealed&&isSelected&&!isCorrect){bg=DS.accent.redDim;border=DS.accent.red;color=DS.accent.red;}
                         return(
                           <button key={oi} onClick={()=>!selected&&setMcqAnswers(a=>({...a,[qi]:letter}))} style={{padding:'9px 14px',borderRadius:DS.radius.sm,border:`1.5px solid ${border}`,background:bg,color,textAlign:'left',cursor:selected?'default':'pointer',fontWeight:(isSelected||isCorrect&&revealed)?700:400,fontSize:13,transition:DS.tr}}>
-                            {opt}{revealed&&isCorrect?' ✓':revealed&&isSelected?' ✗':''}
+                            {opt}{revealed&&isCorrect?<Check size={12} strokeWidth={2.5} style={{display:'inline',verticalAlign:'middle',marginLeft:3}}/>:revealed&&isSelected?<X size={12} strokeWidth={2.5} style={{display:'inline',verticalAlign:'middle',marginLeft:3}}/>:''}
                           </button>
                         );
                       })}
                     </div>
                     {selected&&<div style={{marginTop:12,background:DS.bg.surface,borderLeft:`3px solid ${selected===q.answer?DS.accent.teal:DS.accent.amber}`,padding:'10px 14px',borderRadius:`0 ${DS.radius.sm}px ${DS.radius.sm}px 0`}}>
-                      <div style={{fontSize:10,fontWeight:800,color:selected===q.answer?DS.accent.teal:DS.accent.amber,marginBottom:4}}>{selected===q.answer?'✓ CORRECT':'✗ NOT QUITE — EXPLANATION'}</div>
+                      <div style={{fontSize:10,fontWeight:800,color:selected===q.answer?DS.accent.teal:DS.accent.amber,marginBottom:4,display:'flex',alignItems:'center',gap:3}}>{selected===q.answer?<><Check size={11} strokeWidth={2.5}/>CORRECT</>:<><X size={11} strokeWidth={2.5}/>NOT QUITE — EXPLANATION</>}</div>
                       <p style={{margin:0,fontSize:13,color:DS.text.secondary,lineHeight:1.5}}>{q.explanation}</p>
                     </div>}
                   </div>
@@ -2492,7 +2495,7 @@ function TopicPage({topic,moduleLabel,onAnswered,onXP}){
                   {!hasKey&&<div style={{marginTop:8,fontSize:11,color:DS.text.muted}}>Requires VITE_ANTHROPIC_API_KEY</div>}
                 </div>
               )}
-              {stepsLoading&&<div style={{textAlign:'center',padding:40,color:DS.text.secondary}}><div style={{width:32,height:32,border:`3px solid ${DS.accent.amberDim}`,borderTopColor:DS.accent.amber,borderRadius:'50%',animation:'spin 0.8s linear infinite',margin:'0 auto 12px'}}/>Building worked example…</div>}
+              {stepsLoading&&<div style={{textAlign:'center',padding:40,color:DS.text.secondary}}><Loader2 size={32} strokeWidth={2} style={{animation:'spin 0.8s linear infinite',color:DS.accent.amber,margin:'0 auto 12px',display:'block'}}/>Building worked example…</div>}
               {stepsData&&!stepsData.error&&(
                 <div>
                   <div style={{background:DS.bg.elevated,border:`1px solid ${DS.border}`,borderRadius:DS.radius.md,padding:18,marginBottom:14}}>
@@ -2530,7 +2533,7 @@ function TopicPage({topic,moduleLabel,onAnswered,onXP}){
                 <p style={{margin:'0 0 14px',fontSize:13,color:DS.text.secondary,lineHeight:1.6}}>Imagine you're explaining <strong style={{color:DS.text.primary}}>{topic.title}</strong> to a friend. Write as much as you can — the AI will check what you know and what to add.</p>
                 <textarea value={explainText} onChange={e=>setExplainText(e.target.value)} placeholder={`In my own words, ${topic.title} is about...`} style={{width:'100%',minHeight:100,padding:12,borderRadius:DS.radius.sm,border:`1.5px solid ${DS.border}`,fontSize:13,fontFamily:'inherit',resize:'vertical',boxSizing:'border-box',outline:'none',background:DS.bg.surface,color:DS.text.primary}} onFocus={e=>e.target.style.borderColor=DS.accent.teal} onBlur={e=>e.target.style.borderColor=DS.border}/>
                 <button onClick={handleExplainSubmit} disabled={explainLoading||!explainText.trim()||!hasKey} style={{marginTop:10,width:'100%',padding:11,borderRadius:DS.radius.sm,border:'none',background:explainLoading||!explainText.trim()||!hasKey?DS.bg.overlay:DS.accent.teal,color:explainLoading||!explainText.trim()||!hasKey?DS.text.muted:DS.bg.base,fontWeight:800,fontSize:13,cursor:explainLoading||!explainText.trim()||!hasKey?'not-allowed':'pointer',transition:DS.tr}}>
-                  {explainLoading?'Checking your understanding…':'✓ Check My Understanding'}
+                  {explainLoading?'Checking your understanding…':<><Check size={13} strokeWidth={2.5} style={{display:'inline',verticalAlign:'middle',marginRight:4}}/> Check My Understanding</>}
                 </button>
                 {!hasKey&&<div style={{textAlign:'center',fontSize:11,color:DS.text.muted,marginTop:6}}>Requires VITE_ANTHROPIC_API_KEY</div>}
               </div>
@@ -2544,7 +2547,7 @@ function TopicPage({topic,moduleLabel,onAnswered,onXP}){
                   </div>
                   {explainResult.correct&&<div style={{borderLeft:`3px solid ${DS.accent.teal}`,paddingLeft:10,marginBottom:10}}><div style={{fontSize:9,fontWeight:800,color:DS.accent.teal,marginBottom:3}}>WHAT YOU GOT RIGHT</div><p style={{margin:0,fontSize:13,color:DS.text.secondary,lineHeight:1.5}}>{explainResult.correct}</p></div>}
                   {explainResult.missing&&<div style={{borderLeft:`3px solid ${DS.accent.amber}`,paddingLeft:10,marginBottom:10}}><div style={{fontSize:9,fontWeight:800,color:DS.accent.amber,marginBottom:3}}>KEY CONCEPTS TO ADD</div><p style={{margin:0,fontSize:13,color:DS.text.secondary,lineHeight:1.5}}>{explainResult.missing}</p></div>}
-                  {explainResult.tip&&<div style={{background:DS.bg.surface,borderRadius:DS.radius.sm,padding:'10px 14px'}}><div style={{fontSize:9,fontWeight:800,color:DS.text.muted,marginBottom:3}}>💡 TIP FOR NEXT TIME</div><p style={{margin:0,fontSize:13,color:DS.text.secondary,lineHeight:1.5}}>{explainResult.tip}</p></div>}
+                  {explainResult.tip&&<div style={{background:DS.bg.surface,borderRadius:DS.radius.sm,padding:'10px 14px'}}><div style={{fontSize:9,fontWeight:800,color:DS.text.muted,marginBottom:3,display:'flex',alignItems:'center',gap:3}}><Lightbulb size={10} strokeWidth={2}/>TIP FOR NEXT TIME</div><p style={{margin:0,fontSize:13,color:DS.text.secondary,lineHeight:1.5}}>{explainResult.tip}</p></div>}
                   <button onClick={()=>{setExplainText('');setExplainResult(null);}} style={{marginTop:14,width:'100%',padding:9,borderRadius:DS.radius.sm,border:`1px solid ${DS.border}`,background:'transparent',color:DS.text.muted,fontSize:12,cursor:'pointer',fontWeight:700}}>Try Again</button>
                 </div>
               )}
@@ -2564,7 +2567,7 @@ function TopicPage({topic,moduleLabel,onAnswered,onXP}){
                   {!hasKey&&<div style={{marginTop:8,fontSize:11,color:DS.text.muted}}>Requires VITE_ANTHROPIC_API_KEY</div>}
                 </div>
               )}
-              {vizLoading&&<div style={{textAlign:'center',padding:40,color:DS.text.secondary}}><div style={{width:32,height:32,border:`3px solid ${DS.accent.amberDim}`,borderTopColor:DS.accent.amber,borderRadius:'50%',animation:'spin 0.8s linear infinite',margin:'0 auto 12px'}}/>Drawing diagram…</div>}
+              {vizLoading&&<div style={{textAlign:'center',padding:40,color:DS.text.secondary}}><Loader2 size={32} strokeWidth={2} style={{animation:'spin 0.8s linear infinite',color:DS.accent.amber,margin:'0 auto 12px',display:'block'}}/>Drawing diagram…</div>}
               {vizData&&!vizData.error&&(
                 <div>
                   <div style={{background:DS.bg.elevated,border:`1px solid ${DS.border}`,borderRadius:DS.radius.md,padding:20,marginBottom:14}}>
@@ -2582,7 +2585,7 @@ function TopicPage({topic,moduleLabel,onAnswered,onXP}){
                       ))}
                     </div>
                   )}
-                  {vizData.insight&&<div style={{background:DS.accent.amberDim,border:`1px solid ${DS.accent.amber}33`,borderRadius:DS.radius.md,padding:'12px 16px'}}><span style={{fontSize:10,fontWeight:800,color:DS.accent.amber}}>💡 KEY INSIGHT  </span><span style={{fontSize:13,color:DS.text.secondary}}>{vizData.insight}</span></div>}
+                  {vizData.insight&&<div style={{background:DS.accent.amberDim,border:`1px solid ${DS.accent.amber}33`,borderRadius:DS.radius.md,padding:'12px 16px'}}><span style={{fontSize:10,fontWeight:800,color:DS.accent.amber,display:'inline-flex',alignItems:'center',gap:3}}><Lightbulb size={10} strokeWidth={2}/>KEY INSIGHT  </span><span style={{fontSize:13,color:DS.text.secondary}}>{vizData.insight}</span></div>}
                   <button onClick={()=>setVizData(null)} style={{width:'100%',padding:9,borderRadius:DS.radius.sm,border:`1px solid ${DS.border}`,background:DS.bg.surface,color:DS.text.secondary,fontSize:12,cursor:'pointer',fontWeight:700,marginTop:12}}>🔄 Generate Different Visual</button>
                 </div>
               )}
@@ -2602,7 +2605,7 @@ function TopicPage({topic,moduleLabel,onAnswered,onXP}){
                   {!hasKey&&<div style={{marginTop:8,fontSize:11,color:DS.text.muted}}>Requires VITE_ANTHROPIC_API_KEY</div>}
                 </div>
               )}
-              {errorHuntLoading&&<div style={{textAlign:'center',padding:40,color:DS.text.secondary}}><div style={{width:32,height:32,border:'3px solid rgba(155,89,182,0.2)',borderTopColor:'#9B59B6',borderRadius:'50%',animation:'spin 0.8s linear infinite',margin:'0 auto 12px'}}/>Planting mistakes…</div>}
+              {errorHuntLoading&&<div style={{textAlign:'center',padding:40,color:DS.text.secondary}}><Loader2 size={32} strokeWidth={2} style={{animation:'spin 0.8s linear infinite',color:'#9B59B6',margin:'0 auto 12px',display:'block'}}/>Planting mistakes…</div>}
               {errorHuntData&&!errorHuntData.error&&(()=>{
                 const errorSteps=new Set((errorHuntData.errors||[]).map(e=>e.stepNum));
                 return(
@@ -2633,7 +2636,7 @@ function TopicPage({topic,moduleLabel,onAnswered,onXP}){
                                 <p style={{margin:0,fontSize:12,color:DS.accent.teal,lineHeight:1.5}}>{e.correction}</p>
                               </div>
                             ))}
-                            {errorHuntRevealed&&!isActuallyWrong&&<div style={{marginTop:6,fontSize:11,color:DS.accent.teal,fontWeight:700}}>✓ This step is correct</div>}
+                            {errorHuntRevealed&&!isActuallyWrong&&<div style={{marginTop:6,fontSize:11,color:DS.accent.teal,fontWeight:700,display:'flex',alignItems:'center',gap:3}}><Check size={12} strokeWidth={2.5}/>This step is correct</div>}
                           </div>
                           {!errorHuntRevealed&&<div style={{fontSize:16,flexShrink:0,opacity:isSelected?1:0.3}}>{isSelected?'🔴':'⚪'}</div>}
                         </div>
@@ -2646,7 +2649,7 @@ function TopicPage({topic,moduleLabel,onAnswered,onXP}){
                     )}
                     {errorHuntRevealed&&(
                       <div>
-                        {errorHuntData.tip&&<div style={{background:'rgba(155,89,182,0.08)',border:'1px solid rgba(155,89,182,0.25)',borderRadius:DS.radius.md,padding:'12px 16px',marginTop:12}}><div style={{fontSize:10,fontWeight:800,color:'#9B59B6',marginBottom:4}}>💡 EXAMINER TIP</div><p style={{margin:0,fontSize:13,color:DS.text.secondary,lineHeight:1.5}}>{errorHuntData.tip}</p></div>}
+                        {errorHuntData.tip&&<div style={{background:'rgba(155,89,182,0.08)',border:'1px solid rgba(155,89,182,0.25)',borderRadius:DS.radius.md,padding:'12px 16px',marginTop:12}}><div style={{fontSize:10,fontWeight:800,color:'#9B59B6',marginBottom:4,display:'flex',alignItems:'center',gap:3}}><Lightbulb size={10} strokeWidth={2}/>EXAMINER TIP</div><p style={{margin:0,fontSize:13,color:DS.text.secondary,lineHeight:1.5}}>{errorHuntData.tip}</p></div>}
                         <button onClick={()=>{setErrorHuntData(null);setErrorHuntSelected(new Set());setErrorHuntRevealed(false);}} style={{width:'100%',padding:9,borderRadius:DS.radius.sm,border:`1px solid ${DS.border}`,background:DS.bg.surface,color:DS.text.secondary,fontSize:12,cursor:'pointer',fontWeight:700,marginTop:10}}>🔄 New Error Hunt</button>
                       </div>
                     )}
@@ -2669,7 +2672,7 @@ function TopicPage({topic,moduleLabel,onAnswered,onXP}){
                   {!hasKey&&<div style={{marginTop:8,fontSize:11,color:DS.text.muted}}>Requires VITE_ANTHROPIC_API_KEY</div>}
                 </div>
               )}
-              {realWorldLoading&&<div style={{textAlign:'center',padding:40,color:DS.text.secondary}}><div style={{width:32,height:32,border:`3px solid ${DS.accent.tealDim}`,borderTopColor:DS.accent.teal,borderRadius:'50%',animation:'spin 0.8s linear infinite',margin:'0 auto 12px'}}/>Building scenario…</div>}
+              {realWorldLoading&&<div style={{textAlign:'center',padding:40,color:DS.text.secondary}}><Loader2 size={32} strokeWidth={2} style={{animation:'spin 0.8s linear infinite',color:DS.accent.teal,margin:'0 auto 12px',display:'block'}}/>Building scenario…</div>}
               {realWorldData&&!realWorldData.error&&(
                 <div>
                   <div style={{background:DS.bg.elevated,border:`1.5px solid ${DS.accent.teal}44`,borderRadius:DS.radius.lg,padding:20,marginBottom:14}}>
@@ -2710,7 +2713,7 @@ function DueForReview({onNavigate}){
   const urgent=dueQs.length>3;
   if(!dueQs.length)return(
     <div style={{background:DS.bg.surface,borderLeft:`3px solid ${DS.accent.teal}`,borderRadius:DS.radius.md,padding:'12px 18px',marginBottom:16,border:`1px solid ${DS.border}`}}>
-      <div style={{fontSize:12,fontWeight:800,color:DS.accent.teal}}>✓ No reviews due today — you're all caught up!</div>
+      <div style={{fontSize:12,fontWeight:800,color:DS.accent.teal,display:'flex',alignItems:'center',gap:4}}><Check size={14} strokeWidth={2.5}/> No reviews due today — you're all caught up!</div>
     </div>
   );
   return(
@@ -2869,7 +2872,7 @@ export function Platform({onXP=()=>{},xpV=0,mode='sprint',onOpenDaily=()=>{}}){
           </div>
         ):(
           <button onClick={onOpenDaily} style={{width:'100%',background:DS.accent.amberDim,border:`1.5px solid ${DS.accent.amber}44`,borderRadius:DS.radius.md,padding:'13px 16px',marginBottom:14,display:'flex',alignItems:'center',gap:12,cursor:'pointer',textAlign:'left',transition:DS.tr}}>
-            <span style={{fontSize:22}}>📅</span>
+            <span style={{display:'flex',alignItems:'center'}}><Calendar size={22} strokeWidth={1.5} color={DS.accent.amber}/></span>
             <div style={{flex:1}}>
               <div style={{fontSize:13,fontWeight:800,color:DS.accent.amber}}>Daily Challenge — not done yet</div>
               <div style={{fontSize:11,color:DS.text.secondary,marginTop:2}}>3 personalised questions · Builds your streak · +XP</div>
@@ -2995,7 +2998,7 @@ function MockQCard({q,idx,working,selfMark,onSelfMark}){
           <div style={{fontSize:10,fontWeight:800,color:DS.accent.teal,textTransform:'uppercase',letterSpacing:1.5,marginBottom:8,borderLeft:`3px solid ${DS.accent.teal}`,paddingLeft:8}}>Mark Scheme</div>
           {q.ms.map((m,i)=><div key={i} style={{fontSize:13,color:DS.text.primary,padding:'3px 0',display:'flex',gap:8}}><span style={{color:DS.accent.teal,fontWeight:700}}>›</span>{m}</div>)}
           {q.insight&&<div style={{background:DS.bg.surface,borderLeft:`3px solid ${DS.accent.teal}`,borderRadius:`0 ${DS.radius.sm}px ${DS.radius.sm}px 0`,padding:'10px 14px',marginTop:10}}>
-            <div style={{fontSize:10,fontWeight:800,color:DS.accent.teal}}>💡 Examiner Insight</div>
+            <div style={{fontSize:10,fontWeight:800,color:DS.accent.teal,display:'flex',alignItems:'center',gap:4}}><Lightbulb size={12} strokeWidth={2}/>Examiner Insight</div>
             <p style={{margin:'4px 0 0',fontSize:13,color:DS.text.secondary,lineHeight:1.5}}>{q.insight}</p>
           </div>}
           <div style={{marginTop:12,background:DS.bg.surface,borderRadius:DS.radius.md,padding:12,border:`1px solid ${DS.border}`}}>
@@ -3009,7 +3012,7 @@ function MockQCard({q,idx,working,selfMark,onSelfMark}){
           {working&&(
             <div style={{marginTop:10}}>
               <button onClick={handleAI} disabled={aiLoading} style={{width:'100%',padding:9,borderRadius:DS.radius.sm,border:`1.5px solid ${DS.borderHi}`,background:aiLoading?DS.bg.overlay:DS.bg.surface,color:aiLoading?DS.text.muted:DS.accent.amber,fontWeight:800,fontSize:12,cursor:aiLoading?'not-allowed':'pointer',transition:DS.tr}}>
-                {aiLoading?'🤖 Marking...':'🤖 Get AI Feedback on My Working'}
+                {aiLoading?'Marking...':'Get AI Feedback on My Working'}
               </button>
               {aiResult&&!aiResult.error&&(
                 <div style={{marginTop:10,background:DS.bg.surface,border:`1.5px solid ${DS.borderHi}`,borderRadius:DS.radius.md,padding:14}}>
@@ -3069,7 +3072,7 @@ export function MockExam({onXP=()=>{},mode='sprint'}){
   if(!started)return(
     <div style={{maxWidth:640,margin:'0 auto',padding:24,fontFamily:"'Inter','Segoe UI',sans-serif",background:mode==='deep'?DS.bg.deep:DS.bg.base,minHeight:'100vh'}}>
       <div style={{background:DS.bg.surface,borderRadius:DS.radius.xl,padding:32,textAlign:'center',marginBottom:16,border:`1px solid ${DS.border}`,boxShadow:DS.shadow}}>
-        <div style={{width:64,height:64,borderRadius:'50%',background:DS.accent.amberDim,border:`2px solid ${DS.accent.amber}`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:28,margin:'0 auto 16px'}}>📝</div>
+        <div style={{width:64,height:64,borderRadius:'50%',background:DS.accent.amberDim,border:`2px solid ${DS.accent.amber}`,display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 16px'}}><FileText size={28} strokeWidth={2} color={DS.accent.amber}/></div>
         <div style={{fontSize:22,fontWeight:900,color:DS.text.primary,marginBottom:6}}>Timed Mock Exam</div>
         <div style={{fontSize:13,color:DS.text.secondary,marginBottom:24}}>20 mixed questions from all topics · 45 minutes</div>
         <div style={{display:'flex',gap:10,justifyContent:'center',flexWrap:'wrap'}}>
@@ -3099,7 +3102,7 @@ export function MockExam({onXP=()=>{},mode='sprint'}){
     <div style={{maxWidth:680,margin:'0 auto',padding:20,fontFamily:"'Inter','Segoe UI',sans-serif",background:mode==='deep'?DS.bg.deep:DS.bg.base,minHeight:'100vh'}}>
       <div style={{background:DS.bg.surface,borderRadius:DS.radius.xl,padding:28,textAlign:'center',marginBottom:16,border:`1px solid ${DS.border}`,boxShadow:DS.shadow,position:'relative',overflow:'hidden'}}>
         <div style={{position:'absolute',top:0,left:0,right:0,height:3,background:`linear-gradient(90deg,${DS.accent.amber},${DS.accent.teal})`,opacity:0.7}}/>
-        <div style={{width:72,height:72,borderRadius:'50%',background:pct>=70?DS.accent.amberDim:pct>=50?DS.accent.tealDim:DS.bg.elevated,border:`2px solid ${pct>=70?DS.accent.amber:pct>=50?DS.accent.teal:DS.border}`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:32,margin:'0 auto 16px'}}>{pct>=70?'🏆':pct>=50?'📊':'📚'}</div>
+        <div style={{width:72,height:72,borderRadius:'50%',background:pct>=70?DS.accent.amberDim:pct>=50?DS.accent.tealDim:DS.bg.elevated,border:`2px solid ${pct>=70?DS.accent.amber:pct>=50?DS.accent.teal:DS.border}`,display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 16px'}}>{pct>=70?<Trophy size={32} strokeWidth={2} color={DS.accent.amber}/>:pct>=50?<BarChart2 size={32} strokeWidth={2} color={DS.accent.teal}/>:<BookOpen size={32} strokeWidth={2} color={DS.text.muted}/>}</div>
         <div style={{fontSize:18,fontWeight:900,color:DS.text.primary,marginBottom:4}}>Exam Complete</div>
         {markedCount>0?(
           <>
@@ -3274,7 +3277,7 @@ export function Generator(){
             <div style={{padding:"14px 16px",borderBottom:`1px solid ${DS.border}`}}>
               <div style={{fontSize:9,fontWeight:800,color:DS.text.muted,textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>Exam Board</div>
               <div style={{display:"flex",gap:5}}>
-                {["AQA","Edexcel","OCR"].map(b=><button key={b} onClick={()=>setCfg(c=>({...c,board:b}))} style={{flex:1,padding:"8px 0",borderRadius:DS.radius.sm,border:`1.5px solid ${cfg.board===b?BCOLORS[b]:DS.border}`,background:cfg.board===b?`${BCOLORS[b]}22`:DS.bg.elevated,color:cfg.board===b?BCOLORS[b]:DS.text.secondary,fontWeight:800,fontSize:11,cursor:"pointer",transition:DS.tr}}>{b}</button>)}
+                {["AQA","Edexcel","OCR","Edexcel IGCSE"].map(b=><button key={b} onClick={()=>setCfg(c=>({...c,board:b}))} style={{flex:1,padding:"8px 0",borderRadius:DS.radius.sm,border:`1.5px solid ${cfg.board===b?BCOLORS[b]:DS.border}`,background:cfg.board===b?`${BCOLORS[b]}22`:DS.bg.elevated,color:cfg.board===b?BCOLORS[b]:DS.text.secondary,fontWeight:800,fontSize:11,cursor:"pointer",transition:DS.tr}}>{b}</button>)}
               </div>
             </div>
             <div style={{padding:"12px 16px",borderBottom:`1px solid ${DS.border}`}}>
@@ -3317,12 +3320,12 @@ export function Generator(){
           {/* Main content */}
           <div>
             <button onClick={run} disabled={loading} style={{width:"100%",padding:"15px",borderRadius:DS.radius.md,border:"none",background:loading?DS.bg.elevated:DS.accent.amber,color:loading?DS.text.muted:DS.bg.deep,fontSize:14,fontWeight:900,cursor:loading?"not-allowed":"pointer",marginBottom:16,display:"flex",alignItems:"center",justifyContent:"center",gap:10,transition:DS.tr,boxShadow:loading?"none":`0 4px 18px ${DS.accent.amberDim}`}}>
-              {loading?(<><div style={{width:16,height:16,border:`2px solid ${DS.border}`,borderTopColor:DS.text.primary,borderRadius:"50%",animation:"spin 0.8s linear infinite"}}/>Generating {cfg.count} question{cfg.count>1?"s":""}...</>)
+              {loading?(<><Loader2 size={16} strokeWidth={2} style={{animation:"spin 0.8s linear infinite",color:DS.text.primary}}/>Generating {cfg.count} question{cfg.count>1?"s":""}...</>)
                 :`Generate ${cfg.count} ${cfg.topicLabel} — ${cfg.board} ${cfg.tier} ${cfg.diff}`}
             </button>
             {err&&<div style={{background:DS.accent.redDim,border:`1.5px solid ${DS.accent.red}`,borderRadius:DS.radius.md,padding:"12px 16px",marginBottom:14,color:DS.accent.red,fontSize:13}}>{err}</div>}
             {loading&&!qs.length&&<div style={{textAlign:"center",padding:"60px 20px",color:DS.text.muted}}>
-              <div style={{fontSize:36,marginBottom:12,color:DS.accent.amber}}>⚡</div>
+              <div style={{fontSize:36,marginBottom:12,display:'flex',justifyContent:'center'}}><Zap size={36} strokeWidth={2} color={DS.accent.amber}/></div>
               <div style={{fontSize:15,fontWeight:700,color:DS.text.primary,marginBottom:6}}>Writing your questions...</div>
               <div style={{fontSize:13,color:DS.text.secondary}}>Creating {cfg.board}-style {cfg.diff} questions on {cfg.topicLabel}</div>
             </div>}

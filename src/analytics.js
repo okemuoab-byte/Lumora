@@ -1,7 +1,7 @@
 import posthog from 'posthog-js';
 
 const KEY = import.meta.env.VITE_POSTHOG_KEY;
-const HOST = import.meta.env.VITE_POSTHOG_HOST || 'https://eu.i.posthog.com';
+const HOST = import.meta.env.VITE_POSTHOG_HOST || 'https://us.i.posthog.com';
 
 export function initAnalytics() {
   if (!KEY) return;

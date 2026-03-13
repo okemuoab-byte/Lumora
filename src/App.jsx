@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Flame, Zap, Trophy, Target, Calendar, Check, X, Lightbulb, Sparkles, Info, MessageCircle, Volume2, VolumeX, Settings, AlertTriangle, GraduationCap, Rocket, BookOpen, FileText, Bot, BarChart2, TrendingUp, PenLine, Award, Snowflake, ClipboardList, Loader2, Share2, CheckCircle2, XCircle, BarChart, FlaskConical, Sigma } from "lucide-react";
+import { track, identify } from './analytics.js';
 
 // ═══ STORAGE & AUTH ══════════════════════════════════════════════════════════
 let _currentUser=null;// set on login/init — email string
@@ -510,6 +511,7 @@ function SocraticChat({question,ms,aiResult,maxMarks=0}){
   const bottomRef=useRef(null);
 
   useEffect(()=>{
+    track('socratic_chat_opened');
     setLoading(true);
     aiSocratic(question,ms,aiResult,[],maxMarks)
       .then(text=>setMessages([{from:'tutor',text}]))
@@ -1379,7 +1381,7 @@ function Onboarding({onComplete}){
   );
   const handleNext=()=>{
     if(step<5){setStep(s=>s+1);}
-    else{lsSet('lumora_profile',{...profile,createdAt:new Date().toISOString()});onComplete(profile);}
+    else{lsSet('lumora_profile',{...profile,createdAt:new Date().toISOString()});track('onboarding_completed',{board:profile.board,grade:profile.grade,weaknessCount:profile.weaknesses.length});onComplete(profile);}
   };
   return(
     <div style={{fontFamily:"'Segoe UI',sans-serif",minHeight:'100vh',background:DS.bg.base,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
@@ -1784,6 +1786,8 @@ function LoginScreen({onLogin,onRegister}){
       const hash=await sha256(pw);
       if(hash!==u.passwordHash){setErr('Incorrect password.');return;}
       initCurrentUser(email.trim().toLowerCase());
+      identify(email.trim().toLowerCase());
+      track('user_signed_in');
       onLogin();
     }catch{setErr('Something went wrong. Try again.');}
     finally{setLoading(false);}
@@ -1848,6 +1852,8 @@ function AccountCreateScreen({onCreated}){
       users[key]={name:profile.name||'Student',passwordHash:hash,createdAt:new Date().toISOString()};
       saveUsers(users);
       initCurrentUser(key);
+      identify(key,{name:profile.name,board:profile.board,grade:profile.grade});
+      track('account_created',{board:profile.board,grade:profile.grade});
       onCreated();
     }catch{setErr('Something went wrong. Try again.');}
     finally{setLoading(false);}
@@ -2096,7 +2102,7 @@ export default function App(){
           </div>
         )}
         {[{id:"platform",label:<><BookOpen size={14} strokeWidth={2} style={{display:'inline',verticalAlign:'middle',marginRight:4}}/>Revision</>,short:<BookOpen size={14} strokeWidth={2}/>},{id:"generator",label:<><Zap size={14} strokeWidth={2} style={{display:'inline',verticalAlign:'middle',marginRight:4}}/>Generator</>,short:<Zap size={14} strokeWidth={2}/>},{id:"mock",label:<><FileText size={14} strokeWidth={2} style={{display:'inline',verticalAlign:'middle',marginRight:4}}/>Mock</>,short:<FileText size={14} strokeWidth={2}/>}].map(tab=>(
-          <button key={tab.id} onClick={()=>setPage(tab.id)} style={{padding:isMobile?"8px 8px":"6px 12px",margin:"6px 0",borderRadius:DS.radius.sm,border:"none",background:page===tab.id?DS.accent.amberDim:"transparent",cursor:"pointer",color:page===tab.id?DS.accent.amber:DS.text.muted,fontWeight:page===tab.id?800:500,fontSize:isMobile?13:12,transition:DS.tr,whiteSpace:"nowrap",flexShrink:0}}>
+          <button key={tab.id} onClick={()=>{setPage(tab.id);track('tab_switched',{tab:tab.id});}} style={{padding:isMobile?"8px 8px":"6px 12px",margin:"6px 0",borderRadius:DS.radius.sm,border:"none",background:page===tab.id?DS.accent.amberDim:"transparent",cursor:"pointer",color:page===tab.id?DS.accent.amber:DS.text.muted,fontWeight:page===tab.id?800:500,fontSize:isMobile?13:12,transition:DS.tr,whiteSpace:"nowrap",flexShrink:0}}>
             {isMobile?tab.short:tab.label}
           </button>
         ))}
@@ -2147,10 +2153,12 @@ function QCard({q,idx,topicId,onAnswered,onXP,isAI=false}){
     recordPerf(topicId,correct);
     if(onXP)onXP(correct?35:10);
     if(onAnswered)onAnswered();
+    track('question_answered',{topicId,correct,diff:q.diff,marks:q.marks,isAI:!!isAI});
   };
 
   const handleAI=async()=>{
     setAiLoading(true);setAiResult(null);
+    track('ai_marking_used',{topicId,diff:q.diff,marks:q.marks});
     try{const r=await aiMark(q.q,q.marks,q.ms,working);setAiResult(r);}
     catch(e){setAiResult({error:e.message});}
     setAiLoading(false);
@@ -2799,7 +2807,7 @@ export function Platform({onXP=()=>{},xpV=0,mode='sprint',onOpenDaily=()=>{}}){
 
   const navigateToTopic=(tid)=>{
     const m=findModForTopic(tid);
-    if(m){setModId(m.id);setTopicId(tid);}
+    if(m){setModId(m.id);setTopicId(tid);track('topic_opened',{topicId:tid,moduleId:m.id});}
   };
 
   if(topic)return(
@@ -2971,6 +2979,7 @@ function MockQCard({q,idx,working,selfMark,onSelfMark}){
 
   const handleAI=async()=>{
     setAiLoading(true);setAiResult(null);
+    track('ai_marking_used',{context:'mock_exam',marks:q.marks});
     try{const r=await aiMark(q.q,q.marks,q.ms,working);setAiResult(r);}
     catch(e){setAiResult({error:e.message});}
     setAiLoading(false);
@@ -3052,9 +3061,14 @@ export function MockExam({onXP=()=>{},mode='sprint'}){
   const [selfMarks,setSelfMarks]=useState({});
   const xpAwarded=useRef(false);
   const handleSubmit=useCallback(()=>{
-    if(!xpAwarded.current){xpAwarded.current=true;onXP(100);}
+    if(!xpAwarded.current){
+      xpAwarded.current=true;onXP(100);
+      const earned=Object.values(selfMarks).reduce((s,m)=>s+m,0);
+      const total=questions.reduce((s,q)=>s+q.marks,0);
+      track('mock_exam_submitted',{score:earned,total,pct:total>0?Math.round(earned/total*100):0,timeUsed:TOTAL_TIME-timeLeft});
+    }
     setSubmitted(true);
-  },[onXP]);
+  },[onXP,selfMarks,questions,timeLeft]);
 
   useEffect(()=>{
     if(!started||submitted)return;
@@ -3092,7 +3106,7 @@ export function MockExam({onXP=()=>{},mode='sprint'}){
           </div>
         ))}
       </div>
-      <button onClick={()=>setStarted(true)} style={{width:'100%',padding:16,borderRadius:DS.radius.md,border:'none',background:DS.accent.amber,color:DS.bg.deep,fontSize:15,fontWeight:900,cursor:'pointer',boxShadow:`0 4px 18px ${DS.accent.amberDim}`,transition:DS.tr}}>
+      <button onClick={()=>{setStarted(true);track('mock_exam_started',{questionCount:questions.length});}} style={{width:'100%',padding:16,borderRadius:DS.radius.md,border:'none',background:DS.accent.amber,color:DS.bg.deep,fontSize:15,fontWeight:900,cursor:'pointer',boxShadow:`0 4px 18px ${DS.accent.amberDim}`,transition:DS.tr}}>
         Start Exam
       </button>
     </div>
@@ -3248,6 +3262,7 @@ export function Generator(){
 
   const run=async()=>{
     setLoading(true);setErr(null);setQs([]);
+    track('generator_used',{board:cfg.board,topic:cfg.topic,difficulty:cfg.diff,count:cfg.count});
     try{const data=await callAPI(cfg);setQs(data.questions);setTotal(t=>t+1);}
     catch(e){setErr(e.message);}
     setLoading(false);

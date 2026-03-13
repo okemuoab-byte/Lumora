@@ -7,9 +7,9 @@ export function initAnalytics() {
   if (!KEY) return;
   posthog.init(KEY, {
     api_host: HOST,
-    person_profiles: 'identified_only',
-    capture_pageview: false, // SPA — we fire manually
-    autocapture: false,      // controlled tracking only
+    person_profiles: 'always',
+    capture_pageview: true,
+    autocapture: false,
   });
 }
 

@@ -7,6 +7,7 @@ export const supabase = URL && KEY ? createClient(URL, KEY) : null;
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
 export async function sbSignUp(email, password, profileData) {
+  if (!supabase) throw new Error('Database not configured. Contact support.');
   const { data, error } = await supabase.auth.signUp({ email, password });
   if (error) throw new Error(error.message);
   const user = data.user;
@@ -24,6 +25,7 @@ export async function sbSignUp(email, password, profileData) {
 }
 
 export async function sbSignIn(email, password) {
+  if (!supabase) throw new Error('Database not configured. Contact support.');
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) throw new Error(error.message);
   return data.user;

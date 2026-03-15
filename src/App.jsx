@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { Flame, Zap, Trophy, Target, Calendar, Check, X, Lightbulb, Sparkles, Info, MessageCircle, Volume2, VolumeX, Settings, AlertTriangle, GraduationCap, Rocket, BookOpen, FileText, Bot, BarChart2, TrendingUp, PenLine, Award, Snowflake, ClipboardList, Loader2, Share2, CheckCircle2, XCircle, BarChart, FlaskConical, Sigma } from "lucide-react";
+import { Flame, Zap, Trophy, Target, Calendar, Check, X, Lightbulb, Sparkles, Info, MessageCircle, Volume2, VolumeX, Settings, AlertTriangle, GraduationCap, Rocket, BookOpen, FileText, Bot, BarChart2, TrendingUp, PenLine, Award, Snowflake, ClipboardList, Loader2, Share2, CheckCircle2, XCircle, BarChart, FlaskConical, Sigma, Users } from "lucide-react";
 import { track, identify } from './analytics.js';
 import { sbSignUp, sbSignIn, sbSignOut, sbGetSession, loadProgressFromSupabase, scheduleSave } from './supabase.js';
 
@@ -30,10 +30,10 @@ function migrateUnscopedData(email){
 
 // ═══ GAMIFICATION ════════════════════════════════════════════════════════════
 const LEVELS=[
-  {name:'Bronze',min:0,max:499,icon:'🥉',color:'#CD7F32'},
-  {name:'Silver',min:500,max:1499,icon:'🥈',color:'#A8A9AD'},
-  {name:'Gold',min:1500,max:3499,icon:'🥇',color:'#D4A017'},
-  {name:'Platinum',min:3500,max:Infinity,icon:'💎',color:'#7B68EE'},
+  {name:'Bronze',min:0,max:199,icon:'🥉',color:'#CD7F32'},
+  {name:'Silver',min:200,max:599,icon:'🥈',color:'#A8A9AD'},
+  {name:'Gold',min:600,max:1299,icon:'🥇',color:'#D4A017'},
+  {name:'Platinum',min:1300,max:Infinity,icon:'💎',color:'#7B68EE'},
 ];
 function getLevel(xp){return LEVELS.find(l=>xp>=l.min&&xp<=l.max)||LEVELS[0];}
 const LEVEL_ICON_MAP={Bronze:Award,Silver:Award,Gold:Trophy,Platinum:FlaskConical};
@@ -1066,8 +1066,18 @@ function MasteryRing({ratio,color,size=52,stroke=4}){
 }
 
 // ═══ PREDICTED GRADE ══════════════════════════════════════════════════════════
+// Grade boundaries based on typical GCSE Maths Higher tier thresholds
+const GRADE_BOUNDARIES=[
+  {grade:'9',min:0.88,color:'#00C9B1'},{grade:'8',min:0.76,color:'#4CAF50'},
+  {grade:'7',min:0.64,color:'#8BC34A'},{grade:'6',min:0.54,color:'#D4A017'},
+  {grade:'5',min:0.44,color:'#FF9800'},{grade:'4',min:0.34,color:'#FF5722'},
+  {grade:'3',min:0.24,color:'#F44336'},{grade:'U',min:0,color:'#666'},
+];
+function calcGrade(avg){return GRADE_BOUNDARIES.find(b=>avg>=b.min)||GRADE_BOUNDARIES[GRADE_BOUNDARIES.length-1];}
+function nextGrade(avg){const idx=GRADE_BOUNDARIES.findIndex(b=>avg>=b.min);return idx>0?GRADE_BOUNDARIES[idx-1]:null;}
+
 function PredictedGrade({perf}){
-  const entries=Object.values(perf).filter(p=>p.total>0);
+  const entries=Object.entries(perf).filter(([,p])=>p.total>0);
   if(!entries.length)return(
     <div style={{textAlign:'center',padding:'16px 12px'}}>
       <div style={{fontSize:44,fontWeight:900,color:DS.accent.amber,lineHeight:1}}>–</div>
@@ -1075,14 +1085,36 @@ function PredictedGrade({perf}){
       <div style={{fontSize:10,color:DS.text.muted,marginTop:2}}>Answer questions to unlock</div>
     </div>
   );
-  const avg=entries.reduce((s,p)=>s+(p.correct/p.total),0)/entries.length;
-  const grade=avg>=0.9?'9':avg>=0.80?'8':avg>=0.70?'7':avg>=0.60?'6':avg>=0.50?'5':avg>=0.40?'4':'U';
-  const gradeColor=avg>=0.70?DS.accent.teal:avg>=0.50?DS.accent.amber:DS.accent.red;
+  const avg=entries.reduce((s,[,p])=>s+(p.correct/p.total),0)/entries.length;
+  const current=calcGrade(avg);
+  const next=nextGrade(avg);
+  const pctToNext=next?Math.round(((avg-current.min)/(next.min-current.min))*100):100;
+  // Find weakest topic to boost grade
+  const weakest=entries.sort(([,a],[,b])=>(a.correct/a.total)-(b.correct/b.total))[0];
+  const weakTopic=weakest?MODULES.flatMap(m=>m.topics).find(t=>t.id===weakest[0]):null;
   return(
-    <div style={{textAlign:'center',padding:'16px 12px'}}>
-      <div style={{fontSize:52,fontWeight:900,color:gradeColor,lineHeight:1}}>{grade}</div>
-      <div style={{fontSize:11,fontWeight:800,color:DS.text.secondary,marginTop:4}}>Predicted Grade</div>
-      <div style={{fontSize:10,color:DS.text.muted,marginTop:2}}>{Math.round(avg*100)}% avg · {entries.length} topics</div>
+    <div style={{padding:'14px 12px'}}>
+      <div style={{display:'flex',alignItems:'center',gap:16,marginBottom:10}}>
+        <div style={{textAlign:'center',flexShrink:0}}>
+          <div style={{fontSize:52,fontWeight:900,color:current.color,lineHeight:1}}>{current.grade}</div>
+          <div style={{fontSize:10,fontWeight:800,color:DS.text.secondary,marginTop:2}}>PREDICTED</div>
+        </div>
+        <div style={{flex:1}}>
+          {next&&<>
+            <div style={{display:'flex',justifyContent:'space-between',marginBottom:4}}>
+              <span style={{fontSize:11,color:DS.text.muted}}>Progress to grade <strong style={{color:next.color}}>{next.grade}</strong></span>
+              <span style={{fontSize:11,fontWeight:700,color:next.color}}>{pctToNext}%</span>
+            </div>
+            <div style={{height:6,background:DS.bg.elevated,borderRadius:3,overflow:'hidden'}}>
+              <div style={{height:'100%',width:`${pctToNext}%`,background:next.color,borderRadius:3,transition:'width 0.8s ease'}}/>
+            </div>
+          </>}
+          <div style={{fontSize:10,color:DS.text.muted,marginTop:6}}>{Math.round(avg*100)}% avg · {entries.length} topic{entries.length!==1?'s':''} attempted</div>
+        </div>
+      </div>
+      {next&&weakTopic&&<div style={{background:DS.bg.elevated,borderRadius:DS.radius.sm,padding:'8px 10px',fontSize:11,color:DS.text.secondary,borderLeft:`3px solid ${next.color}`}}>
+        <strong style={{color:next.color}}>To reach grade {next.grade}:</strong> Focus on <strong style={{color:DS.text.primary}}>{weakTopic.title}</strong> — your weakest area
+      </div>}
     </div>
   );
 }
@@ -1160,19 +1192,18 @@ function PersonalisedHero({onNavigate}){
     ?Math.max(0,Math.round((new Date(profile.examDate)-Date.now())/86400000))
     :null;
 
-  // Grade calculation (spec thresholds)
-  const gradeThresholds=[[95,9],[90,8],[80,7],[70,6],[60,5],[50,4],[35,3],[20,2],[0,1]];
-  const pctToGrade=p=>(gradeThresholds.find(([t])=>p>=t)||[0,1])[1];
+  // Grade calculation — uses shared GRADE_BOUNDARIES thresholds
   const perfEntries=Object.values(perf).filter(p=>p.total>0);
   const totalQsDone=perfEntries.reduce((s,p)=>s+p.total,0);
   const avg=perfEntries.length>0
     ?perfEntries.reduce((s,p)=>s+p.correct/p.total,0)/perfEntries.length
     :null;
   const avgPct=avg!==null?Math.round(avg*100):null;
-  const currentGrade=avgPct!==null?pctToGrade(avgPct):null;
-  const nextGradeMinPcts=[0,20,35,50,60,70,80,90,95]; // [grade-1] = pct needed
-  const gapToNext=currentGrade&&currentGrade<9?nextGradeMinPcts[currentGrade]-avgPct:0;
-  const gradeColor=currentGrade>=7?DS.accent.teal:currentGrade>=5?DS.accent.amber:DS.accent.red;
+  const currentBnd=avg!==null?calcGrade(avg):null;
+  const currentGrade=currentBnd?.grade||null;
+  const nextBnd=avg!==null?nextGrade(avg):null;
+  const gapToNext=nextBnd&&avg!==null?Math.round((nextBnd.min-avg)*100):0;
+  const gradeColor=currentBnd?.color||DS.text.muted;
 
   // Today's focus: due topics first, then weakest
   const allTopics=MODULES.flatMap(m=>m.topics.map(t=>({...t,moduleColor:m.color})));
@@ -1223,12 +1254,12 @@ function PersonalisedHero({onNavigate}){
               <>
                 <div style={{fontSize:36,fontWeight:900,color:gradeColor,lineHeight:1}}>Grade {currentGrade}</div>
                 <div style={{fontSize:10,color:DS.text.muted,marginTop:4}}>{avgPct}% avg · {perfEntries.length} topics</div>
-                {gapToNext>0&&weakestForGrade&&(
+                {gapToNext>0&&weakestForGrade&&nextBnd&&(
                   <div style={{fontSize:9,color:DS.text.secondary,marginTop:5,lineHeight:1.4,borderTop:`1px solid ${DS.border}`,paddingTop:5}}>
-                    +{gapToNext}% in <span style={{color:DS.accent.amber,fontWeight:700}}>{weakestForGrade.title.split(' ').slice(0,2).join(' ')}</span> → Grade {currentGrade+1}
+                    +{gapToNext}% in <span style={{color:DS.accent.amber,fontWeight:700}}>{weakestForGrade.title.split(' ').slice(0,2).join(' ')}</span> → Grade {nextBnd.grade}
                   </div>
                 )}
-                {currentGrade===9&&<div style={{fontSize:9,color:DS.accent.teal,marginTop:5,fontWeight:700,display:'flex',alignItems:'center',gap:3}}><Trophy size={10} strokeWidth={2}/> Maximum grade!</div>}
+                {currentGrade==='9'&&<div style={{fontSize:9,color:DS.accent.teal,marginTop:5,fontWeight:700,display:'flex',alignItems:'center',gap:3}}><Trophy size={10} strokeWidth={2}/> Maximum grade!</div>}
               </>
             ):(
               <>
@@ -1372,7 +1403,7 @@ function Onboarding({onComplete}){
   const canNext=(
     (step===1&&profile.name.trim().length>=2)||
     step===2||step===3||
-    (step===4&&profile.examDate)||
+    step===4||
     (step===5&&profile.weaknesses.length>0)
   );
   const handleNext=()=>{
@@ -1965,8 +1996,9 @@ function encodeProgress(){
 function ProgressReport({data}){
   const {n,xp,streak,best,topics,qs,avg,ts}=data;
   const date=new Date(ts).toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'});
-  const grade=avg>=90?'9':avg>=80?'8':avg>=70?'7':avg>=60?'6':avg>=50?'5':avg>=40?'4':avg>=30?'3':'U';
-  const gradeColor=avg>=70?DS.accent.teal:avg>=50?DS.accent.amber:DS.accent.red;
+  const gradeBnd=calcGrade(avg/100);
+  const grade=gradeBnd.grade;
+  const gradeColor=gradeBnd.color;
   return(
     <div style={{minHeight:'100vh',background:DS.bg.base,fontFamily:"'Segoe UI',sans-serif",padding:'32px 20px'}}>
       <AnimStyles/>
@@ -2000,6 +2032,156 @@ function ProgressReport({data}){
           <div style={{fontSize:11,color:DS.text.secondary}}>AI-powered GCSE Maths revision · AQA · Edexcel · OCR</div>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ═══ PARENT DASHBOARD ════════════════════════════════════════════════════════
+function ParentDashboard(){
+  const profile=lsGet('lumora_profile',{});
+  const perf=lsGet('gcse_perf',{});
+  const xp=getXP();
+  const streak=getStreakData();
+  const [reportLoading,setReportLoading]=useState(false);
+  const [copied,setCopied]=useState(false);
+
+  const allTopics=MODULES.flatMap(m=>m.topics.map(t=>({...t,moduleLabel:m.label,moduleColor:m.color})));
+  const perfEntries=Object.entries(perf).map(([id,v])=>({id,...v}));
+  const totalQsDone=perfEntries.reduce((s,p)=>s+p.total,0);
+  const totalCorrect=perfEntries.reduce((s,p)=>s+p.correct,0);
+  const avgPct=totalQsDone>0?Math.round((totalCorrect/totalQsDone)*100):null;
+  const scored=allTopics.map(t=>({...t,score:perf[t.id]?.total>=1?perf[t.id].correct/perf[t.id].total:null})).filter(x=>x.score!==null);
+  const strengths=scored.slice().sort((a,b)=>b.score-a.score).slice(0,3);
+  const weaknesses=scored.slice().sort((a,b)=>a.score-b.score).slice(0,3);
+
+  const currentBoundary=avgPct!==null?GRADE_BOUNDARIES.find(b=>avgPct/100>=b.min)||GRADE_BOUNDARIES[GRADE_BOUNDARIES.length-1]:null;
+  const currentGrade=currentBoundary?.grade||null;
+  const gradeColor=currentBoundary?.color||DS.text.muted;
+
+  const examDate=profile.examDate?new Date(profile.examDate):null;
+  const days=examDate?Math.max(0,Math.round((examDate-new Date())/(1000*60*60*24))):null;
+
+  const handleGenerateReport=async()=>{
+    setReportLoading(true);
+    const tab=window.open('','_blank');
+    if(!tab){setReportLoading(false);alert('Pop-ups are blocked. Please allow pop-ups for this site.');return;}
+    tab.document.write('<html><body style="font-family:\'Segoe UI\',sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;background:#f0ede8;color:#1a2744"><div style="text-align:center"><div style="font-size:40px;margin-bottom:14px">📐</div><h2 style="font-weight:800;margin-bottom:6px">Generating Progress Report…</h2><p style="color:#718096">This takes a few seconds</p></div></body></html>');
+    try{
+      const aiResult=await aiProgressReport({
+        name:profile?.name||'Student',
+        grade:currentGrade?`Grade ${currentGrade}`:'not yet determined',
+        avgPct:avgPct||0,
+        strongestTopic:strengths[0]?.title||'not yet assessed',
+        strongestPct:strengths[0]?Math.round(strengths[0].score*100):0,
+        weakestTopic:weaknesses[0]?.title||'not yet assessed',
+        weakestPct:weaknesses[0]?Math.round(weaknesses[0].score*100):0,
+        totalQs:totalQsDone,
+        board:profile?.board||'GCSE'
+      });
+      const html=buildReportHTML({profile,grade:currentGrade?`Grade ${currentGrade}`:'—',avgPct,totalQs:totalQsDone,totalCorrect,streakCount:streak.current,timeMinutes:totalQsDone*2,strengths,weaknesses,aiSummary:aiResult.summary,aiActions:aiResult.actions,days});
+      tab.document.open();tab.document.write(html);tab.document.close();
+      track('parent_report_generated',{grade:currentGrade,totalQs:totalQsDone});
+    }catch(e){if(tab)tab.document.write(`<html><body style="font-family:sans-serif;padding:40px"><h2>Error generating report</h2><p>${e.message}</p></body></html>`);}
+    finally{setReportLoading(false);}
+  };
+
+  const handleCopyLink=()=>{
+    const shareData={n:profile?.name||'Student',xp,streak:streak.current,best:streak.best||streak.current,topics:scored.length,qs:totalQsDone,avg:avgPct||0,ts:Date.now()};
+    const code=btoa(encodeURIComponent(JSON.stringify(shareData)));
+    const url=`${window.location.origin}${window.location.pathname}?p=${code}`;
+    navigator.clipboard.writeText(url).then(()=>{setCopied(true);setTimeout(()=>setCopied(false),2500);}).catch(()=>{alert('Could not copy. Copy this link manually:\n\n'+url);});
+    track('parent_share_link_copied');
+  };
+
+  return(
+    <div style={{maxWidth:640,margin:'0 auto',padding:'24px 16px'}}>
+      <div style={{marginBottom:20}}>
+        <div style={{fontSize:10,fontWeight:800,color:DS.text.muted,textTransform:'uppercase',letterSpacing:1.5,marginBottom:3,display:'flex',alignItems:'center',gap:5}}><GraduationCap size={12} strokeWidth={2}/>Parent Dashboard</div>
+        <div style={{fontSize:20,fontWeight:900,color:DS.text.primary}}>{profile.name||'Student'}'s Progress</div>
+        {days!==null&&<div style={{fontSize:12,color:DS.accent.amber,fontWeight:700,marginTop:3}}>{days} days until exam · {profile.board||'GCSE'} Maths</div>}
+      </div>
+
+      {/* Grade + key stats */}
+      <div style={{display:'grid',gridTemplateColumns:'auto 1fr',gap:12,marginBottom:16,alignItems:'stretch'}}>
+        <div style={{background:DS.bg.surface,border:`2px solid ${gradeColor}55`,borderRadius:DS.radius.lg,padding:'20px 28px',textAlign:'center',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center'}}>
+          <div style={{fontSize:60,fontWeight:900,color:gradeColor,lineHeight:1}}>{currentGrade||'—'}</div>
+          <div style={{fontSize:10,fontWeight:800,color:DS.text.muted,textTransform:'uppercase',letterSpacing:1,marginTop:4}}>Predicted Grade</div>
+          {avgPct!==null&&<div style={{fontSize:12,color:DS.text.secondary,marginTop:2}}>{avgPct}% accuracy</div>}
+        </div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+          {[{label:'Questions Done',val:totalQsDone,icon:<PenLine size={16} strokeWidth={2}/>},{label:'Day Streak',val:`${streak.current}🔥`,icon:<Flame size={16} strokeWidth={2}/>},{label:'Topics Practised',val:scored.length,icon:<BookOpen size={16} strokeWidth={2}/>},{label:'Total XP',val:`${xp}`,icon:<Zap size={16} strokeWidth={2}/>}].map(s=>(
+            <div key={s.label} style={{background:DS.bg.surface,border:`1px solid ${DS.border}`,borderRadius:DS.radius.md,padding:'12px 14px',display:'flex',flexDirection:'column',gap:4}}>
+              <div style={{color:DS.accent.amber}}>{s.icon}</div>
+              <div style={{fontSize:18,fontWeight:900,color:DS.text.primary,lineHeight:1}}>{s.val}</div>
+              <div style={{fontSize:10,color:DS.text.muted,fontWeight:600}}>{s.label}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Strengths & weaknesses */}
+      {scored.length>0&&(
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:16}}>
+          {[{label:'Top Strengths',color:DS.accent.teal,items:strengths},{label:'Areas to Improve',color:DS.accent.amber,items:weaknesses}].map(({label,color,items})=>(
+            <div key={label} style={{background:DS.bg.surface,border:`1px solid ${DS.border}`,borderRadius:DS.radius.md,padding:'14px 16px'}}>
+              <div style={{fontSize:10,fontWeight:800,color,textTransform:'uppercase',letterSpacing:1,marginBottom:10}}>{label}</div>
+              {items.map(t=>(
+                <div key={t.id} style={{marginBottom:8}}>
+                  <div style={{display:'flex',justifyContent:'space-between',marginBottom:3}}>
+                    <div style={{fontSize:11,color:DS.text.secondary,fontWeight:600,flex:1,marginRight:6,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{t.title}</div>
+                    <div style={{fontSize:11,fontWeight:800,color,flexShrink:0}}>{Math.round(t.score*100)}%</div>
+                  </div>
+                  <div style={{height:4,background:DS.bg.elevated,borderRadius:2,overflow:'hidden'}}><div style={{height:'100%',background:color,width:`${Math.round(t.score*100)}%`,borderRadius:2,transition:'width 0.6s ease'}}/></div>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* All topics breakdown */}
+      {allTopics.length>0&&(
+        <div style={{background:DS.bg.surface,border:`1px solid ${DS.border}`,borderRadius:DS.radius.md,padding:'16px 18px',marginBottom:16}}>
+          <div style={{fontSize:10,fontWeight:800,color:DS.text.muted,textTransform:'uppercase',letterSpacing:1.5,marginBottom:12}}>All Topics</div>
+          <div style={{display:'grid',gap:7}}>
+            {MODULES.map(m=>(
+              <div key={m.id}>
+                <div style={{fontSize:10,fontWeight:800,color:m.color,textTransform:'uppercase',letterSpacing:1,marginBottom:5,marginTop:4}}>{m.label}</div>
+                {m.topics.map(t=>{
+                  const p=perf[t.id];const ratio=p&&p.total>0?p.correct/p.total:null;
+                  return(
+                    <div key={t.id} style={{display:'flex',alignItems:'center',gap:8,marginBottom:5}}>
+                      <div style={{fontSize:11,color:DS.text.secondary,flex:1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{t.title}</div>
+                      <div style={{width:70,height:4,background:DS.bg.elevated,borderRadius:2,overflow:'hidden',flexShrink:0}}>
+                        <div style={{height:'100%',borderRadius:2,background:ratio===null?DS.border:ratio>=0.7?DS.accent.teal:ratio>=0.4?DS.accent.amber:DS.accent.red,width:ratio!==null?`${Math.round(ratio*100)}%`:'0%',transition:'width 0.6s ease'}}/>
+                      </div>
+                      <div style={{fontSize:10,fontWeight:800,color:ratio===null?DS.text.muted:ratio>=0.7?DS.accent.teal:ratio>=0.4?DS.accent.amber:DS.accent.red,width:32,textAlign:'right',flexShrink:0}}>{ratio!==null?`${Math.round(ratio*100)}%`:'—'}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Action buttons */}
+      <div style={{display:'grid',gap:8}}>
+        <button onClick={handleGenerateReport} disabled={reportLoading} style={{width:'100%',padding:'13px 0',borderRadius:DS.radius.md,border:'none',background:reportLoading?DS.bg.overlay:`linear-gradient(135deg,#1a2744,#2a3760)`,color:reportLoading?DS.text.muted:'#C9941A',fontWeight:900,fontSize:14,cursor:reportLoading?'not-allowed':'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:8,transition:DS.tr}}>
+          {reportLoading?<><Loader2 size={16} strokeWidth={2} style={{animation:'spin 0.8s linear infinite'}}/> Generating…</>:<><BarChart2 size={16} strokeWidth={2}/> Generate Full PDF Report</>}
+        </button>
+        <button onClick={handleCopyLink} style={{width:'100%',padding:'11px 0',borderRadius:DS.radius.md,border:`1.5px solid ${copied?DS.accent.teal:DS.border}`,background:copied?DS.accent.tealDim:'transparent',color:copied?DS.accent.teal:DS.text.secondary,fontWeight:700,fontSize:13,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:7,transition:DS.tr}}>
+          {copied?<><CheckCircle2 size={15} strokeWidth={2}/> Link copied!</>:<><Share2 size={15} strokeWidth={2}/> Copy shareable link for parent</>}
+        </button>
+      </div>
+
+      {totalQsDone===0&&(
+        <div style={{marginTop:20,background:DS.bg.surface,border:`1px solid ${DS.border}`,borderRadius:DS.radius.md,padding:'20px 18px',textAlign:'center'}}>
+          <GraduationCap size={28} strokeWidth={1.5} color={DS.text.muted} style={{marginBottom:8}}/>
+          <div style={{fontSize:14,fontWeight:700,color:DS.text.secondary,marginBottom:4}}>No data yet</div>
+          <div style={{fontSize:12,color:DS.text.muted}}>Complete some practice questions to populate the parent dashboard</div>
+        </div>
+      )}
     </div>
   );
 }
@@ -2097,7 +2279,7 @@ export default function App(){
             <span style={{fontSize:13,fontWeight:900,color:DS.accent.red,lineHeight:1}}>{streak.current}</span>
           </div>
         )}
-        {[{id:"platform",label:<><BookOpen size={14} strokeWidth={2} style={{display:'inline',verticalAlign:'middle',marginRight:4}}/>Revision</>,short:<BookOpen size={14} strokeWidth={2}/>},{id:"generator",label:<><Zap size={14} strokeWidth={2} style={{display:'inline',verticalAlign:'middle',marginRight:4}}/>Generator</>,short:<Zap size={14} strokeWidth={2}/>},{id:"mock",label:<><FileText size={14} strokeWidth={2} style={{display:'inline',verticalAlign:'middle',marginRight:4}}/>Mock</>,short:<FileText size={14} strokeWidth={2}/>}].map(tab=>(
+        {[{id:"platform",label:<><BookOpen size={14} strokeWidth={2} style={{display:'inline',verticalAlign:'middle',marginRight:4}}/>Revision</>,short:<BookOpen size={14} strokeWidth={2}/>},{id:"generator",label:<><Zap size={14} strokeWidth={2} style={{display:'inline',verticalAlign:'middle',marginRight:4}}/>Generator</>,short:<Zap size={14} strokeWidth={2}/>},{id:"mock",label:<><FileText size={14} strokeWidth={2} style={{display:'inline',verticalAlign:'middle',marginRight:4}}/>Mock</>,short:<FileText size={14} strokeWidth={2}/>},{id:"report",label:<><GraduationCap size={14} strokeWidth={2} style={{display:'inline',verticalAlign:'middle',marginRight:4}}/>Report</>,short:<GraduationCap size={14} strokeWidth={2}/>}].map(tab=>(
           <button key={tab.id} onClick={()=>{setPage(tab.id);track('tab_switched',{tab:tab.id});}} style={{padding:isMobile?"8px 8px":"6px 12px",margin:"6px 0",borderRadius:DS.radius.sm,border:"none",background:page===tab.id?DS.accent.amberDim:"transparent",cursor:"pointer",color:page===tab.id?DS.accent.amber:DS.text.muted,fontWeight:page===tab.id?800:500,fontSize:isMobile?13:12,transition:DS.tr,whiteSpace:"nowrap",flexShrink:0}}>
             {isMobile?tab.short:tab.label}
           </button>
@@ -2129,19 +2311,30 @@ export default function App(){
       {page==="platform"&&<Platform onXP={awardXP} xpV={xpV} mode={mode} onOpenDaily={()=>setShowDailyModal(true)}/>}
       {page==="generator"&&<Generator/>}
       {page==="mock"&&<MockExam onXP={awardXP} mode={mode}/>}
+      {page==="report"&&<ParentDashboard/>}
     </div>
   );
 }
 
 // ═══ QCARD (Platform static questions — with SM-2 + AI marking) ═══════════
+// Deterministic peer stat — consistent per question, varies by difficulty
+function peerStat(topicId,idx,diff){
+  // Simple hash: sum of char codes × idx
+  const seed=(topicId.split('').reduce((a,c)=>a+c.charCodeAt(0),0)*(idx+1))%100;
+  const base={Starter:[22,38],Mid:[45,62],Killer:[65,80]}[diff]||[45,62];
+  return base[0]+Math.round((seed/100)*(base[1]-base[0]));
+}
+
 function QCard({q,idx,topicId,onAnswered,onXP,isAI=false}){
   const [open,setOpen]=useState(false);
   const [answered,setAnswered]=useState(null);
   const [working,setWorking]=useState('');
   const [aiResult,setAiResult]=useState(null);
   const [aiLoading,setAiLoading]=useState(false);
+  const [showSocratic,setShowSocratic]=useState(false);
   const qid=`${topicId}:${idx}`;
   const d=DIFF[q.diff]||DIFF.Mid;
+  const peerWrong=peerStat(topicId,idx,q.diff);
 
   const handleAnswer=(correct)=>{
     setAnswered(correct?'right':'wrong');
@@ -2173,6 +2366,7 @@ function QCard({q,idx,topicId,onAnswered,onXP,isAI=false}){
           }
           <span style={{background:d.bg,color:d.c,fontSize:11,fontWeight:800,padding:'2px 8px',borderRadius:6}}>{q.diff}</span>
           <span style={{fontSize:11,color:DS.text.muted,fontWeight:600}}>[{q.marks} mark{q.marks>1?'s':''}]</span>
+          {!answered&&<span style={{fontSize:10,color:DS.text.muted,fontWeight:600,display:'inline-flex',alignItems:'center',gap:3,padding:'2px 7px',borderRadius:10,border:`1px solid ${DS.border}`,background:DS.bg.elevated}} title="Based on difficulty tier"><Users size={10} strokeWidth={2}/>{peerWrong}% find this hard</span>}
           {answered&&<span style={{fontSize:11,fontWeight:800,color:answered==='right'?DS.accent.teal:DS.accent.red,display:'inline-flex',alignItems:'center',gap:3}}>{answered==='right'?<><Check size={13} strokeWidth={2.5}/>Got it</>:<><X size={13} strokeWidth={2.5}/>Wrong</>}</span>}
         </div>
         <p style={{margin:'0 0 12px',fontSize:15,lineHeight:1.65,color:DS.text.primary,whiteSpace:'pre-line'}}>{q.q}</p>
@@ -2191,6 +2385,17 @@ function QCard({q,idx,topicId,onAnswered,onXP,isAI=false}){
             <p style={{margin:'4px 0 0',fontSize:13,color:DS.text.secondary,lineHeight:1.5}}>{q.insight}</p>
           </div>}
 
+          {answered&&(
+            <div style={{marginTop:10,background:answered==='right'?DS.accent.tealDim:DS.bg.overlay,borderRadius:DS.radius.sm,padding:'8px 12px',border:`1px solid ${answered==='right'?DS.accent.teal+'33':DS.border}`,display:'flex',alignItems:'center',gap:8}}>
+              <Users size={13} strokeWidth={2} color={answered==='right'?DS.accent.teal:DS.text.muted}/>
+              <span style={{fontSize:12,color:answered==='right'?DS.accent.teal:DS.text.muted}}>
+                {answered==='right'
+                  ?<><strong>{peerWrong}%</strong> of students find this hard — you nailed it!</>
+                  :<>You're not alone — <strong>{peerWrong}%</strong> of students also struggle with this one.</>
+                }
+              </span>
+            </div>
+          )}
           {!answered&&(
             <div style={{marginTop:14}}>
               <div style={{fontSize:11,fontWeight:700,color:DS.text.secondary,marginBottom:8}}>After checking the mark scheme, how did you do?</div>
@@ -2217,7 +2422,10 @@ function QCard({q,idx,topicId,onAnswered,onXP,isAI=false}){
                   {aiResult.feedback&&<div style={{borderLeft:`3px solid ${DS.accent.teal}`,paddingLeft:10,marginBottom:8}}><div style={{fontSize:9,fontWeight:800,color:DS.accent.teal,marginBottom:2}}>WHAT YOU GOT RIGHT</div><p style={{margin:0,fontSize:13,color:DS.text.secondary,lineHeight:1.5}}>{aiResult.feedback}</p></div>}
                   {aiResult.improvements&&<div style={{borderLeft:`3px solid ${DS.accent.amber}`,paddingLeft:10,marginBottom:8}}><div style={{fontSize:9,fontWeight:800,color:DS.accent.amber,marginBottom:2}}>WHAT TO IMPROVE</div><p style={{margin:0,fontSize:13,color:DS.text.secondary,lineHeight:1.5}}>{aiResult.improvements}</p></div>}
                   {aiResult.breakdown?.length>0&&<div style={{background:DS.bg.elevated,borderRadius:DS.radius.sm,padding:'8px 12px',marginTop:4}}><div style={{fontSize:9,fontWeight:800,color:DS.text.muted,marginBottom:4}}>MARK BREAKDOWN</div>{aiResult.breakdown.map((m,i)=><div key={i} style={{fontSize:12,color:DS.text.secondary,padding:'2px 0',fontFamily:'monospace'}}>{m}</div>)}</div>}
-                  <SocraticChat question={q.q} ms={q.ms} aiResult={aiResult} maxMarks={q.marks}/>
+                  <button onClick={()=>{setShowSocratic(s=>!s);if(!showSocratic)track('socratic_tutor_opened',{topicId,diff:q.diff});}} style={{width:'100%',marginTop:12,padding:'11px 16px',borderRadius:DS.radius.md,border:`1.5px solid ${DS.accent.teal}55`,background:showSocratic?DS.accent.teal+'22':DS.bg.elevated,color:DS.accent.teal,fontWeight:800,fontSize:13,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:8,transition:DS.tr}}>
+                    <MessageCircle size={15} strokeWidth={2}/>{showSocratic?'Hide AI Tutor':'Talk it through with your AI Tutor →'}
+                  </button>
+                  {showSocratic&&<div style={{marginTop:10,borderRadius:DS.radius.md,overflow:'hidden',border:`1px solid ${DS.accent.teal}33`}}><SocraticChat question={q.q} ms={q.ms} aiResult={aiResult} maxMarks={q.marks}/></div>}
                 </div>
               )}
               {aiResult?.error&&<div style={{marginTop:8,background:DS.accent.redDim,borderRadius:DS.radius.sm,padding:'8px 12px',color:DS.accent.red,fontSize:12,border:`1px solid ${DS.accent.red}33`}}>{aiResult.error}</div>}
@@ -2710,34 +2918,73 @@ function TopicPage({topic,moduleLabel,onAnswered,onXP}){
   );
 }
 
-// ═══ FOCUS TODAY (DUE FOR REVIEW) ════════════════════════════════════════════
+// ═══ FOCUS TODAY (DUE FOR REVIEW) + REVIEW CALENDAR ═════════════════════════
 function DueForReview({onNavigate}){
+  const [showCalendar,setShowCalendar]=useState(false);
+  const srData=lsGet('gcse_sr',{});
+  const now=new Date();
+  const dayStart=(d)=>{const x=new Date(d);x.setHours(0,0,0,0);return x;};
+  const today=dayStart(now);
+  const tomorrow=new Date(today);tomorrow.setDate(today.getDate()+1);
+  const in7=new Date(today);in7.setDate(today.getDate()+7);
+
   const dueIds=getDueIds();
   const dueQs=dueIds.map(id=>QUESTION_MAP[id]).filter(Boolean);
   const urgent=dueQs.length>3;
-  if(!dueQs.length)return(
-    <div style={{background:DS.bg.surface,borderLeft:`3px solid ${DS.accent.teal}`,borderRadius:DS.radius.md,padding:'12px 18px',marginBottom:16,border:`1px solid ${DS.border}`}}>
-      <div style={{fontSize:12,fontWeight:800,color:DS.accent.teal,display:'flex',alignItems:'center',gap:4}}><Check size={14} strokeWidth={2.5}/> No reviews due today — you're all caught up!</div>
-    </div>
-  );
+
+  // Build upcoming schedule
+  const upcoming=Object.entries(srData)
+    .filter(([,v])=>v.nextReview&&new Date(v.nextReview)>today&&new Date(v.nextReview)<=in7)
+    .map(([id,v])=>({q:QUESTION_MAP[id],nextReview:new Date(v.nextReview)}))
+    .filter(x=>x.q)
+    .sort((a,b)=>a.nextReview-b.nextReview);
+  const tomorrowQs=upcoming.filter(x=>dayStart(x.nextReview).getTime()===tomorrow.getTime());
+  const laterQs=upcoming.filter(x=>dayStart(x.nextReview).getTime()>tomorrow.getTime());
+
   return(
-    <div style={{background:DS.bg.surface,borderLeft:`3px solid ${DS.accent.amber}`,borderRadius:DS.radius.md,padding:'14px 18px',marginBottom:16,border:`1px solid ${DS.border}`,animation:urgent?'pulseAmber 2s ease-in-out infinite':undefined}}>
-      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
-        <div style={{fontSize:12,fontWeight:800,color:DS.accent.amber}}>Focus Today — {dueQs.length} due</div>
-        <div style={{fontSize:10,color:DS.text.muted}}>Memory decay active</div>
-      </div>
-      <div style={{display:'grid',gap:7}}>
-        {dueQs.slice(0,5).map(q=>(
-          <div key={q.qid} style={{background:DS.bg.elevated,borderRadius:DS.radius.sm,padding:'10px 12px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:10,border:`1px solid ${DS.border}`}}>
-            <div style={{overflow:'hidden'}}>
-              <div style={{fontSize:12,fontWeight:700,color:DS.text.primary,marginBottom:1}}>{q.topicTitle}</div>
-              <div style={{fontSize:11,color:DS.text.muted,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',maxWidth:220}}>{q.q?.slice(0,55)}…</div>
-            </div>
-            <button onClick={()=>onNavigate(q.topicId)} style={{padding:'5px 10px',borderRadius:DS.radius.sm,border:`1px solid ${DS.accent.amber}`,background:DS.accent.amberDim,color:DS.accent.amber,fontWeight:800,fontSize:11,cursor:'pointer',flexShrink:0,transition:DS.tr}}>Review →</button>
+    <div style={{marginBottom:16}}>
+      {dueQs.length===0?(
+        <div style={{background:DS.bg.surface,borderLeft:`3px solid ${DS.accent.teal}`,borderRadius:DS.radius.md,padding:'12px 18px',border:`1px solid ${DS.border}`}}>
+          <div style={{fontSize:12,fontWeight:800,color:DS.accent.teal,display:'flex',alignItems:'center',gap:4}}><Check size={14} strokeWidth={2.5}/> All caught up — no reviews due today</div>
+        </div>
+      ):(
+        <div style={{background:DS.bg.surface,borderLeft:`3px solid ${DS.accent.amber}`,borderRadius:DS.radius.md,padding:'14px 18px',border:`1px solid ${DS.border}`,animation:urgent?'pulseAmber 2s ease-in-out infinite':undefined}}>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
+            <div style={{fontSize:12,fontWeight:800,color:DS.accent.amber}}>Review Due — {dueQs.length} question{dueQs.length!==1?'s':''}</div>
+            <div style={{fontSize:10,color:DS.text.muted}}>Spaced repetition</div>
           </div>
-        ))}
-        {dueQs.length>5&&<div style={{fontSize:11,color:DS.text.muted,textAlign:'center'}}>+{dueQs.length-5} more due today</div>}
-      </div>
+          <div style={{display:'grid',gap:7}}>
+            {dueQs.slice(0,5).map(q=>(
+              <div key={q.qid} style={{background:DS.bg.elevated,borderRadius:DS.radius.sm,padding:'10px 12px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:10,border:`1px solid ${DS.border}`}}>
+                <div style={{overflow:'hidden'}}>
+                  <div style={{fontSize:12,fontWeight:700,color:DS.text.primary,marginBottom:1}}>{q.topicTitle}</div>
+                  <div style={{fontSize:11,color:DS.text.muted,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',maxWidth:220}}>{q.q?.slice(0,55)}…</div>
+                </div>
+                <button onClick={()=>onNavigate(q.topicId)} style={{padding:'5px 10px',borderRadius:DS.radius.sm,border:`1px solid ${DS.accent.amber}`,background:DS.accent.amberDim,color:DS.accent.amber,fontWeight:800,fontSize:11,cursor:'pointer',flexShrink:0,transition:DS.tr}}>Review →</button>
+              </div>
+            ))}
+            {dueQs.length>5&&<div style={{fontSize:11,color:DS.text.muted,textAlign:'center'}}>+{dueQs.length-5} more due today</div>}
+          </div>
+        </div>
+      )}
+
+      {/* Review Calendar */}
+      {upcoming.length>0&&(
+        <div style={{marginTop:8}}>
+          <button onClick={()=>setShowCalendar(s=>!s)} style={{width:'100%',background:'none',border:`1px solid ${DS.border}`,borderRadius:DS.radius.sm,padding:'7px 14px',color:DS.text.muted,fontSize:11,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'space-between',transition:DS.tr}}>
+            <span style={{display:'flex',alignItems:'center',gap:6}}><Calendar size={12} strokeWidth={2}/>Upcoming reviews — {upcoming.length} scheduled this week</span>
+            <span>{showCalendar?'▲':'▼'}</span>
+          </button>
+          {showCalendar&&(
+            <div style={{background:DS.bg.surface,border:`1px solid ${DS.border}`,borderTop:'none',borderRadius:`0 0 ${DS.radius.sm} ${DS.radius.sm}`,padding:'10px 14px',display:'grid',gap:6}}>
+              {tomorrowQs.length>0&&<div style={{fontSize:10,fontWeight:800,color:DS.accent.amber,textTransform:'uppercase',letterSpacing:1,marginBottom:2}}>Tomorrow — {tomorrowQs.length} due</div>}
+              {tomorrowQs.slice(0,3).map(({q},i)=><div key={i} style={{fontSize:11,color:DS.text.secondary,padding:'4px 0',borderBottom:`1px solid ${DS.border}`}}>{q.topicTitle}: <span style={{color:DS.text.muted}}>{q.q?.slice(0,40)}…</span></div>)}
+              {laterQs.length>0&&<div style={{fontSize:10,fontWeight:800,color:DS.text.muted,textTransform:'uppercase',letterSpacing:1,marginTop:6,marginBottom:2}}>Later this week — {laterQs.length} due</div>}
+              {laterQs.slice(0,3).map(({q,nextReview},i)=><div key={i} style={{fontSize:11,color:DS.text.secondary,padding:'4px 0',borderBottom:`1px solid ${DS.border}`}}><span style={{color:DS.accent.teal,fontWeight:700}}>{nextReview.toLocaleDateString('en-GB',{weekday:'short'})}</span> · {q.topicTitle}</div>)}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -2807,7 +3054,7 @@ export function Platform({onXP=()=>{},xpV=0,mode='sprint',onOpenDaily=()=>{}}){
   };
 
   if(topic)return(
-    <div style={{fontFamily:"'Segoe UI',sans-serif",maxWidth:680,margin:"0 auto",padding:16,background:DS.bg.base,minHeight:"100vh"}}>
+    <div style={{fontFamily:"'Segoe UI',sans-serif",maxWidth:680,margin:"0 auto",padding:16,background:mode==='deep'?DS.bg.deep:DS.bg.base,minHeight:"100vh"}}>
       <div style={{background:DS.bg.surface,borderRadius:DS.radius.lg,padding:"14px 18px",marginBottom:14,border:`1px solid ${DS.border}`}}>
         <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10,flexWrap:"wrap"}}>
           <button onClick={()=>{setModId(null);setTopicId(null);}} style={{background:"none",border:"none",cursor:"pointer",fontSize:16,color:DS.text.secondary}}>⌂</button>
@@ -2826,7 +3073,7 @@ export function Platform({onXP=()=>{},xpV=0,mode='sprint',onOpenDaily=()=>{}}){
   );
 
   if(mod)return(
-    <div style={{fontFamily:"'Segoe UI',sans-serif",maxWidth:680,margin:"0 auto",padding:16,background:DS.bg.base,minHeight:"100vh"}}>
+    <div style={{fontFamily:"'Segoe UI',sans-serif",maxWidth:680,margin:"0 auto",padding:16,background:mode==='deep'?DS.bg.deep:DS.bg.base,minHeight:"100vh"}}>
       <div style={{background:DS.bg.elevated,borderRadius:DS.radius.lg,padding:"22px",marginBottom:14,position:"relative",overflow:"hidden",border:`1px solid ${DS.border}`,borderLeft:`4px solid ${mod.color}`}}>
         <div style={{position:"absolute",right:-20,top:-20,fontSize:110,opacity:0.05,fontWeight:900}}>{mod.icon}</div>
         <button onClick={()=>setModId(null)} style={{background:DS.bg.surface,border:`1px solid ${DS.border}`,borderRadius:DS.radius.sm,padding:"5px 12px",color:DS.text.secondary,fontSize:12,fontWeight:700,cursor:"pointer",marginBottom:10}}>← Back</button>
@@ -2859,11 +3106,13 @@ export function Platform({onXP=()=>{},xpV=0,mode='sprint',onOpenDaily=()=>{}}){
   return(
     <div style={{fontFamily:"'Segoe UI',sans-serif",maxWidth:680,margin:"0 auto",padding:16,background:mode==='deep'?DS.bg.deep:DS.bg.base,minHeight:"100vh"}}>
 
+      {mode==='deep'&&<div style={{background:DS.bg.surface,borderRadius:DS.radius.md,padding:'10px 16px',marginBottom:14,border:`1px solid ${DS.border}`,display:'flex',alignItems:'center',gap:8}}><Target size={14} color={DS.accent.teal} strokeWidth={2}/><span style={{fontSize:12,fontWeight:700,color:DS.accent.teal}}>Deep Focus — distractions hidden</span></div>}
+
       {/* Personalised Hero */}
-      <PersonalisedHero onNavigate={navigateToTopic}/>
+      {mode!=='deep'&&<PersonalisedHero onNavigate={navigateToTopic}/>}
 
       {/* Daily Challenge widget */}
-      {(()=>{
+      {mode!=='deep'&&(()=>{
         const daily=lsGet('lumora_daily',{date:null,completed:false,xp:0});
         const done=daily.date===todayStr()&&daily.completed;
         return done?(
@@ -2889,10 +3138,16 @@ export function Platform({onXP=()=>{},xpV=0,mode='sprint',onOpenDaily=()=>{}}){
       {/* Gamification bar (sprint mode only) */}
       {mode==='sprint'&&<GamificationBar key={`gam-${xpV}`} xp={xp}/>}
 
+
       {/* Search */}
-      <div style={{position:"relative",marginBottom:14}}>
-        <span style={{position:"absolute",left:14,top:"50%",transform:"translateY(-50%)",fontSize:15,color:DS.text.muted}}>⌕</span>
-        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search topics..." style={{width:"100%",padding:"10px 16px 10px 40px",borderRadius:DS.radius.md,border:`1.5px solid ${DS.border}`,fontSize:14,background:DS.bg.surface,outline:"none",boxSizing:"border-box",color:DS.text.primary}} onFocus={e=>e.target.style.borderColor=DS.accent.amber} onBlur={e=>e.target.style.borderColor=DS.border}/>
+      <div style={{display:'flex',gap:8,marginBottom:14}}>
+        <div style={{position:"relative",flex:1}}>
+          <span style={{position:"absolute",left:14,top:"50%",transform:"translateY(-50%)",fontSize:15,color:DS.text.muted}}>⌕</span>
+          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search topics..." style={{width:"100%",padding:"10px 16px 10px 40px",borderRadius:DS.radius.md,border:`1.5px solid ${DS.border}`,fontSize:14,background:DS.bg.surface,outline:"none",boxSizing:"border-box",color:DS.text.primary}} onFocus={e=>e.target.style.borderColor=DS.accent.amber} onBlur={e=>e.target.style.borderColor=DS.border}/>
+        </div>
+        <button onClick={()=>{const weak=getWeakTopics();const t=weak[Math.floor(Math.random()*weak.length)];if(t)navigateToTopic(t.id);track('surprise_me_clicked');}} title="Surprise Me — jump to a weak topic" style={{flexShrink:0,padding:'10px 14px',borderRadius:DS.radius.md,border:`1.5px solid ${DS.accent.amber}44`,background:DS.accent.amberDim,color:DS.accent.amber,fontWeight:800,fontSize:12,cursor:'pointer',transition:DS.tr,whiteSpace:'nowrap'}}>
+          <Sparkles size={14} strokeWidth={2} style={{display:'inline',verticalAlign:'middle',marginRight:4}}/>Surprise Me
+        </button>
       </div>
       {search.trim().length>1&&(
         <div style={{marginBottom:14}}>
@@ -2908,7 +3163,7 @@ export function Platform({onXP=()=>{},xpV=0,mode='sprint',onOpenDaily=()=>{}}){
       <DueForReview key={`due-${version}`} onNavigate={navigateToTopic}/>
 
       {/* Weekly Goal */}
-      <WeeklyGoalBar/>
+      {mode!=='deep'&&<WeeklyGoalBar/>}
 
       {/* Module Mastery Grid */}
       <div style={{fontSize:10,fontWeight:800,color:DS.text.muted,textTransform:"uppercase",letterSpacing:1.5,marginBottom:10}}>Module Mastery</div>
@@ -2933,7 +3188,7 @@ export function Platform({onXP=()=>{},xpV=0,mode='sprint',onOpenDaily=()=>{}}){
       </div>
 
       {/* Analytics */}
-      <WeaknessHeatmap key={`heat-${version}`} onNavigate={navigateToTopic}/>
+      {mode!=='deep'&&<WeaknessHeatmap key={`heat-${version}`} onNavigate={navigateToTopic}/>}
 
       {/* Stats */}
       <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginBottom:14,minWidth:0}}>
@@ -3108,26 +3363,65 @@ export function MockExam({onXP=()=>{},mode='sprint'}){
     </div>
   );
 
-  if(submitted)return(
-    <div style={{maxWidth:680,margin:'0 auto',padding:20,fontFamily:"'Inter','Segoe UI',sans-serif",background:mode==='deep'?DS.bg.deep:DS.bg.base,minHeight:'100vh'}}>
-      <div style={{background:DS.bg.surface,borderRadius:DS.radius.xl,padding:28,textAlign:'center',marginBottom:16,border:`1px solid ${DS.border}`,boxShadow:DS.shadow,position:'relative',overflow:'hidden'}}>
-        <div style={{position:'absolute',top:0,left:0,right:0,height:3,background:`linear-gradient(90deg,${DS.accent.amber},${DS.accent.teal})`,opacity:0.7}}/>
-        <div style={{width:72,height:72,borderRadius:'50%',background:pct>=70?DS.accent.amberDim:pct>=50?DS.accent.tealDim:DS.bg.elevated,border:`2px solid ${pct>=70?DS.accent.amber:pct>=50?DS.accent.teal:DS.border}`,display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 16px'}}>{pct>=70?<Trophy size={32} strokeWidth={2} color={DS.accent.amber}/>:pct>=50?<BarChart2 size={32} strokeWidth={2} color={DS.accent.teal}/>:<BookOpen size={32} strokeWidth={2} color={DS.text.muted}/>}</div>
-        <div style={{fontSize:18,fontWeight:900,color:DS.text.primary,marginBottom:4}}>Exam Complete</div>
-        {markedCount>0?(
-          <>
-            <div style={{fontSize:52,fontWeight:900,color:DS.accent.amber,lineHeight:1.1}}>{earnedMarks}<span style={{fontSize:24,color:DS.text.muted}}>/{totalMarks}</span></div>
-            <div style={{fontSize:13,color:DS.text.secondary,marginTop:6}}>{pct}% · {markedCount}/{questions.length} questions self-marked</div>
-          </>
-        ):(
-          <div style={{fontSize:13,color:DS.text.secondary,marginTop:8}}>Reveal each mark scheme below and self-mark to see your score</div>
+  if(submitted){
+    const mockBnd=markedCount>0?calcGrade(pct/100):null;
+    // Module breakdown for results
+    const modBreakdown=MODULES.map(m=>{
+      const mQs=questions.map((q,i)=>({q,i})).filter(({q})=>m.topics.some(t=>t.id===q.topicId));
+      const mMarked=mQs.filter(({i})=>selfMarks[i]!==undefined);
+      const mEarned=mMarked.reduce((s,{i})=>s+selfMarks[i],0);
+      const mTotal=mQs.reduce((s,{q})=>s+q.marks,0);
+      return{...m,mQs:mQs.length,mMarked:mMarked.length,mEarned,mTotal,ratio:mTotal>0?mEarned/mTotal:null};
+    }).filter(m=>m.mQs>0);
+    return(
+      <div style={{maxWidth:680,margin:'0 auto',padding:20,fontFamily:"'Inter','Segoe UI',sans-serif",background:mode==='deep'?DS.bg.deep:DS.bg.base,minHeight:'100vh'}}>
+        <div style={{background:DS.bg.surface,borderRadius:DS.radius.xl,padding:28,textAlign:'center',marginBottom:16,border:`1px solid ${DS.border}`,boxShadow:DS.shadow,position:'relative',overflow:'hidden'}}>
+          <div style={{position:'absolute',top:0,left:0,right:0,height:3,background:`linear-gradient(90deg,${DS.accent.amber},${DS.accent.teal})`,opacity:0.7}}/>
+          <div style={{width:72,height:72,borderRadius:'50%',background:pct>=70?DS.accent.amberDim:pct>=50?DS.accent.tealDim:DS.bg.elevated,border:`2px solid ${pct>=70?DS.accent.amber:pct>=50?DS.accent.teal:DS.border}`,display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 16px'}}>{pct>=70?<Trophy size={32} strokeWidth={2} color={DS.accent.amber}/>:pct>=50?<BarChart2 size={32} strokeWidth={2} color={DS.accent.teal}/>:<BookOpen size={32} strokeWidth={2} color={DS.text.muted}/>}</div>
+          <div style={{fontSize:18,fontWeight:900,color:DS.text.primary,marginBottom:4}}>Exam Complete</div>
+          {markedCount>0?(
+            <>
+              <div style={{fontSize:52,fontWeight:900,color:DS.accent.amber,lineHeight:1.1}}>{earnedMarks}<span style={{fontSize:24,color:DS.text.muted}}>/{totalMarks}</span></div>
+              <div style={{fontSize:13,color:DS.text.secondary,marginTop:6}}>{pct}% · {markedCount}/{questions.length} self-marked</div>
+              {mockBnd&&<div style={{marginTop:12,display:'inline-flex',alignItems:'center',gap:10,background:DS.bg.elevated,border:`1.5px solid ${mockBnd.color}55`,borderRadius:DS.radius.md,padding:'10px 20px'}}>
+                <div style={{fontSize:40,fontWeight:900,color:mockBnd.color,lineHeight:1}}>{mockBnd.grade}</div>
+                <div style={{textAlign:'left'}}><div style={{fontSize:10,fontWeight:800,color:DS.text.muted,textTransform:'uppercase',letterSpacing:1}}>Mock Grade</div><div style={{fontSize:11,color:DS.text.secondary,marginTop:2}}>Based on this exam</div></div>
+              </div>}
+            </>
+          ):(
+            <div style={{fontSize:13,color:DS.text.secondary,marginTop:8}}>Reveal each mark scheme below and self-mark to see your score</div>
+          )}
+        </div>
+
+        {/* Module breakdown */}
+        {markedCount>0&&modBreakdown.length>0&&(
+          <div style={{background:DS.bg.surface,border:`1px solid ${DS.border}`,borderRadius:DS.radius.md,padding:'16px 18px',marginBottom:16}}>
+            <div style={{fontSize:10,fontWeight:800,color:DS.text.muted,textTransform:'uppercase',letterSpacing:1.5,marginBottom:12}}>Module Breakdown</div>
+            <div style={{display:'grid',gap:8}}>
+              {modBreakdown.map(m=>(
+                <div key={m.id} style={{display:'flex',alignItems:'center',gap:10}}>
+                  <div style={{width:8,height:8,borderRadius:'50%',background:m.color,flexShrink:0}}/>
+                  <div style={{fontSize:12,color:DS.text.secondary,flex:1,fontWeight:600}}>{m.label}</div>
+                  <div style={{width:80,height:5,background:DS.bg.elevated,borderRadius:3,overflow:'hidden',flexShrink:0}}>
+                    <div style={{height:'100%',background:m.ratio!==null?(m.ratio>=0.7?DS.accent.teal:m.ratio>=0.4?DS.accent.amber:DS.accent.red):DS.border,width:m.ratio!==null?`${Math.round(m.ratio*100)}%`:'0%',borderRadius:3}}/>
+                  </div>
+                  <div style={{fontSize:11,fontWeight:800,color:m.ratio!==null?(m.ratio>=0.7?DS.accent.teal:m.ratio>=0.4?DS.accent.amber:DS.accent.red):DS.text.muted,width:36,textAlign:'right',flexShrink:0}}>{m.ratio!==null?`${Math.round(m.ratio*100)}%`:'—'}</div>
+                </div>
+              ))}
+            </div>
+          </div>
         )}
+
+        <button onClick={()=>{window.location.reload();}} style={{width:'100%',padding:'12px',borderRadius:DS.radius.md,border:`1px solid ${DS.border}`,background:'transparent',color:DS.text.secondary,fontWeight:700,fontSize:13,cursor:'pointer',marginBottom:14,display:'flex',alignItems:'center',justifyContent:'center',gap:7,transition:DS.tr}}>
+          ↺ Retake Exam with New Questions
+        </button>
+
+        {questions.map((q,i)=>(
+          <MockQCard key={q.qid} q={q} idx={i} working={workings[i]||''} selfMark={selfMarks[i]} onSelfMark={m=>setSelfMarks(s=>({...s,[i]:m}))}/>
+        ))}
       </div>
-      {questions.map((q,i)=>(
-        <MockQCard key={q.qid} q={q} idx={i} working={workings[i]||''} selfMark={selfMarks[i]} onSelfMark={m=>setSelfMarks(s=>({...s,[i]:m}))}/>
-      ))}
-    </div>
-  );
+    );
+  }
 
   return(
     <div style={{maxWidth:680,margin:'0 auto',padding:20,fontFamily:"'Inter','Segoe UI',sans-serif",background:mode==='deep'?DS.bg.deep:DS.bg.base,minHeight:'100vh'}}>

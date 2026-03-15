@@ -1,25 +1,21 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Flame, Zap, Trophy, Target, Calendar, Check, X, Lightbulb, Sparkles, Info, MessageCircle, Volume2, VolumeX, Settings, AlertTriangle, GraduationCap, Rocket, BookOpen, FileText, Bot, BarChart2, TrendingUp, PenLine, Award, Snowflake, ClipboardList, Loader2, Share2, CheckCircle2, XCircle, BarChart, FlaskConical, Sigma } from "lucide-react";
 import { track, identify } from './analytics.js';
+import { sbSignUp, sbSignIn, sbSignOut, sbGetSession, loadProgressFromSupabase, scheduleSave } from './supabase.js';
 
 // ═══ STORAGE & AUTH ══════════════════════════════════════════════════════════
 let _currentUser=null;// set on login/init — email string
+let _currentUserId=null;// supabase user id (uuid)
 const GLOBAL_KEYS=new Set(['lumora_users','lumora_currentUser','lumora_sound']);
 function lsKey(k){return(!GLOBAL_KEYS.has(k)&&_currentUser)?`lumora_${_currentUser}_${k}`:k;}
 function lsGet(k,d){try{const v=localStorage.getItem(lsKey(k));return v!=null?JSON.parse(v):d;}catch{return d;}}
-function lsSet(k,v){localStorage.setItem(lsKey(k),JSON.stringify(v));}
+function lsSet(k,v){localStorage.setItem(lsKey(k),JSON.stringify(v));scheduleSave(_currentUserId);}
 
-// Auth helpers
-async function sha256(str){
-  const buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(str));
-  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
-}
-function getUsers(){try{return JSON.parse(localStorage.getItem('lumora_users')||'{}');}catch{return {};}}
-function saveUsers(u){localStorage.setItem('lumora_users',JSON.stringify(u));}
 function getCurrentUserEmail(){return localStorage.getItem('lumora_currentUser');}
-function clearCurrentUser(){localStorage.removeItem('lumora_currentUser');_currentUser=null;}
-function initCurrentUser(email){
+function clearCurrentUser(){localStorage.removeItem('lumora_currentUser');_currentUser=null;_currentUserId=null;sbSignOut();}
+function initCurrentUser(email,userId){
   _currentUser=email;
+  _currentUserId=userId||null;
   localStorage.setItem('lumora_currentUser',email);
   migrateUnscopedData(email);
 }
@@ -1780,16 +1776,13 @@ function LoginScreen({onLogin,onRegister}){
   const handleLogin=async(e)=>{
     e.preventDefault();setErr('');setLoading(true);
     try{
-      const users=getUsers();
-      const u=users[email.trim().toLowerCase()];
-      if(!u){setErr('No account found for that email.');return;}
-      const hash=await sha256(pw);
-      if(hash!==u.passwordHash){setErr('Incorrect password.');return;}
-      initCurrentUser(email.trim().toLowerCase());
-      identify(email.trim().toLowerCase());
+      const user=await sbSignIn(email.trim().toLowerCase(),pw);
+      initCurrentUser(user.email,user.id);
+      await loadProgressFromSupabase(user.id);
+      identify(user.email);
       track('user_signed_in');
       onLogin();
-    }catch{setErr('Something went wrong. Try again.');}
+    }catch(err){setErr(err.message||'Something went wrong. Try again.');}
     finally{setLoading(false);}
   };
 
@@ -1844,18 +1837,15 @@ function AccountCreateScreen({onCreated}){
     if(pw!==pw2){setErr('Passwords do not match.');return;}
     setLoading(true);
     try{
-      const users=getUsers();
-      const key=email.trim().toLowerCase();
-      if(users[key]){setErr('An account with this email already exists.');return;}
-      const hash=await sha256(pw);
       const profile=lsGet('lumora_profile',{});
-      users[key]={name:profile.name||'Student',passwordHash:hash,createdAt:new Date().toISOString()};
-      saveUsers(users);
-      initCurrentUser(key);
+      const key=email.trim().toLowerCase();
+      const user=await sbSignUp(key,pw,profile);
+      initCurrentUser(key,user?.id);
+      if(user?.id)await loadProgressFromSupabase(user.id);
       identify(key,{name:profile.name,board:profile.board,grade:profile.grade});
       track('account_created',{board:profile.board,grade:profile.grade});
       onCreated();
-    }catch{setErr('Something went wrong. Try again.');}
+    }catch(err){setErr(err.message||'Something went wrong. Try again.');}
     finally{setLoading(false);}
   };
 
@@ -1902,9 +1892,7 @@ function AccountCreateScreen({onCreated}){
 
 function SettingsPanel({onClose,onLogout}){
   const profile=lsGet('lumora_profile',{});
-  const users=getUsers();
   const email=getCurrentUserEmail()||'';
-  const u=users[email]||{};
   const [showLogoutConfirm,setShowLogoutConfirm]=useState(false);
   const isMobile=useIsMobile();
 
@@ -1918,7 +1906,7 @@ function SettingsPanel({onClose,onLogout}){
         </div>
 
         <div style={{background:DS.bg.elevated,borderRadius:DS.radius.lg,padding:16,border:`1px solid ${DS.border}`}}>
-          <div style={{fontSize:18,fontWeight:800,color:DS.text.primary,marginBottom:2}}>{profile.name||u.name||'Student'}</div>
+          <div style={{fontSize:18,fontWeight:800,color:DS.text.primary,marginBottom:2}}>{profile.name||'Student'}</div>
           <div style={{fontSize:13,color:DS.text.secondary,marginBottom:8}}>{email}</div>
           <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
             {profile.board&&<span style={{fontSize:11,background:DS.accent.amberDim,color:DS.accent.amber,borderRadius:DS.radius.sm,padding:'2px 8px',fontWeight:700}}>{profile.board}</span>}
@@ -1933,7 +1921,7 @@ function SettingsPanel({onClose,onLogout}){
               {label:'Total XP',value:`${getXP()} XP`},
               {label:'Current Streak',value:`${getStreakData().current} days`},
               {label:'Best Streak',value:`${getStreakData().best} days`},
-              {label:'Account Created',value:u.createdAt?new Date(u.createdAt).toLocaleDateString('en-GB',{day:'numeric',month:'short'}):'—'},
+              {label:'Account Created',value:profile.createdAt?new Date(profile.createdAt).toLocaleDateString('en-GB',{day:'numeric',month:'short'}):'—'},
             ].map(s=>(
               <div key={s.label} style={{background:DS.bg.elevated,borderRadius:DS.radius.md,padding:'10px 12px',border:`1px solid ${DS.border}`}}>
                 <div style={{fontSize:11,color:DS.text.muted,marginBottom:2}}>{s.label}</div>
@@ -2018,14 +2006,7 @@ function ProgressReport({data}){
 
 // ═══ APP SHELL ═══════════════════════════════════════════════════════════════
 export default function App(){
-  const [screen,setScreen]=useState(()=>{
-    const cu=getCurrentUserEmail();
-    if(cu){initCurrentUser(cu);return'landing';}
-    const hasUsers=Object.keys(getUsers()).length>0;
-    if(hasUsers)return'auth';
-    const existingProfile=localStorage.getItem('lumora_profile');
-    return existingProfile?'account_create':'onboarding';
-  });
+  const [screen,setScreen]=useState('loading');
   const [page,setPage]=useState("platform");
   const [xpV,setXpV]=useState(0);
   const [celebration,setCelebration]=useState(null);
@@ -2033,6 +2014,20 @@ export default function App(){
   const [showDailyModal,setShowDailyModal]=useState(false);
   const [soundOn,setSoundOn]=useState(()=>lsGet('lumora_sound',true));
   const [showSettings,setShowSettings]=useState(false);
+
+  useEffect(()=>{
+    sbGetSession().then(async user=>{
+      if(user){
+        initCurrentUser(user.email,user.id);
+        await loadProgressFromSupabase(user.id);
+        identify(user.email);
+        setScreen('landing');
+      } else {
+        const existingProfile=localStorage.getItem('lumora_profile');
+        setScreen(existingProfile?'account_create':'onboarding');
+      }
+    });
+  },[]);
 
   const toggleSound=()=>{const v=!soundOn;setSoundOn(v);lsSet('lumora_sound',v);};
 
@@ -2073,6 +2068,7 @@ export default function App(){
   const handleLogout=()=>{clearCurrentUser();setScreen('auth');setShowSettings(false);};
 
   if(sharedData)return<><AnimStyles/><ProgressReport data={sharedData}/></>;
+  if(screen==='loading')return<div style={{minHeight:'100vh',background:DS.bg.base,display:'flex',alignItems:'center',justifyContent:'center'}}><Loader2 size={28} strokeWidth={2} color={DS.accent.amber} style={{animation:'spin 0.8s linear infinite'}}/></div>;
   if(screen==='onboarding')return<><AnimStyles/><Onboarding onComplete={handleOnboardingComplete}/></>;
   if(screen==='account_create')return<AccountCreateScreen onCreated={()=>{touchStreak();setScreen('landing');}}/>;
   if(screen==='auth')return<LoginScreen onLogin={()=>setScreen('landing')} onRegister={()=>setScreen('onboarding')}/>;

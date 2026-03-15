@@ -741,6 +741,17 @@ const MODULES=[
         {q:"A curve has equation  y = 2x³ – 3x² – 12x + 4.\na) Show that the curve is decreasing when  –1 < x < 2.\nb) Find the x-coordinates where the curve has zero gradient.",marks:5,diff:"Killer",ms:["M1: dy/dx=6x²–6x–12","M1: 6x²–6x–12<0 → x²–x–2<0","M1: (x–2)(x+1)<0 → –1<x<2 confirmed","M1: 6x²–6x–12=0 → x=2 and x=–1","A1: x=–1 and x=2"],insight:"Decreasing: dy/dx<0. Factorise and find roots, then sketch quadratic to identify where it's negative (between roots for positive leading coefficient). Zero gradient: same roots where dy/dx=0. 'Show that' means show every step including the inequality reasoning."}
       ],
       mistakes:["Not reducing the power: y=3x² → dy/dx=3x² (forgetting to reduce from 2 to 1)","Constants: dy/dx of 7 is 0, not 7 and not 7x","Stationary points: only giving x values without finding y coordinates","Increasing/decreasing: using y= instead of dy/dx — must use the derivative","Sign of leading coefficient: dy/dx<0 between roots only when coefficient of x² is positive"]
+    },
+    {id:"2.11",title:"Completing the Square",
+      boards:{AQA:"'Express in the form (x+p)²+q'. 'Find the minimum value'. Solve by completing the square — exact surd answers. Discriminant to determine number of roots.",Edexcel:"'By completing the square, solve x²+6x–1=0. Give exact answers.' Sketch parabola with turning point and intercepts labelled. 'Show the minimum value is –q'.",OCR:"'State the coordinates of the turning point'. Use completed square to sketch. Discriminant: 'explain how many solutions this equation has, giving a reason'."},
+      analogy:{icon:"🎯",title:"Completing the Square — 3 Things in One",lines:["STEP 1: Halve the coefficient of x → p","STEP 2: (x+p)² expands to x²+2px+p² — you added p² extra","STEP 3: Subtract p² to compensate","  x²+8x+5 → (x+4)²–16+5 = (x+4)²–11","TURNING POINT: x=–p, y=q  (minimum if a>0)","SOLVE by CTS: (x+4)²=11 → x+4=±√11 → x=–4±√11","DISCRIMINANT b²–4ac: >0 two roots, =0 one root, <0 no roots"]},
+      markScheme:["CTS: M1 for (x+p)² form with correct p (half coefficient), A1 correct constant q","Turning point: B1 x-coordinate = –p (opposite sign to bracket), B1 y-coordinate = q","Solve by CTS: M1 square root both sides with ±, A1 both exact solutions","Discriminant: B1 correct value computed, B1 correct conclusion in words","Sketch: B1 turning point, B1 correct shape, B1 y-intercept"],
+      questions:[
+        {q:"Express  x² + 10x + 3  in the form  (x + p)² + q.",marks:2,diff:"Starter",ms:["M1: p = 5 (half of 10), (x+5)² = x²+10x+25","A1: (x+5)² – 25 + 3 = (x+5)² – 22"],insight:"Halve the x coefficient to get p=5. (x+5)² adds 25 extra, so subtract 25 and add back the original +3. Always verify: expand (x+5)²–22 = x²+10x+25–22 = x²+10x+3 ✓"},
+        {q:"a) Write  x² – 6x + 2  in the form  (x+p)² + q.\nb) Hence write down the coordinates of the minimum point of  y = x² – 6x + 2.\nc) Solve  x² – 6x + 2 = 0,  giving your answers in exact form.",marks:6,diff:"Mid",ms:["M1: (x–3)² – 9 + 2","A1: (x–3)² – 7","B1: minimum at (3, –7)","M1: (x–3)² = 7","M1: x–3 = ±√7","A1: x = 3±√7"],insight:"The completed square form does three jobs: form (for marks), turning point (opposite sign from bracket, same as constant), and solving (rearrange to x=). Exact form means leave ±√7 — do not use a calculator."},
+        {q:"Use the discriminant to determine how many real solutions  3x² – 4x + 5 = 0  has. Give a reason.",marks:3,diff:"Killer",ms:["M1: b²–4ac = (–4)²–4(3)(5) = 16–60","A1: –44","B1: –44 < 0 so no real solutions — the graph does not cross the x-axis"],insight:"Identify a=3, b=–4, c=5 carefully. (–4)²=16, not –16. Negative discriminant means no real roots — the parabola sits entirely above (or below) the x-axis. Must state conclusion in words for the final B mark."}
+      ],
+      mistakes:["Forgetting to subtract p²: writing (x+5)²+3 instead of (x+5)²–22","Turning point x-coordinate: writing +p not –p (wrong sign from bracket)","Solving: taking only positive square root — always need ±","Discriminant: computing –4² as –16 instead of (–4)²=+16","a≠1: must divide through first or use full 'ax+b)² form"]
     }
   ]},
   {id:3,code:"M3",label:"Ratio & Rates",color:"#E07B54",icon:"∶",topics:[
@@ -888,6 +899,39 @@ const MODULES=[
         {q:"A solid is made by placing a cone (radius 4cm, height 3cm) on top of a cylinder (radius 4cm, height 8cm). Find the total volume in terms of π.",marks:4,diff:"Killer",ms:["M1: Cylinder V=π×16×8=128π","M1: Cone V=⅓×π×16×3=16π","M1: Add volumes","A1: 144π cm³"],insight:"Composite solid: compute each separately, then add. Cylinder: πr²h=128π. Cone: ⅓πr²h=16π. Total=144π. Leave in exact form — no need to evaluate."}
       ],
       mistakes:["SA: forgetting to include the base(s) when 'total' is asked","Cone SA: using h instead of slant height l","Sphere SA: using πr² (circle area) instead of 4πr²","Composite: using total height for cylinder instead of just its portion"]
+    },
+    {id:"4.10",title:"Sine Rule & Cosine Rule",
+      boards:{AQA:"Non-right-angled triangles: label sides a,b,c opposite angles A,B,C. Ambiguous case (two possible triangles) tested at Higher. Area = ½ab sinC.",Edexcel:"'Give your answer to 3 s.f.' on trig questions. Cosine rule for finding an angle: rearrange formula. Area formula for triangles without perpendicular height.",OCR:"'Find the largest angle' — use cosine rule, identify side opposite largest angle first. Bearing problems with sine/cosine rule. Full method marks for correct setup."},
+      analogy:{icon:"📐",title:"Two Triangles — Two Rules",lines:["DECIDE: right angle? → SOH CAH TOA. No right angle? → Sine or Cosine rule","SINE RULE: a/sinA = b/sinB = c/sinC","  USE WHEN: angle+opposite side pair is known","  Finding ANGLE: sinA/a = sinB/b (flip the formula)","COSINE RULE: a² = b² + c² – 2bc cosA","  USE WHEN: SAS (two sides + included angle) or SSS (all three sides)","  Finding ANGLE: cosA = (b²+c²–a²) / 2bc","AREA: ½ab sinC  ←  USE when no perpendicular height given"]},
+      markScheme:["Sine rule: M1 correct formula setup with substitution, A1 answer","Cosine rule: M1 correct formula, M1 correct substitution, A1 answer","Finding angle via cosine rule: M1 rearrangement to cosA=..., A1 angle","Area formula: M1 ½ab sinC, A1 correct answer","Ambiguous case: B1 identifying second solution (180°–first angle)","All answers to degree of accuracy specified"],
+      questions:[
+        {q:"In triangle ABC,  AB = 9 cm,  angle A = 48°,  angle B = 63°.  Find BC.",marks:3,diff:"Starter",ms:["M1: angle C = 180–48–63 = 69°","M1: BC/sin48 = 9/sin69","A1: BC = 9sin48°/sin69° = 7.15 cm"],insight:"Angle–side pair: angle A and its opposite side BC, angle B and opposite AC, angle C and opposite AB. Find angle C first (angles sum to 180°). Then set up: BC/sinA = AB/sinC. Always identify which angle faces which side."},
+        {q:"Triangle PQR:  PQ = 7 cm,  PR = 11 cm,  angle P = 35°.  Find QR.",marks:4,diff:"Mid",ms:["M1: Cosine rule — two sides and included angle","M1: QR² = 7² + 11² – 2×7×11×cos35°","M1: = 49 + 121 – 154 × 0.8192 = 43.8","A1: QR = 6.62 cm"],insight:"SAS (side-angle-side) → cosine rule. The angle (35°) is BETWEEN the two sides — that's the cosine rule setup. Label: a=QR, b=11, c=7, A=35°. Substitute directly: a²=b²+c²–2bc cosA."},
+        {q:"Triangle XYZ:  XY = 8 cm,  YZ = 13 cm,  XZ = 10 cm.  Find angle X, and hence find the area of the triangle.",marks:6,diff:"Killer",ms:["M1: cosX = (8²+10²–13²)/(2×8×10)","M1: = (64+100–169)/160 = –5/160","A1: angle X = cos⁻¹(–0.03125) = 91.8°","M1: Area = ½ × 8 × 10 × sin91.8°","A1: = 40 × 0.9995","A1: = 39.98 ≈ 40.0 cm²"],insight:"SSS → cosine rule rearranged. Negative cosine means the angle is obtuse (>90°) — not an error! Then area = ½ab sinC uses the two sides that make the angle (XY=8 and XZ=10) and the angle between them (X). Show every substitution."}
+      ],
+      mistakes:["Using sine rule when only sides known (SSS) — must use cosine rule","Cosine rule: forgetting the '–2bc cosA' term (writing a²=b²+c² instead)","Finding angle: forgetting to take cos⁻¹ (inverse) at the end","Area formula: using base × height instead of ½ab sinC when no perpendicular height given","Labelling: side a is opposite angle A — mismatching letters loses all M marks"]
+    },
+    {id:"4.11",title:"Arc Length & Sector Area",
+      boards:{AQA:"Arc and sector as fractions of full circle. 'Give answer in terms of π'. Segment area = sector – triangle. Radian questions at Further only.",Edexcel:"Perimeter of sector = arc + two radii. 'Find the area of the shaded segment'. 'Exact answer' means leave π in.",OCR:"'Show that arc length = kπ'. Multi-step: find angle then arc. Compound shapes involving sectors and triangles."},
+      analogy:{icon:"🥧",title:"Sector = Pizza Slice",lines:["Think of the full circle as a whole pizza.","Sector is a slice — its fraction is θ/360°","ARC LENGTH = (θ/360) × 2πr   ← fraction of circumference","SECTOR AREA = (θ/360) × πr²   ← fraction of circle area","PERIMETER of sector = arc + r + r  (two radii + arc)","SEGMENT = sector – triangle  ← remove the triangular bit","  Triangle area = ½r²sinθ  (using the sine area formula)","EXACT answer = leave π in — never use 3.14 or button value"]},
+      markScheme:["M1 correct fraction (θ/360) applied to formula, A1 answer","Arc: M1 uses 2πr not πr²","Sector area: M1 uses πr² not 2πr","Perimeter: must include BOTH radii — arc only loses A mark","Segment: M1 correct sector area, M1 correct triangle area (½r²sinθ), A1 final","Exact: answer must contain π — decimal loses all A marks if 'exact' specified"],
+      questions:[
+        {q:"A sector has radius 9 cm and angle 80°. Find: a) the arc length,  b) the area of the sector.  Give answers to 3 s.f.",marks:4,diff:"Starter",ms:["M1: arc = (80/360) × 2π × 9 = 12.6 cm","A1: 12.6 cm","M1: area = (80/360) × π × 81 = 56.5 cm²","A1: 56.5 cm²"],insight:"Same fraction θ/360 in both formulas — just use it with the right formula (2πr for length, πr² for area). Arc uses the circumference formula, sector uses the circle area formula. Don't swap them."},
+        {q:"A sector has radius 12 cm and arc length 10π cm. Find the angle of the sector, and hence find the area of the sector. Give your answer in terms of π.",marks:5,diff:"Mid",ms:["M1: 10π = (θ/360) × 2π × 12","M1: θ = (10π × 360)/(24π) = 150°","A1: 150°","M1: Area = (150/360) × π × 144","A1: 60π cm²"],insight:"Arc length equation has one unknown (θ) — rearrange. 10π=(θ/360)×24π → θ=150°. Then substitute into sector area. 'In terms of π' — cancel π from calculation: (150/360)×144π=60π."},
+        {q:"A sector OAB has radius 8 cm and angle 120°. Find the area of the segment (the region between chord AB and arc AB). Give your answer to 3 s.f.",marks:5,diff:"Killer",ms:["M1: Sector area = (120/360)×π×64 = 64π/3","M1: Triangle area = ½×8²×sin120° = ½×64×(√3/2) = 16√3","M1: Segment = sector – triangle","A1: 64π/3 – 16√3","A1: 67.1 – 27.7 = 39.4 cm²"],insight:"Segment = sector area minus triangle OAB. Triangle uses ½r²sinθ — the radius is both sides with the sector angle between them. Sector: 64π/3≈67.1. Triangle: 16√3≈27.7. Segment≈39.4 cm²."}
+      ],
+      mistakes:["Arc length: using πr² instead of 2πr (area formula for length — biggest error)","Perimeter: giving arc length only, not adding the two radii","Segment: subtracting from circumference instead of sector area","Exact answer: multiplying out π or substituting 3.14 — automatic zero on A marks","Fraction: using r/360 or 2r/360 instead of θ/360"]
+    },
+    {id:"4.12",title:"3D Pythagoras & Trigonometry",
+      boards:{AQA:"'Find length of space diagonal of cuboid'. Angle between line and horizontal plane. Two-step: find diagonal of face first, then use in 3D triangle.",Edexcel:"'Find angle that AF makes with the base'. Identify the right triangle in 3D — label clearly. 'Give answer to 1 d.p.'",OCR:"'Find angle between AH and plane ABCD in cuboid ABCDEFGH'. Pyramid problems: diagonal of base then height of apex. 'Show that length AG = √(a²+b²+c²)'."},
+      analogy:{icon:"📦",title:"3D Problems → Flatten to 2D",lines:["TRICK: every 3D trig problem hides a 2D right triangle","STEP 1: Identify the line you need (space diagonal, slant edge)","STEP 2: Find the diagonal of the base face first using Pythagoras","STEP 3: Build a new right triangle using that diagonal + the height","STEP 4: Use Pythagoras or trig on THIS triangle","Cuboid a×b×c: space diagonal = √(a²+b²+c²)","Angle to horizontal: tan θ = height ÷ base diagonal","Always DRAW the hidden right triangle — label all sides"]},
+      markScheme:["M1 for correct right triangle identified in 3D shape","M1 Pythagoras applied to face diagonal","M1 Pythagoras or trig applied to final 3D triangle","A1 correct answer to specified accuracy","Angle: M1 trig ratio correctly set up, M1 inverse trig, A1 angle","Partial credit: correct intermediate value earns M marks even if final wrong"],
+      questions:[
+        {q:"A cuboid has length 8 cm, width 6 cm, height 5 cm. Find the length of the space diagonal.",marks:3,diff:"Starter",ms:["M1: Base diagonal = √(8²+6²) = √100 = 10 cm","M1: Space diagonal = √(10²+5²) = √125","A1: 5√5 = 11.2 cm"],insight:"Two-step Pythagoras. First find the base diagonal (8–6–10 is a Pythagorean triple). Then use it with the height in a vertical right triangle. Space diagonal = √(8²+6²+5²) = √125 — but you must show both steps, not jump to the formula."},
+        {q:"Cuboid ABCDEFGH: AB=10cm, BC=7cm, CG=4cm. Find the angle that AG makes with the base ABCD.",marks:4,diff:"Mid",ms:["M1: AC = √(10²+7²) = √149","M1: tan(angle AGC) = AG_vertical/AC — wait, tan(∠GAC) = GC/AC","M1: tan θ = 4/√149","A1: θ = tan⁻¹(4/√149) = 18.1°"],insight:"Angle to base = angle between AG and its projection on the base (AC). The triangle is GAC where GC=4 (vertical) and AC=√149 (base diagonal). tan θ = opposite/adjacent = 4/√149. Use inv tan for the angle."},
+        {q:"A square-based pyramid has base side 10 cm and slant edge 13 cm. Find: a) the height of the pyramid,  b) the angle the slant edge makes with the base.",marks:6,diff:"Killer",ms:["M1: Half diagonal of base = ½√(10²+10²) = 5√2","M1: Height² = 13²–(5√2)² = 169–50 = 119","A1: Height = √119 = 10.9 cm","M1: cos(angle) = 5√2/13","A1: angle = cos⁻¹(5√2/13)","A1: = 52.7°"],insight:"The slant edge goes from apex to base corner. Its base is half the diagonal of the square (5√2, not 5). Build triangle: slant edge=13, base=5√2, height=√119. Angle to base: cos θ = base/slant = 5√2/13."}
+      ],
+      mistakes:["Using half the side length instead of half the diagonal for pyramid base","Not finding the base diagonal first — treating 3D directly","Angle to horizontal: using the wrong side in trig ratio","Forgetting to take the inverse (cos⁻¹, tan⁻¹) to find the angle","Cuboid diagonal: computing √(a²+b²) without adding c² — 2D Pythagoras only"]
     }
   ]},
   {id:5,code:"M5",label:"Probability",color:"#E74C3C",icon:"◈",topics:[
@@ -2044,6 +2088,7 @@ function ParentDashboard(){
   const streak=getStreakData();
   const [reportLoading,setReportLoading]=useState(false);
   const [copied,setCopied]=useState(false);
+  const [expandedModule,setExpandedModule]=useState(null);
 
   const allTopics=MODULES.flatMap(m=>m.topics.map(t=>({...t,moduleLabel:m.label,moduleColor:m.color})));
   const perfEntries=Object.entries(perf).map(([id,v])=>({id,...v}));
@@ -2139,31 +2184,61 @@ function ParentDashboard(){
         </div>
       )}
 
-      {/* All topics breakdown */}
-      {allTopics.length>0&&(
-        <div style={{background:DS.bg.surface,border:`1px solid ${DS.border}`,borderRadius:DS.radius.md,padding:'16px 18px',marginBottom:16}}>
-          <div style={{fontSize:10,fontWeight:800,color:DS.text.muted,textTransform:'uppercase',letterSpacing:1.5,marginBottom:12}}>All Topics</div>
-          <div style={{display:'grid',gap:7}}>
-            {MODULES.map(m=>(
-              <div key={m.id}>
-                <div style={{fontSize:10,fontWeight:800,color:m.color,textTransform:'uppercase',letterSpacing:1,marginBottom:5,marginTop:4}}>{m.label}</div>
-                {m.topics.map(t=>{
-                  const p=perf[t.id];const ratio=p&&p.total>0?p.correct/p.total:null;
-                  return(
-                    <div key={t.id} style={{display:'flex',alignItems:'center',gap:8,marginBottom:5}}>
-                      <div style={{fontSize:11,color:DS.text.secondary,flex:1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{t.title}</div>
-                      <div style={{width:70,height:4,background:DS.bg.elevated,borderRadius:2,overflow:'hidden',flexShrink:0}}>
-                        <div style={{height:'100%',borderRadius:2,background:ratio===null?DS.border:ratio>=0.7?DS.accent.teal:ratio>=0.4?DS.accent.amber:DS.accent.red,width:ratio!==null?`${Math.round(ratio*100)}%`:'0%',transition:'width 0.6s ease'}}/>
-                      </div>
-                      <div style={{fontSize:10,fontWeight:800,color:ratio===null?DS.text.muted:ratio>=0.7?DS.accent.teal:ratio>=0.4?DS.accent.amber:DS.accent.red,width:32,textAlign:'right',flexShrink:0}}>{ratio!==null?`${Math.round(ratio*100)}%`:'—'}</div>
+      {/* Module overview */}
+      <div style={{background:DS.bg.surface,border:`1px solid ${DS.border}`,borderRadius:DS.radius.md,padding:'16px 18px',marginBottom:16}}>
+        <div style={{fontSize:10,fontWeight:800,color:DS.text.muted,textTransform:'uppercase',letterSpacing:1.5,marginBottom:12}}>Progress by Topic</div>
+        <div style={{display:'grid',gap:2}}>
+          {MODULES.map(m=>{
+            const attempted=m.topics.filter(t=>perf[t.id]?.total>0);
+            const avgRatio=attempted.length>0?attempted.reduce((s,t)=>s+(perf[t.id].correct/perf[t.id].total),0)/attempted.length:null;
+            const statusColor=avgRatio===null?DS.text.muted:avgRatio>=0.7?DS.accent.teal:avgRatio>=0.4?DS.accent.amber:DS.accent.red;
+            const statusLabel=avgRatio===null?'Not started':avgRatio>=0.7?'On track':avgRatio>=0.4?'Needs practice':'Needs focus';
+            const isOpen=expandedModule===m.id;
+            const topicsSorted=[...m.topics].map(t=>({...t,ratio:perf[t.id]?.total>0?perf[t.id].correct/perf[t.id].total:null})).sort((a,b)=>{
+              if(a.ratio===null&&b.ratio===null)return 0;
+              if(a.ratio===null)return 1;
+              if(b.ratio===null)return -1;
+              return a.ratio-b.ratio; // weakest first
+            });
+            return(
+              <div key={m.id} style={{borderRadius:DS.radius.sm,overflow:'hidden',border:`1px solid ${isOpen?DS.borderHi:DS.border}`,marginBottom:6,transition:DS.tr}}>
+                <button onClick={()=>setExpandedModule(isOpen?null:m.id)} style={{width:'100%',display:'flex',alignItems:'center',gap:12,padding:'11px 14px',background:isOpen?DS.bg.overlay:'transparent',border:'none',cursor:'pointer',textAlign:'left'}}>
+                  <div style={{fontSize:16,flexShrink:0,width:24,textAlign:'center'}}>{m.icon}</div>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:4}}>
+                      <div style={{fontSize:12,fontWeight:700,color:DS.text.primary}}>{m.label}</div>
+                      <div style={{fontSize:11,fontWeight:700,color:statusColor,flexShrink:0,marginLeft:8}}>{avgRatio!==null?`${Math.round(avgRatio*100)}%`:statusLabel}</div>
                     </div>
-                  );
-                })}
+                    <div style={{display:'flex',alignItems:'center',gap:8}}>
+                      <div style={{flex:1,height:4,background:DS.bg.elevated,borderRadius:2,overflow:'hidden'}}>
+                        <div style={{height:'100%',borderRadius:2,background:statusColor,width:avgRatio!==null?`${Math.round(avgRatio*100)}%`:'0%',transition:'width 0.6s ease'}}/>
+                      </div>
+                      <div style={{fontSize:10,color:DS.text.muted,flexShrink:0,whiteSpace:'nowrap'}}>{attempted.length}/{m.topics.length} topics</div>
+                    </div>
+                  </div>
+                  <div style={{color:DS.text.muted,fontSize:10,flexShrink:0}}>{isOpen?'▲':'▼'}</div>
+                </button>
+                {isOpen&&(
+                  <div style={{padding:'4px 14px 12px 50px',background:DS.bg.overlay,borderTop:`1px solid ${DS.border}`}}>
+                    {topicsSorted.map(t=>{
+                      const c=t.ratio===null?DS.text.muted:t.ratio>=0.7?DS.accent.teal:t.ratio>=0.4?DS.accent.amber:DS.accent.red;
+                      const lbl=t.ratio===null?'Not yet practised':t.ratio>=0.7?'Strong':t.ratio>=0.4?'Needs practice':'Needs focus';
+                      return(
+                        <div key={t.id} style={{display:'flex',alignItems:'center',gap:10,padding:'6px 0',borderBottom:`1px solid ${DS.border}22`}}>
+                          <div style={{width:6,height:6,borderRadius:'50%',background:c,flexShrink:0}}/>
+                          <div style={{flex:1,fontSize:11,color:DS.text.secondary,minWidth:0,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{t.title}</div>
+                          <div style={{fontSize:10,fontWeight:700,color:c,flexShrink:0,whiteSpace:'nowrap'}}>{t.ratio!==null?`${Math.round(t.ratio*100)}%`:''}</div>
+                          <div style={{fontSize:10,color:c,flexShrink:0,whiteSpace:'nowrap'}}>{lbl}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
-            ))}
-          </div>
+            );
+          })}
         </div>
-      )}
+      </div>
 
       {/* Action buttons */}
       <div style={{display:'grid',gap:8}}>
@@ -2990,12 +3065,17 @@ function DueForReview({onNavigate}){
 }
 
 // ═══ WEAKNESS HEATMAP ════════════════════════════════════════════════════════
-function WeaknessHeatmap({onNavigate}){
+function WeaknessHeatmap({onNavigate,collapsible=false}){
+  const [open,setOpen]=useState(!collapsible);
   const perf=lsGet('gcse_perf',{});
   const allTopics=MODULES.flatMap(m=>m.topics.map(t=>({...t,moduleLabel:m.label,moduleColor:m.color})));
   return(
-    <div style={{background:DS.bg.surface,borderRadius:DS.radius.md,border:`1px solid ${DS.border}`,padding:'16px 18px',marginBottom:16}}>
-      <div style={{fontSize:10,fontWeight:800,color:DS.text.secondary,textTransform:'uppercase',letterSpacing:1.5,marginBottom:12}}>Performance Analytics</div>
+    <div style={{background:DS.bg.surface,borderRadius:DS.radius.md,border:`1px solid ${DS.border}`,marginBottom:16,overflow:'hidden'}}>
+      <button onClick={()=>collapsible&&setOpen(o=>!o)} style={{width:'100%',display:'flex',alignItems:'center',justifyContent:'space-between',padding:'12px 18px',background:'none',border:'none',cursor:collapsible?'pointer':'default',textAlign:'left'}}>
+        <div style={{fontSize:10,fontWeight:800,color:DS.text.secondary,textTransform:'uppercase',letterSpacing:1.5}}>Performance Breakdown</div>
+        {collapsible&&<span style={{fontSize:11,color:DS.text.muted,fontWeight:700}}>{open?'▲ Hide':'▼ Show'}</span>}
+      </button>
+      {open&&<div style={{padding:'0 18px 16px'}}>
       <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(130px,1fr))',gap:6}}>
         {allTopics.map(t=>{
           const p=perf[t.id];
@@ -3018,6 +3098,7 @@ function WeaknessHeatmap({onNavigate}){
           </div>
         ))}
       </div>
+      </div>}
     </div>
   );
 }
@@ -3165,58 +3246,35 @@ export function Platform({onXP=()=>{},xpV=0,mode='sprint',onOpenDaily=()=>{}}){
       {/* Weekly Goal */}
       {mode!=='deep'&&<WeeklyGoalBar/>}
 
-      {/* Module Mastery Grid */}
-      <div style={{fontSize:10,fontWeight:800,color:DS.text.muted,textTransform:"uppercase",letterSpacing:1.5,marginBottom:10}}>Module Mastery</div>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(140px,1fr))",gap:8,marginBottom:16}}>
+      {/* Modules */}
+      <div style={{fontSize:10,fontWeight:800,color:DS.text.muted,textTransform:"uppercase",letterSpacing:1.5,marginBottom:10}}>Modules</div>
+      <div style={{display:"grid",gap:6,marginBottom:16}}>
         {MODULES.map(m=>{
           const mPerf=m.topics.flatMap(t=>{const p=perf[t.id];return p&&p.total>0?[p.correct/p.total]:[];});
           const ratio=mPerf.length>0?mPerf.reduce((s,v)=>s+v,0)/mPerf.length:0;
           const attempted=mPerf.length;
+          const statusColor=attempted===0?DS.text.muted:ratio>=0.7?DS.accent.teal:ratio>=0.4?DS.accent.amber:DS.accent.red;
           return(
-            <button key={m.id} onClick={()=>setModId(m.id)} style={{background:DS.bg.surface,border:`1px solid ${DS.border}`,borderRadius:DS.radius.md,padding:"12px",textAlign:"left",cursor:"pointer",transition:DS.tr,display:"flex",flexDirection:"column",gap:8}} onMouseEnter={e=>e.currentTarget.style.borderColor=m.color} onMouseLeave={e=>e.currentTarget.style.borderColor=DS.border}>
-              <div style={{display:"flex",alignItems:"center",gap:8}}>
-                <MasteryRing ratio={attempted>0?ratio:0} color={m.color} size={40} stroke={3}/>
-                <div>
-                  <div style={{fontSize:12,fontWeight:800,color:DS.text.primary,lineHeight:1.2}}>{m.label}</div>
-                  <div style={{fontSize:10,color:DS.text.muted}}>{m.topics.length} topics</div>
+            <button key={m.id} onClick={()=>setModId(m.id)} style={{background:DS.bg.surface,border:`1px solid ${DS.border}`,borderRadius:DS.radius.md,padding:"14px 16px",textAlign:"left",cursor:"pointer",transition:DS.tr,display:"flex",alignItems:"center",gap:14,position:"relative",overflow:"hidden"}} onMouseEnter={e=>e.currentTarget.style.borderColor=m.color} onMouseLeave={e=>e.currentTarget.style.borderColor=DS.border}>
+              <div style={{position:"absolute",right:-8,top:-8,fontSize:56,opacity:0.04,lineHeight:1}}>{m.icon}</div>
+              <div style={{width:40,height:40,borderRadius:DS.radius.sm,background:m.color,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,color:"#fff",flexShrink:0}}>{m.icon}</div>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:14,fontWeight:800,color:DS.text.primary,marginBottom:6}}>{m.label}</div>
+                <div style={{height:4,background:DS.bg.elevated,borderRadius:2,overflow:"hidden"}}>
+                  <div style={{height:"100%",background:attempted>0?statusColor:DS.border,width:attempted>0?`${Math.round(ratio*100)}%`:"0%",borderRadius:2,transition:"width 0.6s ease"}}/>
                 </div>
               </div>
-              <div style={{fontSize:10,color:attempted>0?m.color:DS.text.muted,fontWeight:600}}>{attempted>0?`${Math.round(ratio*100)}% avg`:'Not started'}</div>
+              <div style={{textAlign:"right",flexShrink:0}}>
+                <div style={{fontSize:13,fontWeight:900,color:statusColor,lineHeight:1}}>{attempted>0?`${Math.round(ratio*100)}%`:"—"}</div>
+                <div style={{fontSize:10,color:DS.text.muted,marginTop:3}}>{m.topics.length} topics</div>
+              </div>
             </button>
           );
         })}
       </div>
 
-      {/* Analytics */}
-      {mode!=='deep'&&<WeaknessHeatmap key={`heat-${version}`} onNavigate={navigateToTopic}/>}
-
-      {/* Stats */}
-      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginBottom:14,minWidth:0}}>
-        {[{l:"Modules",v:MODULES.length,c:DS.accent.amber},{l:"Topics",v:totalT,c:DS.accent.teal},{l:"Questions",v:totalQ,c:DS.accent.amber}].map(s=>(
-          <div key={s.l} style={{background:DS.bg.surface,borderRadius:DS.radius.sm,padding:"10px",textAlign:"center",border:`1px solid ${DS.border}`}}>
-            <div style={{fontSize:20,fontWeight:900,color:s.c}}>{s.v}</div>
-            <div style={{fontSize:10,color:DS.text.muted,fontWeight:600,marginTop:1}}>{s.l}</div>
-          </div>
-        ))}
-      </div>
-      <div style={{fontSize:10,fontWeight:800,color:DS.text.muted,textTransform:"uppercase",letterSpacing:1.5,marginBottom:10}}>All Modules</div>
-      <div style={{display:"grid",gap:8}}>
-        {MODULES.map(m=>(
-          <button key={m.id} onClick={()=>setModId(m.id)} style={{background:DS.bg.surface,border:`1px solid ${DS.border}`,borderRadius:DS.radius.lg,padding:"16px",textAlign:"left",cursor:"pointer",position:"relative",overflow:"hidden",transition:DS.tr}} onMouseEnter={e=>e.currentTarget.style.borderColor=m.color} onMouseLeave={e=>e.currentTarget.style.borderColor=DS.border}>
-            <div style={{position:"absolute",right:-10,top:-10,fontSize:65,opacity:0.04,fontWeight:900}}>{m.icon}</div>
-            <div style={{display:"flex",alignItems:"center",gap:12}}>
-              <div style={{width:44,height:44,borderRadius:DS.radius.md,background:m.color,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,color:"#fff",flexShrink:0}}>{m.icon}</div>
-              <div style={{flex:1}}>
-                <div style={{display:"flex",justifyContent:"space-between"}}><span style={{fontSize:10,fontWeight:800,color:m.color,letterSpacing:1}}>{m.code}</span><span style={{fontSize:11,color:DS.text.muted}}>{m.topics.length} topics →</span></div>
-                <div style={{fontSize:14,fontWeight:800,color:DS.text.primary,marginTop:2}}>{m.label}</div>
-                <div style={{display:"flex",gap:4,marginTop:6,flexWrap:"wrap"}}>
-                  {m.topics.map(t=><span key={t.id} style={{fontSize:9,color:DS.text.muted,background:DS.bg.elevated,padding:"2px 5px",borderRadius:3,border:`1px solid ${DS.border}`}}>{t.title}</span>)}
-                </div>
-              </div>
-            </div>
-          </button>
-        ))}
-      </div>
+      {/* Performance breakdown (collapsed by default) */}
+      {mode!=='deep'&&<WeaknessHeatmap key={`heat-${version}`} onNavigate={navigateToTopic} collapsible/>}
     </div>
   );
 }

@@ -87,6 +87,45 @@ function getFallbackDailyQs(){
   const mids=ALL_QUESTIONS.filter(q=>q.diff==='Mid');
   return[...shuffle(starters).slice(0,2),...shuffle(mids).slice(0,1)];
 }
+function buildTodaysSession(){
+  const perf=lsGet('gcse_perf',{});
+  const dueIds=getDueIds();
+  const session=[];
+  const usedTopics=new Set();
+  // 1. SM-2 due questions (up to 4)
+  for(const qid of dueIds){
+    if(session.length>=4)break;
+    const info=QUESTION_MAP[qid];
+    if(!info)continue;
+    session.push({...info,source:'due'});
+    usedTopics.add(info.topicId);
+  }
+  // 2. Weak topic questions
+  const weakTopics=MODULES.flatMap(m=>m.topics.map(t=>({...t,mLabel:m.label,mColor:m.color,mIcon:m.icon})))
+    .map(t=>({...t,score:perf[t.id]?.total>0?perf[t.id].correct/perf[t.id].total:null}))
+    .filter(t=>t.score!==null&&t.score<0.7)
+    .sort((a,b)=>a.score-b.score);
+  for(const topic of weakTopics){
+    if(session.length>=6)break;
+    if(usedTopics.has(topic.id))continue;
+    const q=topic.questions.find((_,i)=>!session.find(s=>s.qid===`${topic.id}:${i}`));
+    if(!q)continue;
+    const idx=topic.questions.indexOf(q);
+    session.push({...q,qid:`${topic.id}:${idx}`,topicId:topic.id,topicTitle:topic.title,moduleLabel:topic.mLabel,moduleColor:topic.mColor,moduleIcon:topic.mIcon,ms:q.ms||[],source:'weak'});
+    usedTopics.add(topic.id);
+  }
+  // 3. Untried topics (for brand-new users)
+  const allT=MODULES.flatMap(m=>m.topics.map(t=>({...t,mLabel:m.label,mColor:m.color,mIcon:m.icon})));
+  const untried=allT.filter(t=>!perf[t.id]?.total&&!usedTopics.has(t.id));
+  for(const topic of untried){
+    if(session.length>=7)break;
+    const q=topic.questions.find(q=>q.diff==='Starter')||topic.questions[0];
+    const idx=topic.questions.indexOf(q);
+    session.push({...q,qid:`${topic.id}:${idx}`,topicId:topic.id,topicTitle:topic.title,moduleLabel:topic.mLabel,moduleColor:topic.mColor,moduleIcon:topic.mIcon,ms:q.ms||[],source:'new'});
+    usedTopics.add(topic.id);
+  }
+  return session.slice(0,7);
+}
 function getWeeklyStats(){
   const today=new Date();const dow=(today.getDay()+6)%7;
   const mon=new Date(today);mon.setDate(today.getDate()-dow);
@@ -1042,7 +1081,7 @@ const MODULES=[
 // ═══ DERIVED DATA ════════════════════════════════════════════════════════════
 const QUESTION_MAP = {};
 MODULES.forEach(m=>m.topics.forEach(t=>t.questions.forEach((q,i)=>{
-  QUESTION_MAP[`${t.id}:${i}`]={...q,qid:`${t.id}:${i}`,topicId:t.id,topicTitle:t.title,moduleId:m.id,moduleLabel:m.label,moduleColor:m.color};
+  QUESTION_MAP[`${t.id}:${i}`]={...q,qid:`${t.id}:${i}`,topicId:t.id,topicTitle:t.title,moduleId:m.id,moduleLabel:m.label,moduleColor:m.color,moduleIcon:m.icon};
 })));
 const ALL_QUESTIONS = Object.values(QUESTION_MAP);
 
@@ -1222,7 +1261,7 @@ function GamificationBar({xp}){
 }
 
 // ═══ PERSONALISED HERO ════════════════════════════════════════════════════════
-function PersonalisedHero({onNavigate}){
+function PersonalisedHero({onNavigate,onStartSession}){
   const profile=lsGet('lumora_profile',null);
   const perf=lsGet('gcse_perf',{});
   const streak=getStreakData();
@@ -1277,9 +1316,9 @@ function PersonalisedHero({onNavigate}){
             <div style={{fontSize:11,color:DS.text.muted,marginTop:3,display:'flex',alignItems:'center',gap:4}}><LevelIcon name={lvl.name} size={12} color={lvl.color}/> {lvl.name} · {xp} XP</div>
           </div>
           {days!==null?(
-            <div style={{background:DS.bg.elevated,borderRadius:DS.radius.md,padding:'8px 14px',border:`1px solid ${DS.border}`,textAlign:'center',flexShrink:0}}>
-              <div style={{fontSize:24,fontWeight:900,color:DS.accent.amber,lineHeight:1}}>{days}</div>
-              <div style={{fontSize:9,color:DS.text.muted,fontWeight:700,textTransform:'uppercase',letterSpacing:0.5}}>days to exam</div>
+            <div style={{background:days<=7?DS.accent.redDim:days<=14?DS.accent.amberDim:DS.bg.elevated,borderRadius:DS.radius.md,padding:'8px 14px',border:`1px solid ${days<=7?DS.accent.red:days<=14?DS.accent.amber:DS.border}`,textAlign:'center',flexShrink:0,animation:days<=7?'pulse 1.5s ease-in-out infinite':undefined}}>
+              <div style={{fontSize:days<=14?28:24,fontWeight:900,color:days<=7?DS.accent.red:DS.accent.amber,lineHeight:1}}>{days}</div>
+              <div style={{fontSize:9,color:days<=7?DS.accent.red:DS.text.muted,fontWeight:700,textTransform:'uppercase',letterSpacing:0.5}}>{days<=7?'⚠️ days left!':'days to exam'}</div>
               {profile?.board&&<div style={{fontSize:9,color:DS.text.secondary,marginTop:1}}>{profile.board}</div>}
             </div>
           ):(
@@ -1343,7 +1382,7 @@ function PersonalisedHero({onNavigate}){
               </div>
             )}
           </div>
-          <button onClick={()=>displayTopics[0]&&onNavigate(displayTopics[0].id)}
+          <button onClick={()=>onStartSession?onStartSession():displayTopics[0]&&onNavigate(displayTopics[0].id)}
             style={{width:'100%',padding:'11px 0',borderRadius:DS.radius.sm,border:'none',background:`linear-gradient(135deg,${DS.accent.amber},#D4A000)`,color:DS.bg.base,fontWeight:900,fontSize:13,cursor:'pointer',transition:DS.tr,boxShadow:`0 2px 14px ${DS.accent.amber}33`}}>
             Start Today's Session →
           </button>
@@ -3295,17 +3334,232 @@ function WeaknessHeatmap({onNavigate,collapsible=false}){
 }
 
 // ═══ PLATFORM ════════════════════════════════════════════════════════════════
+// ═══ TODAY'S SESSION ══════════════════════════════════════════════════════════
+function TodaysPlan({onDone,onXP}){
+  const session=useMemo(()=>buildTodaysSession(),[]);
+  const [phase,setPhase]=useState(session.length===0?'empty':'preview');
+  const [idx,setIdx]=useState(0);
+  const [working,setWorking]=useState('');
+  const [aiResult,setAiResult]=useState(null);
+  const [aiLoading,setAiLoading]=useState(false);
+  const [answered,setAnswered]=useState(false);
+  const [results,setResults]=useState([]); // {topicId,topicTitle,moduleColor,earned,total,correct}
+  const [sessionXP,setSessionXP]=useState(0);
+  const profile=lsGet('lumora_profile',{});
+  const hour=new Date().getHours();
+  const greeting=hour<12?'Good morning':hour<17?'Good afternoon':'Good evening';
+
+  const q=session[idx];
+
+  const handleAIMark=async()=>{
+    if(!working.trim()||aiLoading||answered)return;
+    setAiLoading(true);
+    try{
+      const r=await aiMark(q.q,q.marks,q.ms,working);
+      const correct=r.marksEarned>=Math.ceil(q.marks/2);
+      const xpEarned=correct?35:10;
+      sm2Update(q.qid,correct?4:1);
+      recordPerf(q.topicId,correct);
+      addXP(xpEarned);
+      onXP&&onXP(0); // trigger XP bar refresh without celebrating mid-session
+      setSessionXP(prev=>prev+xpEarned);
+      setAiResult(r);
+      setAnswered(true);
+      setResults(prev=>[...prev,{topicId:q.topicId,topicTitle:q.topicTitle,moduleColor:q.moduleColor,earned:r.marksEarned,total:q.marks,correct}]);
+    }catch(e){
+      setAiResult({error:e.message,marksEarned:0,feedback:'AI unavailable — check your answer against the mark scheme below.'});
+      setAnswered(true);
+      setResults(prev=>[...prev,{topicId:q.topicId,topicTitle:q.topicTitle,moduleColor:q.moduleColor,earned:0,total:q.marks,correct:false}]);
+    }
+    setAiLoading(false);
+  };
+
+  const handleNext=()=>{
+    if(idx+1>=session.length){setPhase('done');return;}
+    setIdx(i=>i+1);setWorking('');setAiResult(null);setAnswered(false);
+  };
+
+  const sourceLabel={due:{label:'Due for review',color:DS.accent.teal},weak:{label:'Weak area',color:DS.accent.amber},new:{label:'New topic',color:DS.text.muted}};
+
+  if(phase==='empty')return(
+    <div style={{maxWidth:620,margin:'0 auto',padding:'40px 16px',textAlign:'center'}}>
+      <GraduationCap size={40} strokeWidth={1.5} color={DS.text.muted} style={{marginBottom:12}}/>
+      <div style={{fontSize:16,fontWeight:800,color:DS.text.secondary,marginBottom:6}}>No session to build yet</div>
+      <div style={{fontSize:13,color:DS.text.muted,marginBottom:20}}>Complete a few topics to unlock personalised sessions</div>
+      <button onClick={onDone} style={{padding:'11px 28px',borderRadius:DS.radius.md,border:`1px solid ${DS.border}`,background:'transparent',color:DS.text.secondary,fontWeight:700,fontSize:13,cursor:'pointer'}}>Browse topics →</button>
+    </div>
+  );
+
+  if(phase==='preview'){
+    const estMins=Math.round(session.length*2.5);
+    return(
+      <div style={{maxWidth:620,margin:'0 auto',padding:'24px 16px'}}>
+        <div style={{marginBottom:20}}>
+          <div style={{fontSize:13,color:DS.text.muted,marginBottom:2}}>{greeting}{profile.name?`, ${profile.name}`:''}.</div>
+          <div style={{fontSize:22,fontWeight:900,color:DS.text.primary}}>Here's your session for today.</div>
+        </div>
+        <div style={{background:DS.bg.surface,border:`1px solid ${DS.borderHi}`,borderRadius:DS.radius.xl,padding:'22px 22px 18px',marginBottom:16,boxShadow:DS.shadow}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
+            <div>
+              <div style={{fontSize:28,fontWeight:900,color:DS.text.primary,lineHeight:1}}>{session.length} questions</div>
+              <div style={{fontSize:12,color:DS.text.muted,marginTop:3}}>~{estMins} minutes · AI marked</div>
+            </div>
+            <div style={{textAlign:'right'}}>
+              <div style={{fontSize:11,color:DS.accent.amber,fontWeight:700}}>+{session.filter(s=>s.source!=='due').length*35+session.filter(s=>s.source==='due').length*35} XP possible</div>
+              <div style={{fontSize:10,color:DS.text.muted,marginTop:2}}>if all correct</div>
+            </div>
+          </div>
+          <div style={{display:'grid',gap:6,marginBottom:18}}>
+            {session.map((s,i)=>{
+              const src=sourceLabel[s.source]||sourceLabel.new;
+              return(
+                <div key={i} style={{display:'flex',alignItems:'center',gap:10,padding:'8px 10px',background:DS.bg.elevated,borderRadius:DS.radius.sm,border:`1px solid ${DS.border}`}}>
+                  <div style={{width:6,height:6,borderRadius:'50%',background:s.moduleColor,flexShrink:0}}/>
+                  <div style={{flex:1,fontSize:12,fontWeight:600,color:DS.text.secondary}}>{s.topicTitle}</div>
+                  <div style={{fontSize:9,fontWeight:700,color:src.color,textTransform:'uppercase',letterSpacing:0.5}}>{src.label}</div>
+                  <div style={{fontSize:10,color:DIFF[s.diff]?.color||DS.text.muted,background:DS.bg.overlay,borderRadius:4,padding:'1px 6px',fontWeight:700}}>{s.diff}</div>
+                </div>
+              );
+            })}
+          </div>
+          <button onClick={()=>setPhase('session')} style={{width:'100%',padding:'14px 0',borderRadius:DS.radius.md,border:'none',background:`linear-gradient(135deg,${DS.accent.amber},#E8B84B)`,color:DS.bg.base,fontWeight:900,fontSize:15,cursor:'pointer',boxShadow:`0 4px 20px ${DS.accent.amber}44`}}>
+            Start session →
+          </button>
+        </div>
+        <button onClick={onDone} style={{width:'100%',padding:'10px 0',borderRadius:DS.radius.md,border:'none',background:'transparent',color:DS.text.muted,fontSize:12,cursor:'pointer'}}>
+          Browse topics instead
+        </button>
+      </div>
+    );
+  }
+
+  if(phase==='session'){
+    const src=sourceLabel[q.source]||sourceLabel.new;
+    return(
+      <div style={{fontFamily:"'Segoe UI',sans-serif",background:DS.bg.base,minHeight:'100vh'}}>
+        {/* Progress bar */}
+        <div style={{background:DS.bg.surface,borderBottom:`1px solid ${DS.border}`,padding:'12px 20px',position:'sticky',top:0,zIndex:10}}>
+          <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:6}}>
+            <div style={{flex:1,display:'flex',gap:4}}>
+              {session.map((_,i)=><div key={i} style={{flex:1,height:4,borderRadius:2,background:i<idx?DS.accent.teal:i===idx?DS.accent.amber:DS.bg.elevated,transition:'background 0.3s'}}/>)}
+            </div>
+            <div style={{fontSize:11,color:DS.text.muted,fontWeight:700,flexShrink:0}}>{idx+1}/{session.length}</div>
+          </div>
+          <div style={{display:'flex',alignItems:'center',gap:6}}>
+            <div style={{width:8,height:8,borderRadius:'50%',background:q.moduleColor}}/>
+            <div style={{fontSize:11,fontWeight:700,color:DS.text.secondary}}>{q.topicTitle}</div>
+            <div style={{fontSize:9,fontWeight:700,color:src.color,marginLeft:4,textTransform:'uppercase',letterSpacing:0.5}}>{src.label}</div>
+          </div>
+        </div>
+
+        <div style={{maxWidth:620,margin:'0 auto',padding:'20px 16px'}}>
+          {/* Question */}
+          <div style={{background:DS.bg.surface,border:`1px solid ${DS.borderHi}`,borderRadius:DS.radius.lg,padding:'20px',marginBottom:14}}>
+            <div style={{fontSize:12,color:DS.text.muted,marginBottom:8,fontWeight:600}}>[{q.marks} mark{q.marks!==1?'s':''}] · {q.diff}</div>
+            <div style={{fontSize:15,color:DS.text.primary,lineHeight:1.75,fontWeight:500}}>{q.q}</div>
+          </div>
+
+          {/* Working */}
+          <div style={{marginBottom:12}}>
+            <div style={{fontSize:10,color:DS.text.muted,fontWeight:700,textTransform:'uppercase',letterSpacing:1,marginBottom:6}}>Your working</div>
+            <textarea value={working} onChange={e=>setWorking(e.target.value)} disabled={answered}
+              placeholder="Show all your working — the AI marks your method, not just the final answer…"
+              style={{width:'100%',minHeight:100,background:DS.bg.surface,border:`1px solid ${answered?DS.border:DS.borderHi}`,borderRadius:DS.radius.md,padding:'12px 14px',color:DS.text.primary,fontSize:13,resize:'vertical',fontFamily:"'Segoe UI',sans-serif",lineHeight:1.6,boxSizing:'border-box',opacity:answered?0.65:1}}
+            />
+          </div>
+
+          {!answered&&(
+            <button onClick={handleAIMark} disabled={!working.trim()||aiLoading}
+              style={{width:'100%',padding:'13px 0',borderRadius:DS.radius.md,border:'none',background:working.trim()&&!aiLoading?`linear-gradient(135deg,${DS.accent.amber},#E8B84B)`:DS.bg.overlay,color:working.trim()&&!aiLoading?DS.bg.base:DS.text.muted,fontWeight:900,fontSize:14,cursor:working.trim()&&!aiLoading?'pointer':'not-allowed',display:'flex',alignItems:'center',justifyContent:'center',gap:8,marginBottom:12,transition:DS.tr}}>
+              {aiLoading?<><Loader2 size={16} strokeWidth={2} style={{animation:'spin 0.8s linear infinite'}}/> Marking…</>:<><Bot size={16} strokeWidth={2}/> Mark with AI</>}
+            </button>
+          )}
+
+          {aiResult&&(
+            <div style={{background:DS.bg.surface,border:`1px solid ${DS.border}`,borderRadius:DS.radius.lg,padding:'16px 18px',marginBottom:12,animation:'popIn 0.4s ease-out'}}>
+              <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:10}}>
+                <div style={{fontSize:26,fontWeight:900,color:aiResult.error?DS.accent.red:aiResult.marksEarned>=Math.ceil(q.marks/2)?DS.accent.teal:DS.accent.amber}}>{aiResult.error?'—':`${aiResult.marksEarned}/${q.marks}`}</div>
+                {!aiResult.error&&<div style={{flex:1,height:5,background:DS.bg.elevated,borderRadius:3,overflow:'hidden'}}><div style={{height:'100%',borderRadius:3,background:aiResult.marksEarned>=Math.ceil(q.marks/2)?DS.accent.teal:DS.accent.amber,width:`${Math.round((aiResult.marksEarned/q.marks)*100)}%`,transition:'width 0.6s ease'}}/></div>}
+              </div>
+              {aiResult.feedback&&<div style={{fontSize:13,color:DS.text.secondary,lineHeight:1.6,marginBottom:aiResult.improvements?.length?10:0}}>{aiResult.feedback}</div>}
+              {aiResult.improvements?.length>0&&(
+                <div style={{marginTop:8}}>
+                  <div style={{fontSize:10,fontWeight:800,color:DS.accent.amber,textTransform:'uppercase',letterSpacing:1,marginBottom:5}}>To improve</div>
+                  {aiResult.improvements.map((imp,i)=><div key={i} style={{fontSize:12,color:DS.text.muted,marginBottom:3,paddingLeft:10,borderLeft:`2px solid ${DS.accent.amber}55`}}>{imp}</div>)}
+                </div>
+              )}
+            </div>
+          )}
+
+          {answered&&(
+            <button onClick={handleNext} style={{width:'100%',padding:'13px 0',borderRadius:DS.radius.md,border:`1.5px solid ${DS.accent.amber}55`,background:DS.bg.surface,color:DS.accent.amber,fontWeight:900,fontSize:14,cursor:'pointer',transition:DS.tr}}>
+              {idx+1>=session.length?'See results →':'Next question →'}
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  if(phase==='done'){
+    const correct=results.filter(r=>r.correct).length;
+    const totalMarks=results.reduce((s,r)=>s+r.total,0);
+    const earned=results.reduce((s,r)=>s+r.earned,0);
+    const pct=totalMarks>0?Math.round((earned/totalMarks)*100):0;
+    const grade=GRADE_BOUNDARIES.find(b=>pct/100>=b.min)||GRADE_BOUNDARIES[GRADE_BOUNDARIES.length-1];
+    // Group by topic
+    const byTopic={};
+    results.forEach(r=>{if(!byTopic[r.topicId])byTopic[r.topicId]={title:r.topicTitle,color:r.moduleColor,earned:0,total:0};byTopic[r.topicId].earned+=r.earned;byTopic[r.topicId].total+=r.total;});
+    const handleShare=()=>{
+      const msg=`I just completed a Lumora revision session! 📐\n${correct}/${results.length} questions correct · ${pct}% · Grade ${grade.grade} predicted\nTry it: ${window.location.origin}`;
+      navigator.clipboard.writeText(msg).catch(()=>{});
+      const wa=`https://wa.me/?text=${encodeURIComponent(msg)}`;
+      window.open(wa,'_blank');
+      track('session_result_shared',{grade:grade.grade,pct});
+    };
+    onXP&&onXP(sessionXP);
+    return(
+      <div style={{maxWidth:560,margin:'0 auto',padding:'32px 16px',animation:'popIn 0.5s ease-out'}}>
+        <div style={{background:DS.bg.surface,border:`2px solid ${grade.color}44`,borderRadius:DS.radius.xl,padding:'28px 24px',textAlign:'center',marginBottom:16,boxShadow:DS.shadow}}>
+          <div style={{fontSize:11,fontWeight:800,color:DS.text.muted,textTransform:'uppercase',letterSpacing:1.5,marginBottom:8}}>Session Complete</div>
+          <div style={{fontSize:64,fontWeight:900,color:grade.color,lineHeight:1,marginBottom:4}}>{grade.grade}</div>
+          <div style={{fontSize:13,color:DS.text.muted,marginBottom:20}}>{pct}% accuracy · {correct}/{results.length} correct · +{sessionXP} XP</div>
+          <div style={{display:'grid',gap:6,marginBottom:20,textAlign:'left'}}>
+            {Object.values(byTopic).map(t=>{
+              const r=t.total>0?t.earned/t.total:0;
+              const c=r>=0.7?DS.accent.teal:r>=0.4?DS.accent.amber:DS.accent.red;
+              return(
+                <div key={t.title} style={{display:'flex',alignItems:'center',gap:10,padding:'8px 12px',background:DS.bg.elevated,borderRadius:DS.radius.sm,border:`1px solid ${DS.border}`}}>
+                  <div style={{width:6,height:6,borderRadius:'50%',background:t.color,flexShrink:0}}/>
+                  <div style={{flex:1,fontSize:12,fontWeight:600,color:DS.text.secondary}}>{t.title}</div>
+                  <div style={{fontSize:12,fontWeight:800,color:c}}>{t.earned}/{t.total}</div>
+                </div>
+              );
+            })}
+          </div>
+          <button onClick={handleShare} style={{width:'100%',padding:'12px 0',borderRadius:DS.radius.md,border:`1px solid ${DS.accent.teal}44`,background:DS.accent.tealDim,color:DS.accent.teal,fontWeight:800,fontSize:13,cursor:'pointer',marginBottom:10,display:'flex',alignItems:'center',justifyContent:'center',gap:8}}>
+            <Share2 size={15} strokeWidth={2}/> Share result on WhatsApp
+          </button>
+          <button onClick={onDone} style={{width:'100%',padding:'12px 0',borderRadius:DS.radius.md,border:`1px solid ${DS.border}`,background:'transparent',color:DS.text.secondary,fontWeight:700,fontSize:13,cursor:'pointer'}}>
+            Back to home
+          </button>
+        </div>
+      </div>
+    );
+  }
+  return null;
+}
+
 export function Platform({onXP=()=>{},xpV=0,mode='sprint',onOpenDaily=()=>{}}){
   const [modId,setModId]=useState(null);
   const [topicId,setTopicId]=useState(null);
   const [search,setSearch]=useState("");
   const [version,setVersion]=useState(0);
+  const [sessionActive,setSessionActive]=useState(false);
   const xp=getXP();
 
   const mod=MODULES.find(m=>m.id===modId);
   const topic=mod?.topics.find(t=>t.id===topicId);
-  const totalQ=MODULES.reduce((s,m)=>s+m.topics.reduce((ss,t)=>ss+t.questions.length,0),0);
-  const totalT=MODULES.reduce((s,m)=>s+m.topics.length,0);
 
   const handleAnswered=()=>{
     setVersion(v=>v+1);
@@ -3375,13 +3629,42 @@ export function Platform({onXP=()=>{},xpV=0,mode='sprint',onOpenDaily=()=>{}}){
   );
 
   const perf=lsGet('gcse_perf',{});
+
+  if(sessionActive)return(
+    <div style={{fontFamily:"'Segoe UI',sans-serif",background:DS.bg.base,minHeight:'100vh'}}>
+      <div style={{background:DS.bg.surface,borderBottom:`1px solid ${DS.border}`,padding:'10px 16px',display:'flex',alignItems:'center',gap:8}}>
+        <button onClick={()=>setSessionActive(false)} style={{background:'none',border:'none',cursor:'pointer',color:DS.text.muted,fontSize:13,fontWeight:700,display:'flex',alignItems:'center',gap:4}}><span>←</span> Home</button>
+      </div>
+      <TodaysPlan onDone={()=>{setSessionActive(false);setVersion(v=>v+1);}} onXP={onXP}/>
+    </div>
+  );
+
   return(
     <div style={{fontFamily:"'Segoe UI',sans-serif",maxWidth:680,margin:"0 auto",padding:16,background:mode==='deep'?DS.bg.deep:DS.bg.base,minHeight:"100vh"}}>
 
       {mode==='deep'&&<div style={{background:DS.bg.surface,borderRadius:DS.radius.md,padding:'10px 16px',marginBottom:14,border:`1px solid ${DS.border}`,display:'flex',alignItems:'center',gap:8}}><Target size={14} color={DS.accent.teal} strokeWidth={2}/><span style={{fontSize:12,fontWeight:700,color:DS.accent.teal}}>Deep Focus — distractions hidden</span></div>}
 
+      {/* Streak urgency banner */}
+      {(()=>{
+        const hour=new Date().getHours();
+        const streak=getStreakData();
+        const daily=lsGet('lumora_daily',{date:null,completed:false});
+        const doneToday=daily.date===todayStr()&&daily.completed;
+        if(hour>=17&&streak.current>0&&!doneToday&&mode!=='deep')return(
+          <div style={{background:DS.accent.redDim,border:`1px solid rgba(255,76,76,0.3)`,borderRadius:DS.radius.md,padding:'10px 16px',marginBottom:14,display:'flex',alignItems:'center',gap:10}}>
+            <Flame size={15} strokeWidth={2} color={DS.accent.red}/>
+            <div style={{flex:1}}>
+              <div style={{fontSize:12,fontWeight:800,color:DS.accent.red}}>Your {streak.current}-day streak is at risk tonight!</div>
+              <div style={{fontSize:11,color:DS.text.secondary,marginTop:1}}>Answer a few questions to keep it alive</div>
+            </div>
+            <button onClick={()=>setSessionActive(true)} style={{fontSize:11,fontWeight:800,background:DS.accent.red,color:'#fff',border:'none',borderRadius:DS.radius.sm,padding:'5px 12px',cursor:'pointer',whiteSpace:'nowrap'}}>Study now</button>
+          </div>
+        );
+        return null;
+      })()}
+
       {/* Personalised Hero */}
-      {mode!=='deep'&&<PersonalisedHero onNavigate={navigateToTopic}/>}
+      {mode!=='deep'&&<PersonalisedHero onNavigate={navigateToTopic} onStartSession={()=>setSessionActive(true)}/>}
 
       {/* Daily Challenge widget */}
       {mode!=='deep'&&(()=>{

@@ -77,34 +77,44 @@ export function scheduleSave(userId) {
 }
 
 // ── Study groups (friends leaderboard) ────────────────────────────────────────
-export async function createStudyGroup(userId, groupName) {
-  if (!supabase || !userId) throw new Error('Not signed in');
+async function getUid() {
+  if (!supabase) throw new Error('Database not configured');
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Not signed in');
+  return user.id;
+}
+
+export async function createStudyGroup(groupName) {
+  const uid = await getUid();
   const code = Math.random().toString(36).substring(2, 8).toUpperCase();
   const { data, error } = await supabase
     .from('study_groups')
-    .insert({ code, name: groupName.trim(), created_by: userId })
+    .insert({ code, name: groupName.trim(), created_by: uid })
     .select().single();
   if (error) throw new Error(error.message);
-  await supabase.from('group_members').insert({ group_id: data.id, user_id: userId });
+  await supabase.from('group_members').insert({ group_id: data.id, user_id: uid });
   return data;
 }
 
-export async function joinStudyGroup(userId, code) {
-  if (!supabase || !userId) throw new Error('Not signed in');
+export async function joinStudyGroup(code) {
+  const uid = await getUid();
   const { data: group, error } = await supabase
     .from('study_groups').select('*').eq('code', code.toUpperCase().trim()).maybeSingle();
   if (error || !group) throw new Error('Group not found — double-check the code');
   const { error: joinError } = await supabase
-    .from('group_members').insert({ group_id: group.id, user_id: userId });
+    .from('group_members').insert({ group_id: group.id, user_id: uid });
   if (joinError && !joinError.message?.includes('duplicate')) throw new Error(joinError.message);
   return group;
 }
 
-export async function getGroupLeaderboard(userId) {
-  if (!supabase || !userId) return null;
+export async function getGroupLeaderboard() {
+  if (!supabase) return null;
   try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return null;
+    const uid = user.id;
     const { data: membership } = await supabase
-      .from('group_members').select('group_id').eq('user_id', userId).maybeSingle();
+      .from('group_members').select('group_id').eq('user_id', uid).maybeSingle();
     if (!membership) return null;
     const [{ data: group }, { data: memberRows }] = await Promise.all([
       supabase.from('study_groups').select('id, name, code').eq('id', membership.group_id).single(),
@@ -119,19 +129,21 @@ export async function getGroupLeaderboard(userId) {
       const prog = (progressRows || []).find(r => r.user_id === p.id) || {};
       const totalXP = prog.lumora_xp?.total || 0;
       const weeklyXP = Math.max(0, totalXP - (prog.lumora_weekly_stats?.xpStart || totalXP));
-      return { userId: p.id, name: p.name || 'Anonymous', totalXP, weeklyXP, streak: prog.lumora_streak?.current || 0, isMe: p.id === userId };
+      return { userId: p.id, name: p.name || 'Anonymous', totalXP, weeklyXP, streak: prog.lumora_streak?.current || 0, isMe: p.id === uid };
     }).sort((a, b) => b.weeklyXP - a.weeklyXP || b.totalXP - a.totalXP);
     return { group, members };
   } catch { return null; }
 }
 
-export async function leaveStudyGroup(userId) {
-  if (!supabase || !userId) return;
+export async function leaveStudyGroup() {
+  if (!supabase) return;
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
   const { data: membership } = await supabase
-    .from('group_members').select('group_id').eq('user_id', userId).maybeSingle();
+    .from('group_members').select('group_id').eq('user_id', user.id).maybeSingle();
   if (!membership) return;
   await supabase.from('group_members').delete()
-    .eq('user_id', userId).eq('group_id', membership.group_id);
+    .eq('user_id', user.id).eq('group_id', membership.group_id);
 }
 
 export async function saveParentEmail(userId, parentEmail) {

@@ -3360,28 +3360,28 @@ function FriendsLeaderboard(){
   const [copied,setCopied]=useState(false);
 
   useEffect(()=>{
-    if(!open||!_currentUserId)return;
+    if(!open)return;
     setPhase('loading');
-    getGroupLeaderboard(_currentUserId).then(data=>{setGroupData(data);setPhase(data?'group':'none');}).catch(()=>setPhase('none'));
+    getGroupLeaderboard().then(data=>{setGroupData(data);setPhase(data?'group':'none');}).catch(()=>setPhase('none'));
   },[open]);
 
   const handleCreate=async()=>{
     if(!groupName.trim()||busy)return;
     setBusy(true);setErr('');
-    try{await createStudyGroup(_currentUserId,groupName);const d=await getGroupLeaderboard(_currentUserId);setGroupData(d);setPhase('group');}
+    try{await createStudyGroup(groupName);const d=await getGroupLeaderboard();setGroupData(d);setPhase('group');}
     catch(e){setErr(e.message);}
     setBusy(false);
   };
   const handleJoin=async()=>{
     if(joinCode.length<4||busy)return;
     setBusy(true);setErr('');
-    try{await joinStudyGroup(_currentUserId,joinCode);const d=await getGroupLeaderboard(_currentUserId);setGroupData(d);setPhase('group');}
+    try{await joinStudyGroup(joinCode);const d=await getGroupLeaderboard();setGroupData(d);setPhase('group');}
     catch(e){setErr(e.message);}
     setBusy(false);
   };
   const handleLeave=async()=>{
     if(!window.confirm('Leave this study group?'))return;
-    await leaveStudyGroup(_currentUserId);setGroupData(null);setPhase('none');
+    await leaveStudyGroup();setGroupData(null);setPhase('none');
   };
   const handleCopyInvite=()=>{
     const msg=`Join my Lumora study group! Enter code: ${groupData.group.code}\n${window.location.origin}`;

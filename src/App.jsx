@@ -1534,8 +1534,175 @@ function Onboarding({onComplete}){
   );
 }
 
+// ═══ DEMO MODE ═══════════════════════════════════════════════════════════════
+const DEMO_QUESTIONS=MODULES.slice(0,5).map(m=>{
+  const topic=m.topics[0];
+  const q=topic.questions.find(q=>q.diff==='Starter')||topic.questions[0];
+  return{...q,topicTitle:topic.title,moduleLabel:m.label,moduleColor:m.color,moduleIcon:m.icon,topicId:topic.id,ms:q.ms||topic.markScheme||[]};
+});
+
+function DemoMode({onSignUp,onBack}){
+  const [idx,setIdx]=useState(0);
+  const [working,setWorking]=useState('');
+  const [aiResult,setAiResult]=useState(null);
+  const [aiLoading,setAiLoading]=useState(false);
+  const [answered,setAnswered]=useState(false);
+  const [scores,setScores]=useState([]);
+  const [phase,setPhase]=useState('q');
+
+  const q=DEMO_QUESTIONS[idx];
+  const progress=((idx+(answered?1:0))/DEMO_QUESTIONS.length)*100;
+  const totalEarned=scores.reduce((s,x)=>s+x.earned,0);
+  const totalMarks=scores.reduce((s,x)=>s+x.total,0);
+
+  const handleAIMark=async()=>{
+    if(!working.trim()||aiLoading||answered)return;
+    setAiLoading(true);
+    try{
+      const r=await aiMark(q.q,q.marks,q.ms,working);
+      setAiResult(r);
+      setAnswered(true);
+      setScores(prev=>[...prev,{earned:r.marksEarned,total:q.marks}]);
+    }catch(e){setAiResult({error:e.message,marksEarned:0,feedback:'Could not connect to AI — check your answer against the mark scheme.'});}
+    setAiLoading(false);
+  };
+
+  const handleNext=()=>{
+    if(idx+1>=DEMO_QUESTIONS.length){setPhase('done');return;}
+    setIdx(i=>i+1);setWorking('');setAiResult(null);setAnswered(false);
+  };
+
+  if(phase==='done'){
+    const pct=totalMarks>0?Math.round((totalEarned/totalMarks)*100):0;
+    const grade=GRADE_BOUNDARIES.find(b=>pct/100>=b.min)||GRADE_BOUNDARIES[GRADE_BOUNDARIES.length-1];
+    return(
+      <div style={{fontFamily:"'Segoe UI',sans-serif",background:DS.bg.base,minHeight:'100vh',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:24}}>
+        <AnimStyles/>
+        <div style={{width:'100%',maxWidth:440,animation:'popIn 0.5s ease-out'}}>
+          <div style={{background:DS.bg.surface,border:`2px solid ${DS.accent.amber}44`,borderRadius:DS.radius.xl,padding:32,textAlign:'center',boxShadow:DS.shadow,marginBottom:16}}>
+            <div style={{fontSize:56,fontWeight:900,color:grade.color,lineHeight:1,marginBottom:4}}>{grade.grade}</div>
+            <div style={{fontSize:13,color:DS.text.muted,marginBottom:20,fontWeight:600}}>Demo predicted grade · {pct}% accuracy</div>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:10,marginBottom:24}}>
+              {scores.map((s,i)=>{
+                const dq=DEMO_QUESTIONS[i];
+                const ratio=s.earned/s.total;
+                const c=ratio>=0.7?DS.accent.teal:ratio>=0.4?DS.accent.amber:DS.accent.red;
+                return(
+                  <div key={i} style={{background:DS.bg.elevated,borderRadius:DS.radius.md,padding:'10px 8px',border:`1px solid ${DS.border}`}}>
+                    <div style={{fontSize:9,color:DS.text.muted,fontWeight:700,marginBottom:4,textTransform:'uppercase',letterSpacing:0.5,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{dq.moduleLabel}</div>
+                    <div style={{fontSize:18,fontWeight:900,color:c}}>{s.earned}/{s.total}</div>
+                  </div>
+                );
+              })}
+            </div>
+            <div style={{background:DS.accent.amberDim,border:`1px solid ${DS.accent.amber}44`,borderRadius:DS.radius.md,padding:'12px 16px',marginBottom:20,fontSize:13,color:DS.accent.amber,fontWeight:700}}>
+              Create a free account to save your progress and get a full revision plan
+            </div>
+            <button onClick={onSignUp} style={{width:'100%',padding:'15px 0',borderRadius:DS.radius.md,border:'none',background:`linear-gradient(135deg,${DS.accent.amber},#E8B84B)`,color:DS.bg.base,fontWeight:900,fontSize:15,cursor:'pointer',marginBottom:10,boxShadow:`0 6px 20px ${DS.accent.amber}44`}}>
+              Save my progress — it's free →
+            </button>
+            <button onClick={onBack} style={{width:'100%',padding:'10px 0',borderRadius:DS.radius.md,border:'none',background:'transparent',color:DS.text.muted,fontSize:12,cursor:'pointer'}}>
+              Back to home
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return(
+    <div style={{fontFamily:"'Segoe UI',sans-serif",background:DS.bg.base,minHeight:'100vh'}}>
+      <AnimStyles/>
+      {/* Header */}
+      <div style={{background:DS.bg.surface,borderBottom:`1px solid ${DS.border}`,padding:'12px 20px',display:'flex',alignItems:'center',justifyContent:'space-between',position:'sticky',top:0,zIndex:10}}>
+        <div style={{fontSize:14,fontWeight:900,color:DS.accent.amber}}>📐 Lumora</div>
+        <div style={{flex:1,margin:'0 16px'}}>
+          <div style={{height:4,background:DS.bg.elevated,borderRadius:2,overflow:'hidden'}}>
+            <div style={{height:'100%',background:DS.accent.amber,borderRadius:2,width:`${progress}%`,transition:'width 0.4s ease'}}/>
+          </div>
+          <div style={{fontSize:10,color:DS.text.muted,textAlign:'center',marginTop:3,fontWeight:600}}>{idx+1} of {DEMO_QUESTIONS.length} questions</div>
+        </div>
+        <button onClick={onSignUp} style={{fontSize:11,fontWeight:800,color:DS.accent.amber,background:DS.accent.amberDim,border:`1px solid ${DS.accent.amber}44`,borderRadius:DS.radius.sm,padding:'6px 12px',cursor:'pointer',whiteSpace:'nowrap'}}>Sign up free</button>
+      </div>
+
+      <div style={{maxWidth:620,margin:'0 auto',padding:'20px 16px'}}>
+        {/* Module badge */}
+        <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:14}}>
+          <div style={{fontSize:16}}>{q.moduleIcon}</div>
+          <div style={{fontSize:11,fontWeight:700,color:q.moduleColor,textTransform:'uppercase',letterSpacing:1}}>{q.moduleLabel}</div>
+          <div style={{fontSize:11,color:DS.text.muted}}>· {q.topicTitle}</div>
+          <div style={{marginLeft:'auto',fontSize:10,fontWeight:700,color:DIFF[q.diff]?.color||DS.text.muted,background:DS.bg.elevated,borderRadius:DS.radius.sm,padding:'2px 8px'}}>{q.diff}</div>
+        </div>
+
+        {/* Question */}
+        <div style={{background:DS.bg.surface,border:`1px solid ${DS.borderHi}`,borderRadius:DS.radius.lg,padding:'20px 20px 16px',marginBottom:14}}>
+          <div style={{fontSize:13,color:DS.text.secondary,marginBottom:10,fontWeight:600}}>
+            [{q.marks} mark{q.marks!==1?'s':''}]
+          </div>
+          <div style={{fontSize:15,color:DS.text.primary,lineHeight:1.7,fontWeight:500}}>{q.q}</div>
+        </div>
+
+        {/* Working area */}
+        <div style={{marginBottom:14}}>
+          <div style={{fontSize:11,color:DS.text.muted,fontWeight:700,marginBottom:6,textTransform:'uppercase',letterSpacing:1}}>Your working</div>
+          <textarea
+            value={working}
+            onChange={e=>setWorking(e.target.value)}
+            disabled={answered}
+            placeholder="Show all your working here — the AI marks your method, not just the answer…"
+            style={{width:'100%',minHeight:110,background:DS.bg.surface,border:`1px solid ${answered?DS.border:DS.borderHi}`,borderRadius:DS.radius.md,padding:'12px 14px',color:DS.text.primary,fontSize:13,resize:'vertical',fontFamily:"'Segoe UI',sans-serif",lineHeight:1.6,boxSizing:'border-box',opacity:answered?0.7:1}}
+          />
+        </div>
+
+        {/* Mark button */}
+        {!answered&&(
+          <button onClick={handleAIMark} disabled={!working.trim()||aiLoading} style={{width:'100%',padding:'13px 0',borderRadius:DS.radius.md,border:'none',background:working.trim()&&!aiLoading?`linear-gradient(135deg,${DS.accent.amber},#E8B84B)`:DS.bg.overlay,color:working.trim()&&!aiLoading?DS.bg.base:DS.text.muted,fontWeight:900,fontSize:14,cursor:working.trim()&&!aiLoading?'pointer':'not-allowed',display:'flex',alignItems:'center',justifyContent:'center',gap:8,marginBottom:14,transition:DS.tr}}>
+            {aiLoading?<><Loader2 size={16} strokeWidth={2} style={{animation:'spin 0.8s linear infinite'}}/> Marking your answer…</>:<><Bot size={16} strokeWidth={2}/> Mark with AI</>}
+          </button>
+        )}
+
+        {/* AI result */}
+        {aiResult&&(
+          <div style={{background:DS.bg.surface,border:`1px solid ${DS.border}`,borderRadius:DS.radius.lg,padding:'16px 18px',marginBottom:14,animation:'popIn 0.4s ease-out'}}>
+            <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:12}}>
+              <div style={{fontSize:28,fontWeight:900,color:aiResult.error?DS.accent.red:aiResult.marksEarned>=Math.ceil(q.marks/2)?DS.accent.teal:DS.accent.amber}}>{aiResult.error?'—':`${aiResult.marksEarned}/${q.marks}`}</div>
+              <div style={{flex:1}}>
+                <div style={{height:6,background:DS.bg.elevated,borderRadius:3,overflow:'hidden'}}>
+                  <div style={{height:'100%',borderRadius:3,background:aiResult.marksEarned>=Math.ceil(q.marks/2)?DS.accent.teal:DS.accent.amber,width:`${Math.round(((aiResult.marksEarned||0)/q.marks)*100)}%`,transition:'width 0.6s ease'}}/>
+                </div>
+              </div>
+            </div>
+            {aiResult.feedback&&<div style={{fontSize:13,color:DS.text.secondary,lineHeight:1.6,marginBottom:aiResult.improvements?.length?10:0}}>{aiResult.feedback}</div>}
+            {aiResult.improvements?.length>0&&(
+              <div style={{marginTop:8}}>
+                <div style={{fontSize:10,fontWeight:800,color:DS.accent.amber,textTransform:'uppercase',letterSpacing:1,marginBottom:6}}>To improve</div>
+                {aiResult.improvements.map((imp,i)=><div key={i} style={{fontSize:12,color:DS.text.muted,marginBottom:3,paddingLeft:12,borderLeft:`2px solid ${DS.accent.amber}55`}}>{imp}</div>)}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Next / sign up nudge */}
+        {answered&&(
+          <div>
+            {idx===2&&(
+              <div style={{background:DS.accent.amberDim,border:`1px solid ${DS.accent.amber}44`,borderRadius:DS.radius.md,padding:'10px 14px',marginBottom:10,fontSize:12,color:DS.accent.amber,fontWeight:700,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+                <span>Sign up to track your progress</span>
+                <button onClick={onSignUp} style={{background:DS.accent.amber,color:DS.bg.base,border:'none',borderRadius:DS.radius.sm,padding:'4px 12px',fontSize:11,fontWeight:800,cursor:'pointer'}}>Free →</button>
+              </div>
+            )}
+            <button onClick={handleNext} style={{width:'100%',padding:'13px 0',borderRadius:DS.radius.md,border:`1.5px solid ${DS.accent.amber}55`,background:DS.bg.surface,color:DS.accent.amber,fontWeight:900,fontSize:14,cursor:'pointer',transition:DS.tr}}>
+              {idx+1>=DEMO_QUESTIONS.length?'See my results →':'Next question →'}
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ═══ LANDING PAGE ════════════════════════════════════════════════════════════
-function LandingPage({onStart}){
+function LandingPage({onStart,onDemo}){
   const profile=lsGet('lumora_profile',null);
   const [now]=useState(Date.now);
   const weeks=profile?.examDate?Math.max(0,Math.round((new Date(profile.examDate)-now)/(1000*60*60*24*7))):null;
@@ -1561,9 +1728,16 @@ function LandingPage({onStart}){
         <div style={{fontSize:48,marginBottom:16,display:'flex',justifyContent:'center'}}><GraduationCap size={48} strokeWidth={1.5} color={DS.accent.amber}/></div>
         <h1 style={{fontSize:40,fontWeight:900,color:DS.text.primary,lineHeight:1.1,margin:'0 0 16px'}}>Meet <span style={{color:DS.accent.amber}}>Lumora</span></h1>
         <p style={{fontSize:17,color:DS.text.secondary,lineHeight:1.6,margin:'0 0 32px'}}>The AI tutor that thinks like your best teacher</p>
-        <button onClick={onStart} style={{padding:'16px 40px',borderRadius:50,border:'none',background:`linear-gradient(135deg,${DS.accent.amber},#E8B84B)`,color:DS.bg.base,fontWeight:900,fontSize:16,cursor:'pointer',boxShadow:`0 8px 32px ${DS.accent.amber}44`}}>
-          {profile?'Continue Learning →':'Start Free — No credit card needed'}
-        </button>
+        <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:12}}>
+          <button onClick={onStart} style={{padding:'16px 40px',borderRadius:50,border:'none',background:`linear-gradient(135deg,${DS.accent.amber},#E8B84B)`,color:DS.bg.base,fontWeight:900,fontSize:16,cursor:'pointer',boxShadow:`0 8px 32px ${DS.accent.amber}44`}}>
+            {profile?'Continue Learning →':'Start Free — No credit card needed'}
+          </button>
+          {!profile&&(
+            <button onClick={onDemo} style={{padding:'11px 28px',borderRadius:50,border:`1.5px solid ${DS.border}`,background:'transparent',color:DS.text.secondary,fontWeight:700,fontSize:14,cursor:'pointer',transition:DS.tr}}>
+              Try a question first — no signup →
+            </button>
+          )}
+        </div>
       </div>
       <div style={{background:DS.bg.surface,padding:'40px 24px'}}>
         <div style={{maxWidth:680,margin:'0 auto'}}>
@@ -2329,7 +2503,8 @@ export default function App(){
   if(screen==='onboarding')return<><AnimStyles/><Onboarding onComplete={handleOnboardingComplete}/></>;
   if(screen==='account_create')return<AccountCreateScreen onCreated={()=>{touchStreak();setScreen('landing');}}/>;
   if(screen==='auth')return<LoginScreen onLogin={()=>setScreen('landing')} onRegister={()=>setScreen('onboarding')}/>;
-  if(screen==='landing')return<><AnimStyles/><LandingPage onStart={()=>setScreen('app')}/></>;
+  if(screen==='demo')return<DemoMode onSignUp={()=>setScreen('onboarding')} onBack={()=>setScreen('landing')}/>;
+  if(screen==='landing')return<><AnimStyles/><LandingPage onStart={()=>setScreen('app')} onDemo={()=>setScreen('demo')}/></>;
 
   const xp=getXP();
   const streak=getStreakData();

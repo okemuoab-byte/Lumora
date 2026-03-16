@@ -2346,26 +2346,22 @@ export default function App(){
           />
         </div>
       )}
-      <div style={{background:DS.bg.surface,padding:isMobile?"0 10px":"0 16px",display:"flex",alignItems:"center",position:"sticky",top:0,zIndex:100,borderBottom:`1px solid ${DS.border}`,gap:isMobile?2:4,boxShadow:DS.shadow,minHeight:48}}>
+      {/* Top bar */}
+      <div style={{background:DS.bg.surface,padding:isMobile?"0 12px":"0 16px",display:"flex",alignItems:"center",position:"sticky",top:0,zIndex:100,borderBottom:`1px solid ${DS.border}`,gap:4,boxShadow:DS.shadow,minHeight:48}}>
         <button onClick={()=>setPage('platform')} style={{fontSize:14,fontWeight:900,color:DS.accent.amber,letterSpacing:0.5,padding:"12px 0",whiteSpace:"nowrap",background:'none',border:'none',cursor:'pointer',flexShrink:0}}>📐{!isMobile&&' Lumora'}</button>
-        {!isMobile&&streak.current>0&&(
-          <div style={{display:'flex',alignItems:'center',gap:3,marginLeft:6,marginRight:8,background:DS.accent.redDim,borderRadius:DS.radius.sm,padding:'3px 8px',border:'1px solid rgba(255,76,76,0.25)',flexShrink:0}}>
-            <Flame size={14} strokeWidth={2} color={DS.accent.red}/>
-            <span style={{fontSize:13,fontWeight:900,color:DS.accent.red,lineHeight:1}}>{streak.current}</span>
+        {streak.current>0&&(
+          <div style={{display:'flex',alignItems:'center',gap:3,marginLeft:isMobile?6:8,background:DS.accent.redDim,borderRadius:DS.radius.sm,padding:isMobile?'3px 6px':'3px 8px',border:'1px solid rgba(255,76,76,0.25)',flexShrink:0}}>
+            <Flame size={isMobile?13:14} strokeWidth={2} color={DS.accent.red}/>
+            <span style={{fontSize:isMobile?12:13,fontWeight:900,color:DS.accent.red,lineHeight:1}}>{streak.current}</span>
           </div>
         )}
-        {[{id:"platform",label:<><BookOpen size={14} strokeWidth={2} style={{display:'inline',verticalAlign:'middle',marginRight:4}}/>Revision</>,short:<BookOpen size={14} strokeWidth={2}/>},{id:"generator",label:<><Zap size={14} strokeWidth={2} style={{display:'inline',verticalAlign:'middle',marginRight:4}}/>Generator</>,short:<Zap size={14} strokeWidth={2}/>},{id:"mock",label:<><FileText size={14} strokeWidth={2} style={{display:'inline',verticalAlign:'middle',marginRight:4}}/>Mock</>,short:<FileText size={14} strokeWidth={2}/>},{id:"report",label:<><GraduationCap size={14} strokeWidth={2} style={{display:'inline',verticalAlign:'middle',marginRight:4}}/>Report</>,short:<GraduationCap size={14} strokeWidth={2}/>}].map(tab=>(
-          <button key={tab.id} onClick={()=>{setPage(tab.id);track('tab_switched',{tab:tab.id});}} style={{padding:isMobile?"8px 8px":"6px 12px",margin:"6px 0",borderRadius:DS.radius.sm,border:"none",background:page===tab.id?DS.accent.amberDim:"transparent",cursor:"pointer",color:page===tab.id?DS.accent.amber:DS.text.muted,fontWeight:page===tab.id?800:500,fontSize:isMobile?13:12,transition:DS.tr,whiteSpace:"nowrap",flexShrink:0}}>
-            {isMobile?tab.short:tab.label}
+        {/* Desktop-only tab pills */}
+        {!isMobile&&[{id:"platform",label:<><BookOpen size={14} strokeWidth={2} style={{display:'inline',verticalAlign:'middle',marginRight:4}}/>Revision</>},{id:"generator",label:<><Zap size={14} strokeWidth={2} style={{display:'inline',verticalAlign:'middle',marginRight:4}}/>Generator</>},{id:"mock",label:<><FileText size={14} strokeWidth={2} style={{display:'inline',verticalAlign:'middle',marginRight:4}}/>Mock</>},{id:"report",label:<><GraduationCap size={14} strokeWidth={2} style={{display:'inline',verticalAlign:'middle',marginRight:4}}/>Report</>}].map(tab=>(
+          <button key={tab.id} onClick={()=>{setPage(tab.id);track('tab_switched',{tab:tab.id});}} style={{padding:"6px 12px",margin:"6px 0",borderRadius:DS.radius.sm,border:"none",background:page===tab.id?DS.accent.amberDim:"transparent",cursor:"pointer",color:page===tab.id?DS.accent.amber:DS.text.muted,fontWeight:page===tab.id?800:500,fontSize:12,transition:DS.tr,whiteSpace:"nowrap",flexShrink:0}}>
+            {tab.label}
           </button>
         ))}
         <div style={{marginLeft:'auto',display:'flex',alignItems:'center',gap:isMobile?4:8,padding:'0 2px'}}>
-          {isMobile&&streak.current>0&&(
-            <div style={{display:'flex',alignItems:'center',gap:2,background:DS.accent.redDim,borderRadius:DS.radius.sm,padding:'3px 6px',border:'1px solid rgba(255,76,76,0.25)',flexShrink:0}}>
-              <Flame size={13} strokeWidth={2} color={DS.accent.red}/>
-              <span style={{fontSize:12,fontWeight:900,color:DS.accent.red,lineHeight:1}}>{streak.current}</span>
-            </div>
-          )}
           {mode==='sprint'&&!isMobile&&(
             <div style={{display:'flex',alignItems:'center',gap:6}}>
               <div style={{width:60,height:5,background:DS.bg.elevated,borderRadius:3,overflow:'hidden'}}>
@@ -2383,10 +2379,30 @@ export default function App(){
         </div>
         {showSettings&&<SettingsPanel onClose={()=>setShowSettings(false)} onLogout={handleLogout}/>}
       </div>
-      {page==="platform"&&<Platform onXP={awardXP} xpV={xpV} mode={mode} onOpenDaily={()=>setShowDailyModal(true)}/>}
-      {page==="generator"&&<Generator/>}
-      {page==="mock"&&<MockExam onXP={awardXP} mode={mode}/>}
-      {page==="report"&&<ParentDashboard/>}
+
+      {/* Page content */}
+      <div style={isMobile?{paddingBottom:68}:{}}>
+        {page==="platform"&&<Platform onXP={awardXP} xpV={xpV} mode={mode} onOpenDaily={()=>setShowDailyModal(true)}/>}
+        {page==="generator"&&<Generator/>}
+        {page==="mock"&&<MockExam onXP={awardXP} mode={mode}/>}
+        {page==="report"&&<ParentDashboard/>}
+      </div>
+
+      {/* Mobile bottom nav */}
+      {isMobile&&(
+        <div style={{position:'fixed',bottom:0,left:0,right:0,zIndex:100,background:DS.bg.surface,borderTop:`1px solid ${DS.border}`,display:'flex',boxShadow:'0 -2px 12px rgba(0,0,0,0.3)'}}>
+          {[{id:"platform",icon:<BookOpen size={20} strokeWidth={2}/>,label:"Revision"},{id:"generator",icon:<Zap size={20} strokeWidth={2}/>,label:"Generator"},{id:"mock",icon:<FileText size={20} strokeWidth={2}/>,label:"Mock"},{id:"report",icon:<GraduationCap size={20} strokeWidth={2}/>,label:"Report"}].map(tab=>{
+            const active=page===tab.id;
+            return(
+              <button key={tab.id} onClick={()=>{setPage(tab.id);track('tab_switched',{tab:tab.id});}} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:3,padding:'10px 4px 12px',border:'none',background:'transparent',cursor:'pointer',color:active?DS.accent.amber:DS.text.muted,transition:DS.tr}}>
+                <div style={{color:active?DS.accent.amber:DS.text.muted,transition:DS.tr}}>{tab.icon}</div>
+                <div style={{fontSize:10,fontWeight:active?800:500,letterSpacing:0.2}}>{tab.label}</div>
+                {active&&<div style={{position:'absolute',bottom:0,width:32,height:2,background:DS.accent.amber,borderRadius:'2px 2px 0 0'}}/>}
+              </button>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

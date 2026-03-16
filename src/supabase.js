@@ -79,9 +79,9 @@ export function scheduleSave(userId) {
 // ── Study groups (friends leaderboard) ────────────────────────────────────────
 async function getUid() {
   if (!supabase) throw new Error('Database not configured');
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error('Not signed in');
-  return user.id;
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.user) throw new Error('Not signed in');
+  return session.user.id;
 }
 
 export async function createStudyGroup(groupName) {
@@ -110,9 +110,9 @@ export async function joinStudyGroup(code) {
 export async function getGroupLeaderboard() {
   if (!supabase) return null;
   try {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return null;
-    const uid = user.id;
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.user) return null;
+    const uid = session.user.id;
     const { data: membership } = await supabase
       .from('group_members').select('group_id').eq('user_id', uid).maybeSingle();
     if (!membership) return null;
@@ -137,8 +137,9 @@ export async function getGroupLeaderboard() {
 
 export async function leaveStudyGroup() {
   if (!supabase) return;
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return;
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.user) return;
+  const user = session.user;
   const { data: membership } = await supabase
     .from('group_members').select('group_id').eq('user_id', user.id).maybeSingle();
   if (!membership) return;

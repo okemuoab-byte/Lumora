@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { Flame, Zap, Trophy, Target, Calendar, Check, X, Lightbulb, Sparkles, Info, MessageCircle, Volume2, VolumeX, Settings, AlertTriangle, GraduationCap, Rocket, BookOpen, FileText, Bot, BarChart2, TrendingUp, PenLine, Award, Snowflake, ClipboardList, Loader2, Share2, CheckCircle2, XCircle, BarChart, FlaskConical, Sigma, Users } from "lucide-react";
+import { Flame, Zap, Trophy, Target, Calendar, Check, X, Lightbulb, Sparkles, Info, MessageCircle, Volume2, VolumeX, Settings, AlertTriangle, GraduationCap, Rocket, BookOpen, FileText, Bot, BarChart2, TrendingUp, PenLine, Award, Snowflake, ClipboardList, Loader2, Share2, CheckCircle2, XCircle, BarChart, FlaskConical, Sigma, Users, Mail } from "lucide-react";
 import { track, identify } from './analytics.js';
-import { sbSignUp, sbSignIn, sbSignOut, sbGetSession, loadProgressFromSupabase, scheduleSave } from './supabase.js';
+import { sbSignUp, sbSignIn, sbSignOut, sbGetSession, loadProgressFromSupabase, scheduleSave, createStudyGroup, joinStudyGroup, getGroupLeaderboard, leaveStudyGroup, saveParentEmail } from './supabase.js';
 
 // ═══ STORAGE & AUTH ══════════════════════════════════════════════════════════
 let _currentUser=null;// set on login/init — email string
@@ -1504,7 +1504,9 @@ function Onboarding({onComplete}){
               <div style={{fontSize:36,marginBottom:8}}>👋</div>
               <div style={{fontSize:22,fontWeight:900,color:DS.text.primary,marginBottom:6}}>What's your name?</div>
               <div style={{fontSize:13,color:DS.text.secondary,marginBottom:20}}>Let's personalise your experience</div>
-              <input value={profile.name} onChange={e=>update('name',e.target.value)} placeholder="e.g. Alex" autoFocus style={{width:'100%',padding:'14px 16px',borderRadius:DS.radius.md,border:`1.5px solid ${DS.border}`,fontSize:16,fontFamily:'inherit',outline:'none',boxSizing:'border-box',color:DS.text.primary,background:DS.bg.elevated}} onFocus={e=>e.target.style.borderColor=DS.accent.amber} onBlur={e=>e.target.style.borderColor=DS.border}/>
+              <input value={profile.name} onChange={e=>update('name',e.target.value)} placeholder="e.g. Alex" autoFocus style={{width:'100%',padding:'14px 16px',borderRadius:DS.radius.md,border:`1.5px solid ${DS.border}`,fontSize:16,fontFamily:'inherit',outline:'none',boxSizing:'border-box',color:DS.text.primary,background:DS.bg.elevated,marginBottom:12}} onFocus={e=>e.target.style.borderColor=DS.accent.amber} onBlur={e=>e.target.style.borderColor=DS.border}/>
+              <div style={{fontSize:11,color:DS.text.muted,marginBottom:6,fontWeight:600}}>Parent's email <span style={{fontWeight:400}}>(optional — for weekly progress updates)</span></div>
+              <input type="email" value={profile.parentEmail||''} onChange={e=>update('parentEmail',e.target.value)} placeholder="parent@email.com" style={{width:'100%',padding:'12px 16px',borderRadius:DS.radius.md,border:`1.5px solid ${DS.border}`,fontSize:14,fontFamily:'inherit',outline:'none',boxSizing:'border-box',color:DS.text.primary,background:DS.bg.elevated}} onFocus={e=>e.target.style.borderColor=DS.accent.teal} onBlur={e=>e.target.style.borderColor=DS.border}/>
             </div>
           )}
           {step===2&&(
@@ -2458,8 +2460,20 @@ function ParentDashboard(){
         <button onClick={handleGenerateReport} disabled={reportLoading} style={{width:'100%',padding:'13px 0',borderRadius:DS.radius.md,border:'none',background:reportLoading?DS.bg.overlay:`linear-gradient(135deg,#1a2744,#2a3760)`,color:reportLoading?DS.text.muted:'#C9941A',fontWeight:900,fontSize:14,cursor:reportLoading?'not-allowed':'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:8,transition:DS.tr}}>
           {reportLoading?<><Loader2 size={16} strokeWidth={2} style={{animation:'spin 0.8s linear infinite'}}/> Generating…</>:<><BarChart2 size={16} strokeWidth={2}/> Generate Full PDF Report</>}
         </button>
+        <button onClick={()=>{
+          const shareData={n:profile?.name||'Student',xp,streak:streak.current,best:streak.best||streak.current,topics:scored.length,qs:totalQsDone,avg:avgPct||0,ts:Date.now()};
+          const code=btoa(encodeURIComponent(JSON.stringify(shareData)));
+          const reportUrl=`${window.location.origin}${window.location.pathname}?p=${code}`;
+          const to=profile.parentEmail||'';
+          const subject=encodeURIComponent(`${profile.name||'Your child'}'s revision progress — Lumora`);
+          const body=encodeURIComponent(`Hi,\n\n${profile.name||'Your child'} has been revising GCSE ${profile.board||'Maths'} on Lumora.\n\nThis week:\n• ${totalQsDone} questions answered\n• ${avgPct||'—'}% accuracy\n• Predicted grade: ${currentGrade?`Grade ${currentGrade}`:'not yet assessed'}\n• ${streak.current}-day study streak\n\nView their full progress report:\n${reportUrl}\n\n— Lumora`);
+          window.open(`mailto:${to}?subject=${subject}&body=${body}`);
+          track('parent_email_sent');
+        }} style={{width:'100%',padding:'11px 0',borderRadius:DS.radius.md,border:`1.5px solid ${DS.accent.teal}44`,background:DS.accent.tealDim,color:DS.accent.teal,fontWeight:700,fontSize:13,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:7,transition:DS.tr}}>
+          <Mail size={15} strokeWidth={2}/> Email progress to parent
+        </button>
         <button onClick={handleCopyLink} style={{width:'100%',padding:'11px 0',borderRadius:DS.radius.md,border:`1.5px solid ${copied?DS.accent.teal:DS.border}`,background:copied?DS.accent.tealDim:'transparent',color:copied?DS.accent.teal:DS.text.secondary,fontWeight:700,fontSize:13,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:7,transition:DS.tr}}>
-          {copied?<><CheckCircle2 size={15} strokeWidth={2}/> Link copied!</>:<><Share2 size={15} strokeWidth={2}/> Copy shareable link for parent</>}
+          {copied?<><CheckCircle2 size={15} strokeWidth={2}/> Link copied!</>:<><Share2 size={15} strokeWidth={2}/> Copy shareable link</>}
         </button>
       </div>
 
@@ -3334,6 +3348,115 @@ function WeaknessHeatmap({onNavigate,collapsible=false}){
 }
 
 // ═══ PLATFORM ════════════════════════════════════════════════════════════════
+// ═══ FRIENDS LEADERBOARD ══════════════════════════════════════════════════════
+function FriendsLeaderboard(){
+  const [open,setOpen]=useState(false);
+  const [phase,setPhase]=useState('loading'); // loading|none|group
+  const [groupData,setGroupData]=useState(null);
+  const [groupName,setGroupName]=useState('');
+  const [joinCode,setJoinCode]=useState('');
+  const [err,setErr]=useState('');
+  const [busy,setBusy]=useState(false);
+  const [copied,setCopied]=useState(false);
+
+  useEffect(()=>{
+    if(!open||!_currentUserId)return;
+    setPhase('loading');
+    getGroupLeaderboard(_currentUserId).then(data=>{setGroupData(data);setPhase(data?'group':'none');}).catch(()=>setPhase('none'));
+  },[open]);
+
+  const handleCreate=async()=>{
+    if(!groupName.trim()||busy)return;
+    setBusy(true);setErr('');
+    try{await createStudyGroup(_currentUserId,groupName);const d=await getGroupLeaderboard(_currentUserId);setGroupData(d);setPhase('group');}
+    catch(e){setErr(e.message);}
+    setBusy(false);
+  };
+  const handleJoin=async()=>{
+    if(joinCode.length<4||busy)return;
+    setBusy(true);setErr('');
+    try{await joinStudyGroup(_currentUserId,joinCode);const d=await getGroupLeaderboard(_currentUserId);setGroupData(d);setPhase('group');}
+    catch(e){setErr(e.message);}
+    setBusy(false);
+  };
+  const handleLeave=async()=>{
+    if(!window.confirm('Leave this study group?'))return;
+    await leaveStudyGroup(_currentUserId);setGroupData(null);setPhase('none');
+  };
+  const handleCopyInvite=()=>{
+    const msg=`Join my Lumora study group! Enter code: ${groupData.group.code}\n${window.location.origin}`;
+    navigator.clipboard.writeText(msg).catch(()=>{});
+    setCopied(true);setTimeout(()=>setCopied(false),2500);
+    track('leaderboard_invite_copied',{code:groupData.group.code});
+  };
+
+  const medals=['🥇','🥈','🥉'];
+  return(
+    <div style={{background:DS.bg.surface,border:`1px solid ${DS.border}`,borderRadius:DS.radius.md,marginBottom:16,overflow:'hidden'}}>
+      <button onClick={()=>setOpen(o=>!o)} style={{width:'100%',display:'flex',alignItems:'center',justifyContent:'space-between',padding:'12px 16px',background:'transparent',border:'none',cursor:'pointer',textAlign:'left'}}>
+        <div style={{display:'flex',alignItems:'center',gap:8}}>
+          <Users size={14} strokeWidth={2} color={DS.accent.teal}/>
+          <span style={{fontSize:12,fontWeight:800,color:DS.text.primary}}>Study Group</span>
+          {groupData&&<span style={{fontSize:9,fontWeight:700,color:DS.accent.teal,background:DS.accent.tealDim,borderRadius:4,padding:'2px 7px',border:`1px solid ${DS.accent.teal}33`}}>{groupData.members.length} members</span>}
+          {!groupData&&phase==='none'&&<span style={{fontSize:9,color:DS.text.muted}}>Compete with friends</span>}
+        </div>
+        <span style={{fontSize:10,color:DS.text.muted}}>{open?'▲':'▼'}</span>
+      </button>
+
+      {open&&(
+        <div style={{padding:'0 16px 16px',borderTop:`1px solid ${DS.border}`}}>
+          {phase==='loading'&&<div style={{padding:20,textAlign:'center'}}><Loader2 size={18} strokeWidth={2} color={DS.accent.teal} style={{animation:'spin 0.8s linear infinite'}}/></div>}
+
+          {phase==='none'&&(
+            <div style={{paddingTop:14}}>
+              <div style={{display:'grid',gap:10}}>
+                <div style={{background:DS.bg.elevated,borderRadius:DS.radius.md,padding:14,border:`1px solid ${DS.border}`}}>
+                  <div style={{fontSize:11,fontWeight:800,color:DS.text.secondary,marginBottom:8}}>Create a group</div>
+                  <input value={groupName} onChange={e=>setGroupName(e.target.value)} placeholder="e.g. Maths Set 3" onKeyDown={e=>e.key==='Enter'&&handleCreate()} style={{width:'100%',padding:'9px 12px',borderRadius:DS.radius.sm,border:`1px solid ${DS.border}`,background:DS.bg.overlay,color:DS.text.primary,fontSize:13,marginBottom:8,boxSizing:'border-box',fontFamily:'inherit'}}/>
+                  <button onClick={handleCreate} disabled={!groupName.trim()||busy} style={{width:'100%',padding:'9px 0',borderRadius:DS.radius.sm,border:'none',background:groupName.trim()&&!busy?DS.accent.teal:DS.bg.overlay,color:groupName.trim()&&!busy?DS.bg.base:DS.text.muted,fontWeight:800,fontSize:12,cursor:groupName.trim()&&!busy?'pointer':'not-allowed'}}>
+                    {busy?'Creating…':'Create Group →'}
+                  </button>
+                </div>
+                <div style={{background:DS.bg.elevated,borderRadius:DS.radius.md,padding:14,border:`1px solid ${DS.border}`}}>
+                  <div style={{fontSize:11,fontWeight:800,color:DS.text.secondary,marginBottom:8}}>Join with a code</div>
+                  <input value={joinCode} onChange={e=>setJoinCode(e.target.value.toUpperCase())} placeholder="XXXXXX" maxLength={6} onKeyDown={e=>e.key==='Enter'&&handleJoin()} style={{width:'100%',padding:'9px 12px',borderRadius:DS.radius.sm,border:`1px solid ${DS.border}`,background:DS.bg.overlay,color:DS.text.primary,fontSize:14,marginBottom:8,boxSizing:'border-box',letterSpacing:3,textTransform:'uppercase',fontFamily:'monospace'}}/>
+                  <button onClick={handleJoin} disabled={joinCode.length<4||busy} style={{width:'100%',padding:'9px 0',borderRadius:DS.radius.sm,border:'none',background:joinCode.length>=4&&!busy?DS.accent.amber:DS.bg.overlay,color:joinCode.length>=4&&!busy?DS.bg.base:DS.text.muted,fontWeight:800,fontSize:12,cursor:joinCode.length>=4&&!busy?'pointer':'not-allowed'}}>
+                    {busy?'Joining…':'Join Group →'}
+                  </button>
+                </div>
+              </div>
+              {err&&<div style={{fontSize:11,color:DS.accent.red,marginTop:8,fontWeight:600}}>{err}</div>}
+            </div>
+          )}
+
+          {phase==='group'&&groupData&&(
+            <div style={{paddingTop:14}}>
+              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
+                <div style={{fontSize:13,fontWeight:800,color:DS.text.primary}}>{groupData.group.name}</div>
+                <button onClick={handleCopyInvite} style={{fontSize:10,fontWeight:800,color:copied?DS.accent.teal:DS.accent.amber,background:copied?DS.accent.tealDim:DS.accent.amberDim,border:`1px solid ${copied?DS.accent.teal:DS.accent.amber}44`,borderRadius:DS.radius.sm,padding:'4px 10px',cursor:'pointer',letterSpacing:1,whiteSpace:'nowrap'}}>
+                  {copied?'✓ COPIED':`${groupData.group.code} · COPY INVITE`}
+                </button>
+              </div>
+              <div style={{display:'grid',gap:5,marginBottom:10}}>
+                {groupData.members.map((m,i)=>(
+                  <div key={m.userId} style={{display:'flex',alignItems:'center',gap:10,padding:'8px 10px',background:m.isMe?DS.accent.amberDim:DS.bg.elevated,borderRadius:DS.radius.sm,border:`1px solid ${m.isMe?DS.accent.amber+'44':DS.border}`}}>
+                    <div style={{fontSize:13,width:20,textAlign:'center',flexShrink:0}}>{medals[i]||`${i+1}`}</div>
+                    <div style={{flex:1,fontSize:12,fontWeight:m.isMe?800:600,color:m.isMe?DS.accent.amber:DS.text.primary,minWidth:0,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{m.name}{m.isMe?' (you)':''}</div>
+                    <div style={{fontSize:11,fontWeight:800,color:DS.accent.amber,flexShrink:0}}>+{m.weeklyXP} XP</div>
+                    {m.streak>0&&<div style={{display:'flex',alignItems:'center',gap:2,fontSize:10,color:DS.accent.red,flexShrink:0}}><Flame size={11} strokeWidth={2}/>{m.streak}</div>}
+                  </div>
+                ))}
+              </div>
+              <div style={{fontSize:10,color:DS.text.muted,textAlign:'center',marginBottom:8}}>Weekly XP · resets every Monday</div>
+              <button onClick={handleLeave} style={{width:'100%',padding:'7px 0',borderRadius:DS.radius.sm,border:`1px solid ${DS.border}`,background:'transparent',color:DS.text.muted,fontSize:11,cursor:'pointer'}}>Leave group</button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ═══ TODAY'S SESSION ══════════════════════════════════════════════════════════
 function TodaysPlan({onDone,onXP}){
   const session=useMemo(()=>buildTodaysSession(),[]);
@@ -3719,6 +3842,9 @@ export function Platform({onXP=()=>{},xpV=0,mode='sprint',onOpenDaily=()=>{}}){
 
       {/* Weekly Goal */}
       {mode!=='deep'&&<WeeklyGoalBar/>}
+
+      {/* Friends Leaderboard */}
+      {mode!=='deep'&&<FriendsLeaderboard/>}
 
       {/* Modules */}
       <div style={{fontSize:10,fontWeight:800,color:DS.text.muted,textTransform:"uppercase",letterSpacing:1.5,marginBottom:10}}>Modules</div>
